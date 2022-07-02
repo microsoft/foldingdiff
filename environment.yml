@@ -1,0 +1,35 @@
+name: protdiff
+channels:
+  - defaults
+  - anaconda
+  - pytorch
+  - conda-forge
+dependencies:
+  - python=3.8.5
+  - pytorch
+  - ca-certificates
+  - pillow==6.2.1
+  - py-xgboost==1.3.3
+  - sqlite=3.33.0
+  - openssl
+  - pandas~=1.1.5
+  - joblib==0.14.1
+  - numpy==1.19
+  - cloudpickle==1.6.0
+  - wheel=0.35.1
+  - cudatoolkit=11.3
+  - setuptools-git[version='>=1.2']
+  - certifi
+  - torchvision
+  - pip==20.1.1
+  - python_abi=3.8
+  - scikit-image
+  - wget
+  - jupyter
+  - gcc_linux-64==7.3.0
+  - jupyter_client
+  - nodejs
+  - jupyterlab
+  - jupyterlab-git
+  - torchaudio
+prefix: /anaconda/envs/protdiff
