@@ -1,3 +1,0 @@
-[submodule "lib/protein-sequence-models"]
-	path = lib/protein-sequence-models
-	url = https://github.com/microsoft/protein-sequence-models.git
