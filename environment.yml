@@ -32,4 +32,5 @@ dependencies:
   - jupyterlab
   - jupyterlab-git
   - torchaudio
-prefix: /anaconda/envs/protdiff
+  - pip:
+      - sequence-models
