@@ -21,6 +21,7 @@ CATH_DIR = os.path.join(
 assert os.path.isdir(CATH_DIR), f"Expected cath data at {CATH_DIR}"
 
 from sequence_models import pdb_utils
+import beta_schedules
 
 
 class CathConsecutiveAnglesDataset(Dataset):
@@ -80,6 +81,56 @@ class CathConsecutiveAnglesDataset(Dataset):
         return retval
 
 
+class NoisedAnglesDataset(Dataset):
+    """
+    class that produces noised outputs given a wrapped dataset.
+    Wrapped dset should return a tensor from __getitem__
+    """
+
+    def __init__(self, dset: Dataset, timesteps: int = 1000) -> None:
+        super().__init__()
+        self.dset = dset
+
+        self.timesteps = timesteps
+        self.betas = beta_schedules.linear_beta_schedule(timesteps)
+        self.alphas = 1.0 - self.betas
+        self.sqrt_recip_alphas = torch.sqrt(1.0 / self.alphas)
+        self.alphas_cumprod = torch.cumprod(self.alphas, axis=0)
+        self.sqrt_alphas_cumprod = torch.sqrt(self.alphas_cumprod)
+        self.sqrt_one_minus_alphas_cumprod = torch.sqrt(1.0 - self.alphas_cumprod)
+
+    def __len__(self) -> int:
+        return len(self.dset)
+
+    def __getitem__(self, index) -> Dict[str, torch.Tensor]:
+        vals = self.dset.__getitem__(index)
+
+        # Sample a random timepoint
+        t = torch.randint(0, self.timesteps, (1,)).long()
+        sqrt_alphas_cumprod_t = extract(self.sqrt_alphas_cumprod, t, vals.shape)
+        sqrt_one_minus_alphas_cumprod_t = extract(
+            self.sqrt_one_minus_alphas_cumprod, t, vals.shape
+        )
+        noise = torch.randn_like(vals)
+        noised_vals = (
+            sqrt_alphas_cumprod_t * vals + sqrt_one_minus_alphas_cumprod_t * noise
+        )
+        return {
+            "corrupted": noised_vals,
+            "t": t,
+            "known_noise": noise,
+        }
+
+
+def extract(a, t, x_shape):
+    """
+    Return the t-th item in a for each item in t
+    """
+    batch_size = t.shape[0]
+    out = a.gather(-1, t.cpu())
+    return out.reshape(batch_size, *((1,) * (len(x_shape) - 1))).to(t.device)
+
+
 def coords_to_angles(coords: Dict[str, List[List[float]]]) -> Optional[np.ndarray]:
     """
     Sanitize the coordinates to not have NaN and convert them into
@@ -128,14 +179,11 @@ def coords_to_angles(coords: Dict[str, List[List[float]]]) -> Optional[np.ndarra
 
 def main():
     dset = CathConsecutiveAnglesDataset()
-    error_counter = 0
-    for i in tqdm(range(len(dset))):
-        logging.debug(f"Fetching {i}/{len(dset)}")
-        try:
-            dset[i]
-        except AssertionError as e:
-            error_counter += 1
-    print(error_counter, len(dset))
+    noised_dset = NoisedAnglesDataset(dset)
+    x = noised_dset[0]
+    for k, v in x.items():
+        print(k)
+        print(v)
 
 
 if __name__ == "__main__":
