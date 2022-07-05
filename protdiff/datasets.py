@@ -61,11 +61,18 @@ class CathConsecutiveAnglesDataset(Dataset):
         pool.join()
         for s, a in zip(self.structures, angles):
             s["angles"] = a
+
         # Remove items with nan in angles/structures
         orig_count = len(self.structures)
         self.structures = [s for s in self.structures if s["angles"] is not None]
         new_count = len(self.structures)
         logging.info(f"Removed structures with nan {orig_count} -> {new_count}")
+
+        # Aggregate the lengths
+        all_lengths = [s["angles"].shape[1] for s in self.structures]
+        logging.info(
+            f"Length of angles: {np.min(all_lengths)}-{np.max(all_lengths)}, mean {np.mean(all_lengths)}"
+        )
 
     def __len__(self) -> int:
         """Returns the length of this object"""
