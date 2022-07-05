@@ -47,7 +47,7 @@ class CathConsecutiveAnglesDataset(Dataset):
         assert os.path.isfile(data_file)
         self.structures = []
         with open(data_file) as source:
-            for i, line in enumerate(source):
+            for _i, line in enumerate(source):
                 structure = json.loads(line.strip())
                 self.structures.append(structure)
 
@@ -80,7 +80,7 @@ class CathConsecutiveAnglesDataset(Dataset):
         return retval
 
 
-def coords_to_angles(coords: Dict[str, List[List[float]]]) -> Union[np.ndarray, None]:
+def coords_to_angles(coords: Dict[str, List[List[float]]]) -> Optional[np.ndarray]:
     """
     Sanitize the coordinates to not have NaN and convert them into
     arrays of angles. If sanitization fails, return None
