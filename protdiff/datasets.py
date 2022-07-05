@@ -48,12 +48,6 @@ class CathConsecutiveAnglesDataset(Dataset):
         with open(data_file) as source:
             for i, line in enumerate(source):
                 structure = json.loads(line.strip())
-                assert (
-                    len(structure["seq"])
-                    == len(structure["coords"]["N"])
-                    == len(structure["coords"]["CA"])
-                    == len(structure["coords"]["C"])
-                ), f"Unmatched sequence lengths at line {i}"
                 self.structures.append(structure)
 
     def __len__(self) -> int:
@@ -79,7 +73,7 @@ class CathConsecutiveAnglesDataset(Dataset):
         for k in ["N", "CA", "C"]:
             coords[k] = coords[k][first_valid_idx:last_valid_idx]
             arr = np.array(coords[k])
-            assert not np.any(np.isnan(arr)), f"Middle nan in {k}: {arr}"
+            assert not np.any(np.isnan(arr)), f"Found nan in {index} {k}: {arr}"
         angles = pdb_utils.process_coords(coords)
         # https://www.rosettacommons.org/docs/latest/application_documentation/trRosetta/trRosetta#application-purpose_a-note-on-nomenclature
         # omega = inter-residue dihedral angle between CA/CB of first and CB/CA of second
@@ -110,11 +104,16 @@ class CathConsecutiveAnglesDataset(Dataset):
 
 def main():
     dset = CathConsecutiveAnglesDataset()
-    for i in range(len(dset)):
+    error_counter = 0
+    for i in tqdm(range(len(dset))):
         logging.debug(f"Fetching {i}/{len(dset)}")
-        dset[i]
+        try:
+            dset[i]
+        except AssertionError as e:
+            error_counter += 1
+    print(error_counter, len(dset))
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
+    # logging.basicConfig(level=logging.DEBUG)
     main()
