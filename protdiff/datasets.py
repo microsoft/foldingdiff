@@ -3,6 +3,7 @@ Contains source code for loading in data and creating requisite PyTorch
 data loader object
 """
 
+import multiprocessing
 import os, sys
 import logging
 import json
@@ -50,6 +51,21 @@ class CathConsecutiveAnglesDataset(Dataset):
                 structure = json.loads(line.strip())
                 self.structures.append(structure)
 
+        # Generate angles in parallel and attach them to dictionary
+        pool = multiprocessing.Pool(multiprocessing.cpu_count())
+        angles = pool.map(
+            coords_to_angles, [d["coords"] for d in self.structures], chunksize=250
+        )
+        pool.close()
+        pool.join()
+        for s, a in zip(self.structures, angles):
+            s["angles"] = a
+        # Remove items with nan in angles/structures
+        orig_count = len(self.structures)
+        self.structures = [s for s in self.structures if s["angles"] is not None]
+        new_count = len(self.structures)
+        logging.info(f"Removed structures with nan {orig_count} -> {new_count}")
+
     def __len__(self) -> int:
         """Returns the length of this object"""
         return len(self.structures)
@@ -58,12 +74,9 @@ class CathConsecutiveAnglesDataset(Dataset):
         if not 0 <= index < len(self):
             raise IndexError(index)
 
-        coords = self.structures[index]["coords"]
-        all_values = coords_to_angles(coords)
-        if all_values is None:
-            return None
-        assert not np.any(np.isnan(all_values))
-        retval = torch.from_numpy(all_values)
+        angles = self.structures[index]["angles"]
+        assert angles is not None
+        retval = torch.from_numpy(angles)
         return retval
 
 
@@ -126,5 +139,5 @@ def main():
 
 
 if __name__ == "__main__":
-    # logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
     main()
