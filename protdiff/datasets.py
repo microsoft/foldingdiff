@@ -9,6 +9,7 @@ import json
 
 from tqdm.auto import tqdm
 
+import numpy as np
 from torch.utils.data import Dataset
 
 CATH_DIR = os.path.join(
@@ -19,7 +20,7 @@ assert os.path.isdir(CATH_DIR), f"Expected cath data at {CATH_DIR}"
 from sequence_models import pdb_utils
 
 
-class CathAnglesDataset(Dataset):
+class CathConsecutiveAnglesDataset(Dataset):
     """
     Represent proteins as their constituent angles instead of 3D coordinates
 
@@ -63,13 +64,33 @@ class CathAnglesDataset(Dataset):
 
         structure = self.structures[index]
         angles = pdb_utils.process_coords(structure["coords"])
+        # https://www.rosettacommons.org/docs/latest/application_documentation/trRosetta/trRosetta#application-purpose_a-note-on-nomenclature
+        # omega = inter-residue dihedral angle between CA/CB of first and CB/CA of second
+        # theta = inter-residue dihedral angle between N, CA, CB of first and CB of second
+        # phi   = inter-residue angle between CA and CB of first and CB of second
         dist, omega, theta, phi = angles
+        logging.debug(
+            f"Pre slice shape: {dist.shape, omega.shape, theta.shape, phi.shape}"
+        )
+        # Slice out so that we have the angles and distances between the n and n+1 items
+        n = dist.shape[0]
+        indices_i = np.arange(n - 1)
+        indices_j = indices_i + 1
+        dist_slice = dist[indices_i, indices_j]
+        omega_slice = omega[indices_i, indices_j]
+        theta_slice = theta[indices_i, indices_j]
+        phi_slice = phi[indices_i, indices_j]
+        logging.debug(
+            f"Post slice shape: {dist_slice.shape, omega_slice.shape, theta_slice.shape, phi_slice.shape}"
+        )
+        return dist_slice, omega_slice, theta_slice, phi_slice
 
 
 def main():
-    dset = CathAnglesDataset()
+    dset = CathConsecutiveAnglesDataset()
     print(dset[1])
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.DEBUG)
     main()
