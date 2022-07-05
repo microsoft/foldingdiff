@@ -64,13 +64,29 @@ class CathConsecutiveAnglesDataset(Dataset):
         if not 0 <= index < len(self):
             raise IndexError(index)
 
-        structure = self.structures[index]
-        angles = pdb_utils.process_coords(structure["coords"])
+        coords = self.structures[index]["coords"]
+        first_valid_idx, last_valid_idx = 0, len(coords["N"])
+
+        # Walk through coordinates and trim trailing nan
+        for k in ["N", "CA", "C"]:
+            logging.debug(f"{k}:\t{coords[k][:5]}")
+            arr = np.array(coords[k])
+            # Get all valid indices
+            valid_idx = np.where(~np.any(np.isnan(arr), axis=1))[0]
+            first_valid_idx = max(first_valid_idx, np.min(valid_idx))
+            last_valid_idx = min(last_valid_idx, np.max(valid_idx) + 1)
+        logging.debug(f"Trimming nans keeps {first_valid_idx}:{last_valid_idx}")
+        for k in ["N", "CA", "C"]:
+            coords[k] = coords[k][first_valid_idx:last_valid_idx]
+            arr = np.array(coords[k])
+            assert not np.any(np.isnan(arr)), f"Middle nan in {k}: {arr}"
+        angles = pdb_utils.process_coords(coords)
         # https://www.rosettacommons.org/docs/latest/application_documentation/trRosetta/trRosetta#application-purpose_a-note-on-nomenclature
         # omega = inter-residue dihedral angle between CA/CB of first and CB/CA of second
         # theta = inter-residue dihedral angle between N, CA, CB of first and CB of second
         # phi   = inter-residue angle between CA and CB of first and CB of second
         dist, omega, theta, phi = angles
+        assert dist.shape == omega.shape == theta.shape == phi.shape
         logging.debug(
             f"Pre slice shape: {dist.shape, omega.shape, theta.shape, phi.shape}"
         )
@@ -87,12 +103,16 @@ class CathConsecutiveAnglesDataset(Dataset):
         )
         all_values = np.array([dist_slice, omega_slice, theta_slice, phi_slice])
         assert all_values.shape == (4, n - 1)
-        return torch.from_numpy(all_values)
+        assert not np.any(np.isnan(all_values))
+        retval = torch.from_numpy(all_values)
+        return retval
 
 
 def main():
     dset = CathConsecutiveAnglesDataset()
-    print(dset[1])
+    for i in range(len(dset)):
+        logging.debug(f"Fetching {i}/{len(dset)}")
+        dset[i]
 
 
 if __name__ == "__main__":
