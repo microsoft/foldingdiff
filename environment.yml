@@ -4,6 +4,7 @@ channels:
   - anaconda
   - pytorch
   - conda-forge
+  - huggingface
 dependencies:
   - python=3.8.5
   - pytorch
@@ -32,5 +33,7 @@ dependencies:
   - jupyterlab
   - jupyterlab-git
   - torchaudio
+  - tqdm
+  - transformers=4.11
   - pip:
       - sequence-models
