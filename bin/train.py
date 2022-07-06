@@ -34,7 +34,7 @@ def train(
     device: torch.DeviceObjType = torch.device("cpu"),
 ):
     cath_dset = datasets.CathConsecutiveAnglesDataset(toy=False)
-    noised_cath_dset = datasets.NoisedAnglesDataset(cath_dset)
+    noised_cath_dset = datasets.NoisedAnglesDataset(cath_dset, dset_key="angles")
     dataloader = DataLoader(
         dataset=noised_cath_dset,
         batch_size=batch_size,

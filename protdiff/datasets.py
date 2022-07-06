@@ -81,7 +81,7 @@ class CathConsecutiveAnglesDataset(Dataset):
         """Returns the length of this object"""
         return len(self.structures)
 
-    def __getitem__(self, index: int) -> torch.Tensor:
+    def __getitem__(self, index: int) -> Dict[str, torch.Tensor]:
         if not 0 <= index < len(self):
             raise IndexError(index)
 
@@ -98,18 +98,23 @@ class CathConsecutiveAnglesDataset(Dataset):
             )
             logging.debug(f"Padded {orig_shape} -> {angles.shape}")
         retval = torch.from_numpy(angles).float()
-        return retval
+        return {"angles": retval}
 
 
 class NoisedAnglesDataset(Dataset):
     """
     class that produces noised outputs given a wrapped dataset.
-    Wrapped dset should return a tensor from __getitem__
+    Wrapped dset should return a tensor from __getitem__ if dset_key
+    is not specified; otherwise, returns a dictionary where the item
+    to noise is under dset_key
     """
 
-    def __init__(self, dset: Dataset, timesteps: int = 1000) -> None:
+    def __init__(
+        self, dset: Dataset, dset_key: Optional[str] = None, timesteps: int = 1000
+    ) -> None:
         super().__init__()
         self.dset = dset
+        self.dset_key = dset_key
 
         self.timesteps = timesteps
         self.betas = beta_schedules.linear_beta_schedule(timesteps)
@@ -123,9 +128,16 @@ class NoisedAnglesDataset(Dataset):
         return len(self.dset)
 
     def __getitem__(self, index) -> Dict[str, torch.Tensor]:
-        vals = self.dset.__getitem__(index)
+        item = self.dset.__getitem__(index)
+        # If wrapped dset returns a dictionary then we extract the item to noise
+        if self.dset_key is not None:
+            assert isinstance(item, dict)
+            vals = item[self.dset_key]
+        else:
+            vals = item
+        assert isinstance(vals, torch.Tensor), f"Expected tensor but got {type(vals)}"
 
-        # Sample a random timepoint
+        # Sample a random timepoint and add corresponding noise
         t = torch.randint(0, self.timesteps, (1,)).long()
         sqrt_alphas_cumprod_t = extract(self.sqrt_alphas_cumprod, t, vals.shape)
         sqrt_one_minus_alphas_cumprod_t = extract(
@@ -135,11 +147,18 @@ class NoisedAnglesDataset(Dataset):
         noised_vals = (
             sqrt_alphas_cumprod_t * vals + sqrt_one_minus_alphas_cumprod_t * noise
         )
-        return {
+        retval = {
             "corrupted": noised_vals,
             "t": t,
             "known_noise": noise,
         }
+
+        # Update dictionary if wrapped dset returns dicts, else just return
+        if isinstance(item, dict):
+            assert item.keys().isdisjoint(retval.keys())
+            item.update(retval)
+            return item
+        return retval
 
 
 def extract(a, t, x_shape):
