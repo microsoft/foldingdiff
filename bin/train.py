@@ -12,6 +12,7 @@ from tqdm.auto import tqdm
 
 import numpy as np
 
+import torch
 from torch import optim
 from torch.utils.data.dataloader import DataLoader
 import torch.nn.functional as F
@@ -26,25 +27,31 @@ import datasets
 import modelling
 
 
-def main():
-    cath_dset = datasets.CathConsecutiveAnglesDataset(toy=True)
+def train(
+    batch_size: int = 32,
+    lr: float = 1e-4,
+    epochs: int = 3,
+    device: torch.DeviceObjType = torch.device("cpu"),
+):
+    cath_dset = datasets.CathConsecutiveAnglesDataset(toy=False)
     noised_cath_dset = datasets.NoisedAnglesDataset(cath_dset)
     dataloader = DataLoader(
         dataset=noised_cath_dset,
-        batch_size=32,
+        batch_size=batch_size,
         shuffle=True,
         num_workers=multiprocessing.cpu_count(),
     )
 
     cfg = BertConfig(hidden_size=144, position_embedding_type="relative_key_query",)
     model = modelling.BertForDiffusion(cfg)
+    model.to(device)
 
-    optimizer = optim.Adam(model.parameters(), lr=1e-3)
-    for epoch in (pbar := tqdm(range(2))) :
+    optimizer = optim.Adam(model.parameters(), lr=lr)
+    for epoch in (pbar := tqdm(range(epochs))) :
         epoch_losses = []
         for batch_idx, batch in enumerate(dataloader):
             optimizer.zero_grad()
-            # batch = {k: v.to(device) for k, v in batch.items()}
+            batch = {k: v.to(device) for k, v in batch.items()}
             known_noise = batch["known_noise"]
             predicted_noise = model(batch["corrupted"], batch["t"])
 
@@ -57,6 +64,10 @@ def main():
                 pbar.set_description(
                     f"Epoch {epoch} loss: {np.mean(epoch_losses[-50:]):.4f}"
                 )
+
+
+def main():
+    train(device=torch.device("cuda"))
 
 
 if __name__ == "__main__":
