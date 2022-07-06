@@ -26,12 +26,15 @@ class SinusoidalPositionEmbeddings(nn.Module):
         super().__init__()
         self.dim = dim
 
-    def forward(self, time):
+    def forward(self, time) -> torch.Tensor:
         device = time.device
         half_dim = self.dim // 2
         embeddings = math.log(10000) / (half_dim - 1)
+        # half_dim shape
         embeddings = torch.exp(torch.arange(half_dim, device=device) * -embeddings)
+        # outer product (batch, 1) x (1, half_dim) -> (batch x half_dim)
         embeddings = time[:, None] * embeddings[None, :]
+        # sin and cosine embeddings
         embeddings = torch.cat((embeddings.sin(), embeddings.cos()), dim=-1)
         return embeddings
 
@@ -43,7 +46,7 @@ class BertForDiffusion(BertPreTrainedModel):
     Reference: https://github.com/huggingface/transformers/blob/f681437203baa7671de3174b0fa583c349d9d5e1/src/transformers/models/bert/modeling_bert.py#L870
     """
 
-    def __init__(self, config, dim: int, add_pooling_layer: bool = False) -> None:
+    def __init__(self, config, add_pooling_layer: bool = False) -> None:
         """
         dim should be the dimension of the inputs
         """
@@ -61,14 +64,7 @@ class BertForDiffusion(BertPreTrainedModel):
         self.token_decoder = nn.Linear(config.hidden_size, 4)
 
         # Set up the time embedder
-        self.dim = dim
-        self.time_dim = dim * 4
-        self.time_mlp = nn.Sequential(
-            SinusoidalPositionEmbeddings(dim),
-            nn.Linear(dim, self.time_dim),
-            nn.GELU(),
-            nn.Linear(self.time_dim, self.time_dim),
-        )
+        self.time_embed = SinusoidalPositionEmbeddings(config.hidden_size)
 
         # Initialize weights and apply final processing
         # self.post_init()
@@ -82,7 +78,7 @@ class BertForDiffusion(BertPreTrainedModel):
     def forward(
         self,
         inputs: torch.Tensor,
-        timestep: torch.Tensor,
+        timestep: torch.Tensor,  # Tensor of shape batch_length with time indices
         attention_mask: Optional[torch.Tensor] = None,
         token_type_ids: Optional[torch.Tensor] = None,
         position_ids: Optional[torch.Tensor] = None,
@@ -178,9 +174,11 @@ class BertForDiffusion(BertPreTrainedModel):
         # and head_mask is converted to shape [num_hidden_layers x batch x num_heads x seq_length x seq_length]
         head_mask = self.get_head_mask(head_mask, self.config.num_hidden_layers)
 
-        inputs_upscaled = self.inputs_to_hidden_dim(inputs)
+        inputs_upscaled = self.inputs_to_hidden_dim(inputs)  # Batch * seq_len * dim
+        time_encoded = self.time_embed(timestep).unsqueeze(1)  # batch * 1 * dim
+        inputs_with_time = inputs_upscaled + time_encoded
         encoder_outputs = self.encoder(
-            inputs_upscaled,
+            inputs_with_time,
             attention_mask=extended_attention_mask,
             head_mask=head_mask,
             encoder_hidden_states=encoder_hidden_states,
@@ -191,7 +189,6 @@ class BertForDiffusion(BertPreTrainedModel):
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
         )
-        time_encoded = self.time_mlp(timestep)
 
         sequence_output = encoder_outputs[0]
         pooled_output = (
@@ -216,7 +213,9 @@ def main():
 
     # Create model
     # device = torch.device("cuda")
-    model = BertForDiffusion(BertConfig(hidden_size=144), dim=512)
+    model = BertForDiffusion(
+        BertConfig(hidden_size=144, position_embedding_type="relative_key_query")
+    )
     # print(model)
     y = model.forward(x["corrupted"], x["t"].squeeze())
     print(y.shape)
