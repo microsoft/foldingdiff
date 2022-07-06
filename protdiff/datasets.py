@@ -72,7 +72,7 @@ class CathConsecutiveAnglesDataset(Dataset):
         logging.info(f"Removed structures with nan {orig_count} -> {new_count}")
 
         # Aggregate the lengths
-        all_lengths = [s["angles"].shape[1] for s in self.structures]
+        all_lengths = [s["angles"].shape[0] for s in self.structures]
         logging.info(
             f"Length of angles: {np.min(all_lengths)}-{np.max(all_lengths)}, mean {np.mean(all_lengths)}"
         )
@@ -82,6 +82,7 @@ class CathConsecutiveAnglesDataset(Dataset):
         return len(self.structures)
 
     def __getitem__(self, index: int) -> Dict[str, torch.Tensor]:
+        # TODO return attention mask
         if not 0 <= index < len(self):
             raise IndexError(index)
 
