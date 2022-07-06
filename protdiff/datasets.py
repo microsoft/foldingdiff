@@ -88,13 +88,15 @@ class CathConsecutiveAnglesDataset(Dataset):
         angles = self.structures[index]["angles"]
         assert angles is not None
         # Pad to given length
-        if angles.shape[1] < self.pad:
+        if angles.shape[0] < self.pad:
+            orig_shape = angles.shape
             angles = np.pad(
                 angles,
-                ((0, self.pad - angles.shape[1]), (0, 0)),
+                ((0, self.pad - angles.shape[0]), (0, 0)),
                 mode="constant",
                 constant_values=0,
             )
+            logging.debug(f"Padded {orig_shape} -> {angles.shape}")
         retval = torch.from_numpy(angles)
         return retval
 
