@@ -91,7 +91,7 @@ class CathConsecutiveAnglesDataset(Dataset):
         if angles.shape[1] < self.pad:
             angles = np.pad(
                 angles,
-                ((0, 0), (0, self.pad - angles.shape[1])),
+                ((0, self.pad - angles.shape[1]), (0, 0)),
                 mode="constant",
                 constant_values=0,
             )
@@ -191,7 +191,7 @@ def coords_to_angles(coords: Dict[str, List[List[float]]]) -> Optional[np.ndarra
         f"Post slice shape: {dist_slice.shape, omega_slice.shape, theta_slice.shape, phi_slice.shape}"
     )
     all_values = np.array([dist_slice, omega_slice, theta_slice, phi_slice]).T
-    assert all_values.shape == (n-1, 4)
+    assert all_values.shape == (n - 1, 4)
     return all_values
 
 
