@@ -97,7 +97,7 @@ class CathConsecutiveAnglesDataset(Dataset):
                 constant_values=0,
             )
             logging.debug(f"Padded {orig_shape} -> {angles.shape}")
-        retval = torch.from_numpy(angles)
+        retval = torch.from_numpy(angles).float()
         return retval
 
 
