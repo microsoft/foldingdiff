@@ -28,7 +28,7 @@ import modelling
 
 
 def train(
-    batch_size: int = 32,
+    batch_size: int = 128,
     lr: float = 1e-4,
     epochs: int = 3,
     device: torch.DeviceObjType = torch.device("cpu"),
