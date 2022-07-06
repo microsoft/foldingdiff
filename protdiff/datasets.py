@@ -40,7 +40,7 @@ class CathConsecutiveAnglesDataset(Dataset):
     - https://userguide.mdanalysis.org/1.1.1/examples/analysis/structure/dihedrals.html
     """
 
-    def __init__(self) -> None:
+    def __init__(self, toy: bool = False) -> None:
         super().__init__()
 
         # json list file -- each line is a json
@@ -48,9 +48,11 @@ class CathConsecutiveAnglesDataset(Dataset):
         assert os.path.isfile(data_file)
         self.structures = []
         with open(data_file) as source:
-            for _i, line in enumerate(source):
+            for i, line in enumerate(source):
                 structure = json.loads(line.strip())
                 self.structures.append(structure)
+                if toy and i > 150:
+                    break
 
         # Generate angles in parallel and attach them to dictionary
         pool = multiprocessing.Pool(multiprocessing.cpu_count())
