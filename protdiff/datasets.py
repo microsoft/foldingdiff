@@ -40,9 +40,10 @@ class CathConsecutiveAnglesDataset(Dataset):
     - https://userguide.mdanalysis.org/1.1.1/examples/analysis/structure/dihedrals.html
     """
 
-    def __init__(self, toy: bool = False) -> None:
+    def __init__(self, pad: int = 512, toy: bool = False) -> None:
         super().__init__()
 
+        self.pad = pad
         # json list file -- each line is a json
         data_file = os.path.join(CATH_DIR, "chain_set.jsonl")
         assert os.path.isfile(data_file)
@@ -86,6 +87,14 @@ class CathConsecutiveAnglesDataset(Dataset):
 
         angles = self.structures[index]["angles"]
         assert angles is not None
+        # Pad to given length
+        if angles.shape[1] < self.pad:
+            angles = np.pad(
+                angles,
+                ((0, 0), (0, self.pad - angles.shape[1])),
+                mode="constant",
+                constant_values=0,
+            )
         retval = torch.from_numpy(angles)
         return retval
 
