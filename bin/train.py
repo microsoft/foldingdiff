@@ -32,6 +32,7 @@ def train(
     lr: float = 1e-4,
     epochs: int = 3,
     device: torch.DeviceObjType = torch.device("cpu"),
+    multithread:bool=True,
 ):
     cath_dset = datasets.CathConsecutiveAnglesDataset(toy=False)
     noised_cath_dset = datasets.NoisedAnglesDataset(cath_dset, dset_key="angles")
@@ -39,7 +40,7 @@ def train(
         dataset=noised_cath_dset,
         batch_size=batch_size,
         shuffle=True,
-        num_workers=multiprocessing.cpu_count(),
+        num_workers=multiprocessing.cpu_count() if multithread else 1,
     )
 
     cfg = BertConfig(hidden_size=144, position_embedding_type="relative_key_query",)
@@ -53,9 +54,15 @@ def train(
             optimizer.zero_grad()
             batch = {k: v.to(device) for k, v in batch.items()}
             known_noise = batch["known_noise"]
-            predicted_noise = model(batch["corrupted"], batch["t"])
+            predicted_noise = model(
+                batch["corrupted"], batch["t"], attention_mask=batch["attn_mask"]
+            )
 
-            loss = F.smooth_l1_loss(known_noise, predicted_noise)
+            # COmpute loss on unmasked positions
+            unmask_idx = torch.where(batch["attn_mask"])
+            loss = F.smooth_l1_loss(
+                known_noise[unmask_idx], predicted_noise[unmask_idx]
+            )
             epoch_losses.append(loss.item())
             loss.backward()
             optimizer.step()

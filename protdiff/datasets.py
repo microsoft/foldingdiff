@@ -88,7 +88,11 @@ class CathConsecutiveAnglesDataset(Dataset):
 
         angles = self.structures[index]["angles"]
         assert angles is not None
-        # Pad to given length
+        # Pad or trim to given length
+        l = min(self.pad, angles.shape[0])
+        attn_mask = torch.zeros(size=(self.pad,))
+        attn_mask[:l] = 1.0
+
         if angles.shape[0] < self.pad:
             orig_shape = angles.shape
             angles = np.pad(
@@ -98,8 +102,11 @@ class CathConsecutiveAnglesDataset(Dataset):
                 constant_values=0,
             )
             logging.debug(f"Padded {orig_shape} -> {angles.shape}")
+        elif angles.shape[0] > self.pad:
+            angles = angles[: self.pad]
+
         retval = torch.from_numpy(angles).float()
-        return {"angles": retval}
+        return {"angles": retval, "attn_mask": attn_mask}
 
 
 class NoisedAnglesDataset(Dataset):
