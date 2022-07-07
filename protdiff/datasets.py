@@ -82,7 +82,6 @@ class CathConsecutiveAnglesDataset(Dataset):
         return len(self.structures)
 
     def __getitem__(self, index: int) -> Dict[str, torch.Tensor]:
-        # TODO return attention mask
         if not 0 <= index < len(self):
             raise IndexError(index)
 

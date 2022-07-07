@@ -3,6 +3,7 @@ Training script
 """
 
 import os, sys
+import shutil
 import logging
 from pathlib import Path
 import multiprocessing
@@ -11,6 +12,8 @@ import argparse
 from tqdm.auto import tqdm
 
 import numpy as np
+
+from matplotlib import pyplot as plt
 
 import torch
 from torch import optim
@@ -27,13 +30,28 @@ import datasets
 import modelling
 
 
+def plot_epoch_losses(loss_values, fname: str):
+    """Plot the loss values and save to fname"""
+    fig, ax = plt.subplots(dpi=300)
+    ax.plot(np.arange(len(loss_values)), loss_values)
+    ax.set(xlabel="Epoch", ylabel="Loss", title="Loss over epochs")
+    fig.savefig(fname)
+
+
 def train(
+    results_dir: str = "./results",
     batch_size: int = 128,
     lr: float = 1e-4,
-    epochs: int = 3,
+    epochs: int = 5,
     device: torch.DeviceObjType = torch.device("cpu"),
-    multithread:bool=True,
+    multithread: bool = True,
 ):
+    results_folder = Path(results_dir)
+    if results_folder.exists():
+        shutil.rmtree(results_folder)
+    results_folder.mkdir(exist_ok=True)
+
+    # Create dataset
     cath_dset = datasets.CathConsecutiveAnglesDataset(toy=False)
     noised_cath_dset = datasets.NoisedAnglesDataset(cath_dset, dset_key="angles")
     dataloader = DataLoader(
@@ -47,6 +65,7 @@ def train(
     model = modelling.BertForDiffusion(cfg)
     model.to(device)
 
+    per_epoch_losses = []
     optimizer = optim.Adam(model.parameters(), lr=lr)
     for epoch in (pbar := tqdm(range(epochs))) :
         epoch_losses = []
@@ -71,10 +90,13 @@ def train(
                 pbar.set_description(
                     f"Epoch {epoch} loss: {np.mean(epoch_losses[-50:]):.4f}"
                 )
+        per_epoch_losses.append(np.mean(epoch_losses))
+
+    plot_epoch_losses(per_epoch_losses, results_folder / "losses.pdf")
 
 
 def main():
-    train(device=torch.device("cuda"))
+    train(epochs=5, device=torch.device("cuda"))
 
 
 if __name__ == "__main__":
