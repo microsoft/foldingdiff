@@ -8,6 +8,7 @@ import logging
 from pathlib import Path
 import multiprocessing
 import argparse
+from typing import *
 
 from tqdm.auto import tqdm
 
@@ -17,6 +18,7 @@ from matplotlib import pyplot as plt
 
 import torch
 from torch import optim
+from torch.utils.data import Dataset
 from torch.utils.data.dataloader import DataLoader
 import torch.nn.functional as F
 
@@ -45,6 +47,27 @@ def plot_epoch_losses(loss_values, fname: str):
     fig.savefig(fname)
 
 
+def get_train_valid_test_sets(
+    timesteps: int, variance_schedule: SCHEDULES
+) -> Tuple[Dataset, Dataset, Dataset]:
+    """
+    Get the dataset objects to use for train/valid/test
+
+    Note, these need to be wrapped in data loaders later
+    """
+    clean_dsets = [
+        datasets.CathConsecutiveAnglesDataset(split=s)
+        for s in ["train", "validation", "test"]
+    ]
+    noised_dsets = [
+        datasets.NoisedAnglesDataset(
+            ds, dset_key="angles", timesteps=timesteps, beta_schedule=variance_schedule,
+        )
+        for ds in clean_dsets
+    ]
+    return tuple(noised_dsets)
+
+
 def train(
     results_dir: str = "./results",
     timesteps: int = 1000,
@@ -63,20 +86,17 @@ def train(
         shutil.rmtree(results_folder)
     results_folder.mkdir(exist_ok=True)
 
-    # Create dataset
-    cath_dset = datasets.CathConsecutiveAnglesDataset(toy=False)
-    noised_cath_dset = datasets.NoisedAnglesDataset(
-        cath_dset,
-        dset_key="angles",
-        timesteps=timesteps,
-        beta_schedule=variance_schedule,
-    )
-    dataloader = DataLoader(
-        dataset=noised_cath_dset,
-        batch_size=batch_size,
-        shuffle=True,
-        num_workers=multiprocessing.cpu_count() if multithread else 1,
-    )
+    # Get datasets and wrap them in dataloaders
+    dsets = get_train_valid_test_sets(timesteps=timesteps, variance_schedule=variance_schedule)
+    train_dataloader, valid_dataloader, test_dataloader = [
+        DataLoader(
+            dataset=ds,
+            batch_size=batch_size,
+            shuffle=True,
+            num_workers=multiprocessing.cpu_count() if multithread else 1,
+        )
+        for ds in dsets
+    ]
 
     cfg = BertConfig(hidden_size=144, position_embedding_type="relative_key_query",)
     model = modelling.BertForDiffusion(cfg)
@@ -86,7 +106,7 @@ def train(
     optimizer = optim.Adam(model.parameters(), lr=lr)
     for epoch in (pbar := tqdm(range(epochs))) :
         epoch_losses = []
-        for batch_idx, batch in enumerate(dataloader):
+        for batch_idx, batch in enumerate(train_dataloader):
             optimizer.zero_grad()
             batch = {k: v.to(device) for k, v in batch.items()}
             known_noise = batch["known_noise"]
