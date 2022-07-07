@@ -35,5 +35,6 @@ dependencies:
   - torchaudio
   - tqdm
   - transformers=4.11
+  - matplotlib
   - pip:
       - sequence-models
