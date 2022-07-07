@@ -28,6 +28,7 @@ sys.path.append(str(SRC_DIR))
 
 import datasets
 import modelling
+from beta_schedules import SCHEDULES
 
 
 # reproducibility
@@ -46,6 +47,8 @@ def plot_epoch_losses(loss_values, fname: str):
 
 def train(
     results_dir: str = "./results",
+    timesteps: int = 1000,
+    variance_schedule: SCHEDULES = "linear",
     batch_size: int = 128,
     lr: float = 1e-4,
     epochs: int = 5,
@@ -59,7 +62,12 @@ def train(
 
     # Create dataset
     cath_dset = datasets.CathConsecutiveAnglesDataset(toy=False)
-    noised_cath_dset = datasets.NoisedAnglesDataset(cath_dset, dset_key="angles")
+    noised_cath_dset = datasets.NoisedAnglesDataset(
+        cath_dset,
+        dset_key="angles",
+        timesteps=timesteps,
+        beta_schedule=variance_schedule,
+    )
     dataloader = DataLoader(
         dataset=noised_cath_dset,
         batch_size=batch_size,

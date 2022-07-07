@@ -117,14 +117,28 @@ class NoisedAnglesDataset(Dataset):
     """
 
     def __init__(
-        self, dset: Dataset, dset_key: Optional[str] = None, timesteps: int = 1000
+        self,
+        dset: Dataset,
+        dset_key: Optional[str] = None,
+        timesteps: int = 1000,
+        beta_schedule: beta_schedules.SCHEDULES = "linear",
     ) -> None:
         super().__init__()
         self.dset = dset
         self.dset_key = dset_key
 
         self.timesteps = timesteps
-        self.betas = beta_schedules.linear_beta_schedule(timesteps)
+        self.schedule = beta_schedule
+
+        if self.schedule == "linear":
+            self.betas = beta_schedules.linear_beta_schedule(timesteps)
+        elif self.schedule == "cosine":
+            self.betas = beta_schedules.cosine_beta_schedule(timesteps)
+        elif self.schedule == "quadratic":
+            self.betas = beta_schedules.quadratic_beta_schedule(timesteps)
+        else:
+            raise ValueError(f"Unknown variance schedule: {self.schedule}")
+
         self.alphas = 1.0 - self.betas
         self.sqrt_recip_alphas = torch.sqrt(1.0 / self.alphas)
         self.alphas_cumprod = torch.cumprod(self.alphas, axis=0)

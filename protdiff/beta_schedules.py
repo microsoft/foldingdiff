@@ -1,8 +1,10 @@
 """
 Describe beta schedules
 """
-
+from typing import Literal
 import torch
+
+SCHEDULES = Literal["linear", "cosine", "quadratic"]
 
 
 def cosine_beta_schedule(timesteps: int, s: float = 8e-3):
