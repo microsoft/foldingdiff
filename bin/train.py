@@ -87,7 +87,9 @@ def train(
     results_folder.mkdir(exist_ok=True)
 
     # Get datasets and wrap them in dataloaders
-    dsets = get_train_valid_test_sets(timesteps=timesteps, variance_schedule=variance_schedule)
+    dsets = get_train_valid_test_sets(
+        timesteps=timesteps, variance_schedule=variance_schedule
+    )
     train_dataloader, valid_dataloader, test_dataloader = [
         DataLoader(
             dataset=ds,
@@ -109,6 +111,8 @@ def train(
         for batch_idx, batch in enumerate(train_dataloader):
             optimizer.zero_grad()
             batch = {k: v.to(device) for k, v in batch.items()}
+            # for k, v in batch.items():
+            #     print(k, v.shape)
             known_noise = batch["known_noise"]
             predicted_noise = model(
                 batch["corrupted"], batch["t"], attention_mask=batch["attn_mask"]
@@ -128,6 +132,24 @@ def train(
                     f"Epoch {epoch} loss: {np.mean(epoch_losses[-50:]):.4f}"
                 )
         per_epoch_losses.append(np.mean(epoch_losses))
+
+        # Evaluate on validation set
+        with torch.no_grad():
+            val_losses = []
+            for batch in valid_dataloader:
+                batch = {k: v.to(device) for k, v in batch.items()}
+                known_noise = batch["known_noise"]
+                # for k, v in batch.items():
+                #     print(k, v.shape())
+                predicted_noise = model(
+                    batch["corrupted"], batch["t"], attention_mask=batch["attn_mask"]
+                )
+                unmask_idx = torch.where(batch["attn_mask"])
+                loss = F.smooth_l1_loss(
+                    known_noise[unmask_idx], predicted_noise[unmask_idx]
+                )
+                val_losses.append(loss.item())
+            logging.info(f"Epoch {epoch} validation loss: {np.mean(val_losses)}")
 
     plot_epoch_losses(per_epoch_losses, results_folder / "losses.pdf")
 
