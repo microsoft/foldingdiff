@@ -40,7 +40,12 @@ class CathConsecutiveAnglesDataset(Dataset):
     - https://userguide.mdanalysis.org/1.1.1/examples/analysis/structure/dihedrals.html
     """
 
-    def __init__(self, pad: int = 512, toy: bool = False) -> None:
+    def __init__(
+        self,
+        split: Optional[Literal["train", "test", "validation"]] = None,
+        pad: int = 512,
+        toy: bool = False,
+    ) -> None:
         super().__init__()
 
         self.pad = pad
@@ -55,7 +60,23 @@ class CathConsecutiveAnglesDataset(Dataset):
                 if toy and i > 150:
                     break
 
-        # Generate angles in parallel and attach them to dictionary
+        # Get data split if given
+        self.split = split
+        if split is not None:
+            splitfile = os.path.join(CATH_DIR, "chain_set_splits.json")
+            with open(splitfile) as source:
+                data_splits = json.load(source)
+            assert split in data_splits.keys(), f"Unrecognized split: {split}"
+            # Subset self.structures to only the given names
+            orig_len = len(self.structures)
+            self.structures = [
+                s for s in self.structures if s["name"] in set(data_splits[self.split])
+            ]
+            logging.info(
+                f"Split {self.split} contains {len(self.structures)}/{orig_len} examples"
+            )
+
+        # Generate angles in parallel and attach them to corresponding structures
         pool = multiprocessing.Pool(multiprocessing.cpu_count())
         angles = pool.map(
             coords_to_angles, [d["coords"] for d in self.structures], chunksize=250
@@ -238,8 +259,8 @@ def coords_to_angles(coords: Dict[str, List[List[float]]]) -> Optional[np.ndarra
 
 
 def main():
-    dset = CathConsecutiveAnglesDataset()
-    noised_dset = NoisedAnglesDataset(dset)
+    dset = CathConsecutiveAnglesDataset(toy=False, split="train")
+    noised_dset = NoisedAnglesDataset(dset, dset_key="angles")
     x = noised_dset[0]
     for k, v in x.items():
         print(k)
