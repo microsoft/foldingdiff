@@ -55,8 +55,11 @@ def train(
     device: torch.DeviceObjType = torch.device("cpu"),
     multithread: bool = True,
 ):
+    """Main training loop"""
+    # Create results directory
     results_folder = Path(results_dir)
     if results_folder.exists():
+        logging.warning(f"Removing old results directory: {results_folder}")
         shutil.rmtree(results_folder)
     results_folder.mkdir(exist_ok=True)
 
