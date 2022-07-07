@@ -30,6 +30,12 @@ import datasets
 import modelling
 
 
+# reproducibility
+torch.manual_seed(6489)
+# torch.use_deterministic_algorithms(True)
+torch.backends.cudnn.benchmark = False
+
+
 def plot_epoch_losses(loss_values, fname: str):
     """Plot the loss values and save to fname"""
     fig, ax = plt.subplots(dpi=300)
