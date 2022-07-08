@@ -1,0 +1,21 @@
+{
+    "timesteps": [
+        250,
+        500,
+        750,
+        1000
+    ],
+    "variance_schedule": [
+        "linear",
+        "cosine",
+        "quadratic"
+    ],
+    "batch_size": [
+        128,
+        64
+    ],
+    "lr": [
+        1e-3,
+        1e-4
+    ]
+}
