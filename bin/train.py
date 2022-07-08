@@ -77,7 +77,8 @@ def train(
     variance_schedule: SCHEDULES = "linear",
     batch_size: int = 128,
     lr: float = 1e-4,
-    epochs: int = 5,
+    epochs: int = 200,
+    early_stop_patience: int = 3,
     multithread: bool = True,
 ):
     """Main training loop"""
@@ -116,6 +117,11 @@ def train(
         default_root_dir=results_folder,
         max_epochs=epochs,
         check_val_every_n_epoch=1,
+        callbacks=[
+            pl.callbacks.early_stopping.EarlyStopping(
+                monitor="val_loss", mode="min", patience=early_stop_patience
+            )
+        ],
         accelerator="gpu" if torch.cuda.is_available() else "cpu",
         devices=1,
     )
@@ -127,7 +133,7 @@ def train(
 
 
 def main():
-    train(epochs=5, device="cuda")
+    train()
 
 
 if __name__ == "__main__":
