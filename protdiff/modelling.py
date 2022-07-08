@@ -16,7 +16,6 @@ from transformers.models.bert.modeling_bert import (
     BertPreTrainedModel,
     BertEncoder,
     BertPooler,
-    BaseModelOutputWithPoolingAndCrossAttentions,
 )
 
 
@@ -88,7 +87,6 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         inputs: torch.Tensor,
         timestep: torch.Tensor,  # Tensor of shape batch_length with time indices
         attention_mask: Optional[torch.Tensor] = None,
-        token_type_ids: Optional[torch.Tensor] = None,
         position_ids: Optional[torch.Tensor] = None,
         head_mask: Optional[torch.Tensor] = None,
         inputs_embeds: Optional[torch.Tensor] = None,

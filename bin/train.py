@@ -11,14 +11,11 @@ import multiprocessing
 import argparse
 from typing import *
 
-from tqdm.auto import tqdm
-
 import numpy as np
 
 from matplotlib import pyplot as plt
 
 import torch
-from torch import optim
 from torch.utils.data import Dataset
 from torch.utils.data.dataloader import DataLoader
 import torch.nn.functional as F
