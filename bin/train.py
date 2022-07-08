@@ -4,6 +4,7 @@ Training script
 
 import os, sys
 import shutil
+import json
 import logging
 from pathlib import Path
 import multiprocessing
@@ -75,16 +76,23 @@ def train(
     batch_size: int = 128,
     lr: float = 1e-4,
     epochs: int = 5,
-    device: torch.DeviceObjType = torch.device("cpu"),
+    device: str = "cuda",
     multithread: bool = True,
 ):
     """Main training loop"""
+    # Record the args given to the function before we create more vars
+    # https://stackoverflow.com/questions/10724495/getting-all-arguments-and-values-passed-to-a-function
+    func_args = locals()
+
     # Create results directory
     results_folder = Path(results_dir)
     if results_folder.exists():
         logging.warning(f"Removing old results directory: {results_folder}")
         shutil.rmtree(results_folder)
     results_folder.mkdir(exist_ok=True)
+    with open(results_folder / "training_args.json", "w") as sink:
+        logging.info(f"Writing training args to {sink.name}")
+        json.dump(func_args, sink, indent=4)
 
     # Get datasets and wrap them in dataloaders
     dsets = get_train_valid_test_sets(
@@ -100,9 +108,10 @@ def train(
         for ds in dsets
     ]
 
+    dev = torch.device(device)
     cfg = BertConfig(hidden_size=144, position_embedding_type="relative_key_query",)
     model = modelling.BertForDiffusion(cfg)
-    model.to(device)
+    model.to(dev)
 
     per_epoch_losses = []
     optimizer = optim.Adam(model.parameters(), lr=lr)
@@ -110,7 +119,7 @@ def train(
         epoch_losses = []
         for batch_idx, batch in enumerate(train_dataloader):
             optimizer.zero_grad()
-            batch = {k: v.to(device) for k, v in batch.items()}
+            batch = {k: v.to(dev) for k, v in batch.items()}
             # for k, v in batch.items():
             #     print(k, v.shape)
             known_noise = batch["known_noise"]
@@ -137,7 +146,7 @@ def train(
         with torch.no_grad():
             val_losses = []
             for batch in valid_dataloader:
-                batch = {k: v.to(device) for k, v in batch.items()}
+                batch = {k: v.to(dev) for k, v in batch.items()}
                 known_noise = batch["known_noise"]
                 # for k, v in batch.items():
                 #     print(k, v.shape())
@@ -155,7 +164,7 @@ def train(
 
 
 def main():
-    train(epochs=5, device=torch.device("cuda"))
+    train(epochs=5, device="cuda")
 
 
 if __name__ == "__main__":
