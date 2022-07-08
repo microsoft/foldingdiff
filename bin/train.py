@@ -132,8 +132,33 @@ def train(
     )
 
 
+def build_parser() -> argparse.ArgumentParser:
+    """
+    Build CLI parser
+    """
+    parser = argparse.ArgumentParser(
+        usage=__doc__, formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser.add_argument("config_json", type=str, help="json of params")
+    parser.add_argument(
+        "-o",
+        "--outdir",
+        type=str,
+        default=os.path.join(os.getcwd(), "results"),
+        help="Directory to write model training outputs",
+    )
+    return parser
+
+
 def main():
-    train()
+    """Run the training script based on params in the given json file"""
+    parser = build_parser()
+    args = parser.parse_args()
+
+    # Load in parameters and run training loop
+    with open(args.config_json) as source:
+        config_args = json.load(source)
+    train(results_dir=args.outdir, **config_args)
 
 
 if __name__ == "__main__":
