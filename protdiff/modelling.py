@@ -7,6 +7,9 @@ from typing import *
 
 import torch
 from torch import nn
+from torch.nn import functional as F
+
+import pytorch_lightning as pl
 
 from transformers import BertConfig
 from transformers.models.bert.modeling_bert import (
@@ -39,7 +42,7 @@ class SinusoidalPositionEmbeddings(nn.Module):
         return embeddings
 
 
-class BertForDiffusion(BertPreTrainedModel):
+class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
     """
     BERT designed to be used with continuous inputs instead of tokens
 
@@ -199,6 +202,38 @@ class BertForDiffusion(BertPreTrainedModel):
 
         per_token_decoded = self.token_decoder(sequence_output)
         return per_token_decoded
+
+    def training_step(self, batch, batch_idx):
+        """
+        Training step
+        """
+        known_noise = batch["known_noise"]
+        predicted_noise = self.forward(
+            batch["corrupted"], batch["t"], attention_mask=batch["attn_mask"]
+        )
+
+        unmask_idx = torch.where(batch["attn_mask"])
+        loss = F.smooth_l1_loss(known_noise[unmask_idx], predicted_noise[unmask_idx])
+        return loss
+
+    def validation_step(self, batch, batch_idx):
+        """
+        Validation step
+        """
+        known_noise = batch["known_noise"]
+        predicted_noise = self.forward(
+            batch["corrupted"], batch["t"], attention_mask=batch["attn_mask"]
+        )
+
+        unmask_idx = torch.where(batch["attn_mask"])
+        loss = F.smooth_l1_loss(known_noise[unmask_idx], predicted_noise[unmask_idx])
+        self.log("val_loss", loss)
+
+    def configure_optimizers(self):
+        """
+        Return optimizer
+        """
+        return torch.optim.Adam(self.parameters(), lr=1e-4)
 
 
 def main():

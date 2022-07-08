@@ -23,6 +23,8 @@ from torch.utils.data import Dataset
 from torch.utils.data.dataloader import DataLoader
 import torch.nn.functional as F
 
+import pytorch_lightning as pl
+
 from transformers import BertConfig
 
 SRC_DIR = (Path(os.path.dirname(os.path.abspath(__file__))) / "../protdiff").resolve()
@@ -102,10 +104,10 @@ def train(
         DataLoader(
             dataset=ds,
             batch_size=batch_size,
-            shuffle=True,
+            shuffle=i == 0,  # Shuffle only train loader
             num_workers=multiprocessing.cpu_count() if multithread else 1,
         )
-        for ds in dsets
+        for i, ds in enumerate(dsets)
     ]
 
     dev = torch.device(device)
@@ -113,54 +115,12 @@ def train(
     model = modelling.BertForDiffusion(cfg)
     model.to(dev)
 
-    per_epoch_losses = []
-    optimizer = optim.Adam(model.parameters(), lr=lr)
-    for epoch in (pbar := tqdm(range(epochs))) :
-        epoch_losses = []
-        for batch_idx, batch in enumerate(train_dataloader):
-            optimizer.zero_grad()
-            batch = {k: v.to(dev) for k, v in batch.items()}
-            # for k, v in batch.items():
-            #     print(k, v.shape)
-            known_noise = batch["known_noise"]
-            predicted_noise = model(
-                batch["corrupted"], batch["t"], attention_mask=batch["attn_mask"]
-            )
-
-            # COmpute loss on unmasked positions
-            unmask_idx = torch.where(batch["attn_mask"])
-            loss = F.smooth_l1_loss(
-                known_noise[unmask_idx], predicted_noise[unmask_idx]
-            )
-            epoch_losses.append(loss.item())
-            loss.backward()
-            optimizer.step()
-
-            if batch_idx % 50 == 0:
-                pbar.set_description(
-                    f"Epoch {epoch} loss: {np.mean(epoch_losses[-50:]):.4f}"
-                )
-        per_epoch_losses.append(np.mean(epoch_losses))
-
-        # Evaluate on validation set
-        with torch.no_grad():
-            val_losses = []
-            for batch in valid_dataloader:
-                batch = {k: v.to(dev) for k, v in batch.items()}
-                known_noise = batch["known_noise"]
-                # for k, v in batch.items():
-                #     print(k, v.shape())
-                predicted_noise = model(
-                    batch["corrupted"], batch["t"], attention_mask=batch["attn_mask"]
-                )
-                unmask_idx = torch.where(batch["attn_mask"])
-                loss = F.smooth_l1_loss(
-                    known_noise[unmask_idx], predicted_noise[unmask_idx]
-                )
-                val_losses.append(loss.item())
-            logging.info(f"Epoch {epoch} validation loss: {np.mean(val_losses)}")
-
-    plot_epoch_losses(per_epoch_losses, results_folder / "losses.pdf")
+    trainer = pl.Trainer(accelerator="gpu", devices=1)
+    trainer.fit(
+        model=model,
+        train_dataloaders=train_dataloader,
+        val_dataloaders=valid_dataloader,
+    )
 
 
 def main():

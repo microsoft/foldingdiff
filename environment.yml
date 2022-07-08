@@ -36,5 +36,6 @@ dependencies:
   - tqdm
   - transformers=4.11
   - matplotlib
+  - pytorch-lightning=1.6.4
   - pip:
       - sequence-models
