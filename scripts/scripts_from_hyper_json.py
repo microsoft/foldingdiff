@@ -103,10 +103,12 @@ def main():
         params = json.load(source)
 
     # Create the scripts
+    param_combos = list(itertools.product(*params.values()))
     outdirs = []
-    for p in itertools.product(*params.values()):
+    logging.info(f"Writing scripts for {len(param_combos)} parameter combinations")
+    for p in param_combos:
         d = dict(zip(params.keys(), p))
-        logging.info(f"Writing script for {d}")
+        logging.debug(f"Writing script for {d}")
         # Create out direcotry name
         outdir_name = os.path.join(args.outdir, params_to_filename(d))
         assert outdir_name not in outdirs, f"Duplicated output dir: {outdir_name}"
@@ -130,7 +132,7 @@ def main():
             with open(in_json_fname, "w") as sink:
                 json.dump(d, sink, indent=4)
 
-            cmd = f"python {args.exec} {in_json_fname}"
+            cmd = f"python {args.exec} {in_json_fname} --outdir {outdir_name}"
             script_lines = header_lines + [cmd]
             script_name = outdir_name + ".sh"
             with open(script_name, "w") as sink:
