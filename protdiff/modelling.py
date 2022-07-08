@@ -49,12 +49,17 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
     Reference: https://github.com/huggingface/transformers/blob/f681437203baa7671de3174b0fa583c349d9d5e1/src/transformers/models/bert/modeling_bert.py#L870
     """
 
-    def __init__(self, config, add_pooling_layer: bool = False) -> None:
+    def __init__(
+        self, config, lr: float = 1e-4, add_pooling_layer: bool = False
+    ) -> None:
         """
         dim should be the dimension of the inputs
         """
         super().__init__(config)
         self.config = config
+
+        # Store information about leraning rates and loss
+        self.learning_rate = lr
 
         # Needed to project the low dimensional input to hidden dim
         self.inputs_to_hidden_dim = nn.Linear(
@@ -233,7 +238,7 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         """
         Return optimizer
         """
-        return torch.optim.Adam(self.parameters(), lr=1e-4)
+        return torch.optim.Adam(self.parameters(), lr=self.learning_rate)
 
 
 def main():

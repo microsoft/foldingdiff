@@ -78,7 +78,6 @@ def train(
     batch_size: int = 128,
     lr: float = 1e-4,
     epochs: int = 5,
-    device: str = "cuda",
     multithread: bool = True,
 ):
     """Main training loop"""
@@ -110,12 +109,16 @@ def train(
         for i, ds in enumerate(dsets)
     ]
 
-    dev = torch.device(device)
     cfg = BertConfig(hidden_size=144, position_embedding_type="relative_key_query",)
-    model = modelling.BertForDiffusion(cfg)
-    model.to(dev)
+    model = modelling.BertForDiffusion(cfg, lr=lr)
 
-    trainer = pl.Trainer(accelerator="gpu", devices=1)
+    trainer = pl.Trainer(
+        default_root_dir=results_folder,
+        max_epochs=epochs,
+        check_val_every_n_epoch=1,
+        accelerator="gpu" if torch.cuda.is_available() else "cpu",
+        devices=1,
+    )
     trainer.fit(
         model=model,
         train_dataloaders=train_dataloader,
