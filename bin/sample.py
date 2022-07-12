@@ -17,9 +17,12 @@ sys.path.append(str(SRC_DIR))
 import modelling
 import beta_schedules
 import sampling
+import utils
 
 
-def sample(model_path: str, config_json: Optional[str] = None):
+def sample(
+    num: int, model_path: str, config_json: Optional[str] = None, seed: int = 6489
+):
     """
     Sample from the given model
     """
@@ -55,19 +58,28 @@ def sample(model_path: str, config_json: Optional[str] = None):
     posterior_variance = betas * (1.0 - alphas_cumprod_prev) / (1.0 - alphas_cumprod)
 
     # Sample
-    sampling.sample(
-        model,
-        seq_len=512,
-        betas=betas,
-        posterior_variance=posterior_variance,
-        timesteps=model_config["timesteps"],
-    )
+    # batch 128 ~ 9GB GPU memory, batch 512 ~ 38GB GPU memory
+    torch.manual_seed(seed)
+    samps = []
+    for bs in utils.num_to_groups(num, 512):
+        s = sampling.sample(
+            model,
+            seq_len=512,
+            betas=betas,
+            posterior_variance=posterior_variance,
+            timesteps=model_config["timesteps"],
+            batch_size=bs,
+        )
+        samps.extend(s)
+    print(samps)
+    print(len(samps))
 
 
 def main():
     sample(
-        "/home/t-kevinwu/projects/protein_diffusion/models/1000_timesteps_cosine_variance_schedule_128_batch_size_0.0001_lr_0.0_gradient_clip/lightning_logs/version_0/checkpoints/epoch=9-step=1000.ckpt",
-        "/home/t-kevinwu/projects/protein_diffusion/models/1000_timesteps_cosine_variance_schedule_128_batch_size_0.0001_lr_0.0_gradient_clip/training_args.json",
+        500,
+        "/home/t-kevinwu/projects/protein_diffusion/models/1000_timesteps_linear_variance_schedule_64_batch_size_0.0001_lr_0.5_gradient_clip/lightning_logs/version_0/checkpoints/epoch=9-step=1990.ckpt",
+        "/home/t-kevinwu/projects/protein_diffusion/models/1000_timesteps_linear_variance_schedule_64_batch_size_0.0001_lr_0.5_gradient_clip/training_args.json",
     )
 
 
