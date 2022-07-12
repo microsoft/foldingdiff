@@ -1,6 +1,7 @@
 """
 Code for sampling from diffusion models
 """
+import logging
 from typing import *
 
 from tqdm.auto import tqdm
@@ -43,6 +44,7 @@ def p_sample(model, x, t, t_index, betas, posterior_variance):
 def p_sample_loop(
     model, shape: Tuple[int], timesteps: int, betas, posterior_variance
 ) -> "list[torch.Tensor]":
+    logging.info(f"Sampling of shape {shape}")
     device = next(model.parameters()).device
 
     b = shape[0]
@@ -74,11 +76,11 @@ def sample(
     batch_size=16,
     channels=4,
     timesteps: int = 200,
-) -> "list[torch.Tensor]":
+) -> torch.Tensor:
     return p_sample_loop(
         model,
         shape=(batch_size, seq_len, channels),
         timesteps=timesteps,
         betas=betas,
         posterior_variance=posterior_variance,
-    )
+    )[-1]

@@ -2,6 +2,7 @@
 Script to sample from a trained diffusion model
 """
 import os, sys
+import logging
 import json
 from pathlib import Path
 from typing import Optional
@@ -22,7 +23,7 @@ import utils
 
 def sample(
     num: int, model_path: str, config_json: Optional[str] = None, seed: int = 6489
-):
+) -> torch.Tensor:
     """
     Sample from the given model
     """
@@ -70,18 +71,19 @@ def sample(
             timesteps=model_config["timesteps"],
             batch_size=bs,
         )
-        samps.extend(s)
-    print(samps)
-    print(len(samps))
+        samps.append(s)
+    samps = torch.vstack(samps)
+    return samps
 
 
 def main():
     sample(
-        500,
+        100,
         "/home/t-kevinwu/projects/protein_diffusion/models/1000_timesteps_linear_variance_schedule_64_batch_size_0.0001_lr_0.5_gradient_clip/lightning_logs/version_0/checkpoints/epoch=9-step=1990.ckpt",
         "/home/t-kevinwu/projects/protein_diffusion/models/1000_timesteps_linear_variance_schedule_64_batch_size_0.0001_lr_0.5_gradient_clip/training_args.json",
     )
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
     main()
