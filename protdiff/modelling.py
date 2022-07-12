@@ -183,7 +183,7 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         inputs_upscaled = self.inputs_to_hidden_dim(inputs)  # Batch * seq_len * dim
         # timestep is (batch, 1), squeeze to (batch,)
         # embedding gets to (batch, embed_dim) -> unsqueee to (batch, 1, dim)
-        time_encoded = self.time_embed(timestep.squeeze(dim=1)).unsqueeze(1)
+        time_encoded = self.time_embed(timestep.squeeze(dim=-1)).unsqueeze(1)
         inputs_with_time = inputs_upscaled + time_encoded
         encoder_outputs = self.encoder(
             inputs_with_time,
