@@ -24,6 +24,7 @@ from sequence_models import pdb_utils
 import beta_schedules
 import utils
 
+
 class CathConsecutiveAnglesDataset(Dataset):
     """
     Represent proteins as their constituent angles instead of 3D coordinates
@@ -151,15 +152,7 @@ class NoisedAnglesDataset(Dataset):
         self.timesteps = timesteps
         self.schedule = beta_schedule
 
-        if self.schedule == "linear":
-            self.betas = beta_schedules.linear_beta_schedule(timesteps)
-        elif self.schedule == "cosine":
-            self.betas = beta_schedules.cosine_beta_schedule(timesteps)
-        elif self.schedule == "quadratic":
-            self.betas = beta_schedules.quadratic_beta_schedule(timesteps)
-        else:
-            raise ValueError(f"Unknown variance schedule: {self.schedule}")
-
+        self.betas = beta_schedules.get_variance_schedule(beta_schedule, timesteps)
         self.alphas = 1.0 - self.betas
         self.sqrt_recip_alphas = torch.sqrt(1.0 / self.alphas)
         self.alphas_cumprod = torch.cumprod(self.alphas, axis=0)
@@ -201,7 +194,6 @@ class NoisedAnglesDataset(Dataset):
             item.update(retval)
             return item
         return retval
-
 
 
 def coords_to_angles(coords: Dict[str, List[List[float]]]) -> Optional[np.ndarray]:

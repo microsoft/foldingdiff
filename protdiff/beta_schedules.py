@@ -26,3 +26,18 @@ def linear_beta_schedule(timesteps: int, beta_start=1e-4, beta_end=0.02):
 def quadratic_beta_schedule(timesteps: int, beta_start=1e-4, beta_end=0.02):
     betas = torch.linspace(-6, 6, timesteps)
     return torch.sigmoid(betas) * (beta_end - beta_start) + beta_start
+
+
+def get_variance_schedule(keyword: SCHEDULES, timesteps: int, **kwargs) -> torch.Tensor:
+    """
+    Easy interface for getting a variance schedule based on keyword and
+    number of timesteps
+    """
+    if keyword == "cosine":
+        return cosine_beta_schedule(timesteps, **kwargs)
+    elif keyword == "linear":
+        return linear_beta_schedule(timesteps, **kwargs)
+    elif keyword == "quadratic":
+        return quadratic_beta_schedule(timesteps, **kwargs)
+    else:
+        raise ValueError(f"Unrecognized variance schedule: {keyword}")
