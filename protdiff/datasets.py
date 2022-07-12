@@ -22,7 +22,7 @@ assert os.path.isdir(CATH_DIR), f"Expected cath data at {CATH_DIR}"
 
 from sequence_models import pdb_utils
 import beta_schedules
-
+import utils
 
 class CathConsecutiveAnglesDataset(Dataset):
     """
@@ -181,8 +181,8 @@ class NoisedAnglesDataset(Dataset):
 
         # Sample a random timepoint and add corresponding noise
         t = torch.randint(0, self.timesteps, (1,)).long()
-        sqrt_alphas_cumprod_t = extract(self.sqrt_alphas_cumprod, t, vals.shape)
-        sqrt_one_minus_alphas_cumprod_t = extract(
+        sqrt_alphas_cumprod_t = utils.extract(self.sqrt_alphas_cumprod, t, vals.shape)
+        sqrt_one_minus_alphas_cumprod_t = utils.extract(
             self.sqrt_one_minus_alphas_cumprod, t, vals.shape
         )
         noise = torch.randn_like(vals)
@@ -202,14 +202,6 @@ class NoisedAnglesDataset(Dataset):
             return item
         return retval
 
-
-def extract(a, t, x_shape):
-    """
-    Return the t-th item in a for each item in t
-    """
-    batch_size = t.shape[0]
-    out = a.gather(-1, t.cpu())
-    return out.reshape(batch_size, *((1,) * (len(x_shape) - 1))).to(t.device)
 
 
 def coords_to_angles(coords: Dict[str, List[List[float]]]) -> Optional[np.ndarray]:
