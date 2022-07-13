@@ -7,7 +7,7 @@ import torch
 SCHEDULES = Literal["linear", "cosine", "quadratic"]
 
 
-def cosine_beta_schedule(timesteps: int, s: float = 8e-3):
+def cosine_beta_schedule(timesteps: int, s: float = 8e-3) -> torch.Tensor:
     """
     Cosine scheduling
     """
@@ -19,11 +19,15 @@ def cosine_beta_schedule(timesteps: int, s: float = 8e-3):
     return torch.clip(betas, 0.0001, 0.9999)
 
 
-def linear_beta_schedule(timesteps: int, beta_start=1e-4, beta_end=0.02):
+def linear_beta_schedule(
+    timesteps: int, beta_start=1e-4, beta_end=0.02
+) -> torch.Tensor:
     return torch.linspace(beta_start, beta_end, timesteps)
 
 
-def quadratic_beta_schedule(timesteps: int, beta_start=1e-4, beta_end=0.02):
+def quadratic_beta_schedule(
+    timesteps: int, beta_start=1e-4, beta_end=0.02
+) -> torch.Tensor:
     betas = torch.linspace(-6, 6, timesteps)
     return torch.sigmoid(betas) * (beta_end - beta_start) + beta_start
 
