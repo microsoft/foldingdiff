@@ -162,7 +162,13 @@ class NoisedAnglesDataset(Dataset):
     def __len__(self) -> int:
         return len(self.dset)
 
-    def __getitem__(self, index) -> Dict[str, torch.Tensor]:
+    def __getitem__(
+        self, index, use_t_val: Optional[int] = None
+    ) -> Dict[str, torch.Tensor]:
+        """
+        Gets the i-th item in the dataset and adds noise
+        use_t_val is useful for manually querying specific timepoints
+        """
         item = self.dset.__getitem__(index)
         # If wrapped dset returns a dictionary then we extract the item to noise
         if self.dset_key is not None:
@@ -173,7 +179,11 @@ class NoisedAnglesDataset(Dataset):
         assert isinstance(vals, torch.Tensor), f"Expected tensor but got {type(vals)}"
 
         # Sample a random timepoint and add corresponding noise
-        t = torch.randint(0, self.timesteps, (1,)).long()
+        if use_t_val is not None:
+            t_val = np.clip(np.array([use_t_val]), 0, self.timesteps - 1)
+            t = torch.from_numpy(t_val).long()
+        else:
+            t = torch.randint(0, self.timesteps, (1,)).long()
         sqrt_alphas_cumprod_t = utils.extract(self.sqrt_alphas_cumprod, t, vals.shape)
         sqrt_one_minus_alphas_cumprod_t = utils.extract(
             self.sqrt_one_minus_alphas_cumprod, t, vals.shape
@@ -243,9 +253,9 @@ def coords_to_angles(coords: Dict[str, List[List[float]]]) -> Optional[np.ndarra
 
 
 def main():
-    dset = CathConsecutiveAnglesDataset(toy=False, split="train")
+    dset = CathConsecutiveAnglesDataset(toy=True, split="train")
     noised_dset = NoisedAnglesDataset(dset, dset_key="angles")
-    x = noised_dset[0]
+    x = noised_dset.__getitem__(0, use_t_val=1000)
     for k, v in x.items():
         print(k)
         print(v)
