@@ -2,6 +2,7 @@
 Describe beta schedules
 """
 import os
+import logging
 from typing import Literal, get_args
 
 import numpy as np
@@ -42,6 +43,7 @@ def get_variance_schedule(keyword: SCHEDULES, timesteps: int, **kwargs) -> torch
     Easy interface for getting a variance schedule based on keyword and
     number of timesteps
     """
+    logging.info(f"Getting {keyword} variance schedule with {timesteps} timesteps")
     if keyword == "cosine":
         return cosine_beta_schedule(timesteps, **kwargs)
     elif keyword == "linear":
