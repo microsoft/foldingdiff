@@ -21,7 +21,8 @@ def radian_l1_loss(input: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
     input = input % (2 * torch.pi)
     d = target - input
     d = (d + torch.pi) % (2 * torch.pi) - torch.pi
-    return torch.abs(d)
+    retval = torch.abs(d)
+    return torch.mean(retval)
 
 
 def main():
