@@ -18,6 +18,8 @@ from transformers.models.bert.modeling_bert import (
     BertPooler,
 )
 
+import losses
+
 
 class SinusoidalPositionEmbeddings(nn.Module):
     """
@@ -49,7 +51,11 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
     """
 
     def __init__(
-        self, config, lr: float = 1e-4, add_pooling_layer: bool = False
+        self,
+        config,
+        lr: float = 1e-4,
+        loss: Literal["huber", "radian_l1"] = "huber",
+        add_pooling_layer: bool = False,
     ) -> None:
         """
         dim should be the dimension of the inputs
@@ -59,6 +65,10 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
 
         # Store information about leraning rates and loss
         self.learning_rate = lr
+        self.loss_func = {
+            "huber": F.smooth_l1_loss,
+            "radian_l1": losses.radian_l1_loss,
+        }[loss]
 
         # Needed to project the low dimensional input to hidden dim
         self.inputs_to_hidden_dim = nn.Linear(
@@ -216,7 +226,7 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         )
 
         unmask_idx = torch.where(batch["attn_mask"])
-        loss = F.smooth_l1_loss(known_noise[unmask_idx], predicted_noise[unmask_idx])
+        loss = self.loss_func(known_noise[unmask_idx], predicted_noise[unmask_idx])
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -229,7 +239,7 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         )
 
         unmask_idx = torch.where(batch["attn_mask"])
-        loss = F.smooth_l1_loss(known_noise[unmask_idx], predicted_noise[unmask_idx])
+        loss = self.loss_func(known_noise[unmask_idx], predicted_noise[unmask_idx])
         self.log("val_loss", loss)
 
     def configure_optimizers(self):
