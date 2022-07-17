@@ -3,6 +3,7 @@ Contains source code for loading in data and creating requisite PyTorch
 data loader object
 """
 
+import functools
 import multiprocessing
 import os, sys
 import logging
@@ -32,6 +33,10 @@ class CathConsecutiveAnglesDataset(Dataset):
     The three angles phi, psi, and omega determine the backbone structure.
     Omega is typically fixed ~180 degrees in most cases.
 
+    By default the angles are given in range of [-pi, pi] but we want to shift
+    these to [0, 2pi] so we can have easier modulo math. This behavior can be
+    toggled in shift_to_zero_twopi
+
     Useful reading:
     - https://proteinstructures.com/structure/ramachandran-plot/
     - https://foldit.fandom.com/wiki/Backbone_angle
@@ -45,11 +50,13 @@ class CathConsecutiveAnglesDataset(Dataset):
         self,
         split: Optional[Literal["train", "test", "validation"]] = None,
         pad: int = 512,
+        shift_to_zero_twopi: bool = True,
         toy: bool = False,
     ) -> None:
         super().__init__()
 
         self.pad = pad
+        self.shift_to_zero_twopi = shift_to_zero_twopi
         # json list file -- each line is a json
         data_file = os.path.join(CATH_DIR, "chain_set.jsonl")
         assert os.path.isfile(data_file)
@@ -79,9 +86,10 @@ class CathConsecutiveAnglesDataset(Dataset):
 
         # Generate angles in parallel and attach them to corresponding structures
         pool = multiprocessing.Pool(multiprocessing.cpu_count())
-        angles = pool.map(
-            coords_to_angles, [d["coords"] for d in self.structures], chunksize=250
+        pfunc = functools.partial(
+            coords_to_angles, shift_angles_positive=self.shift_to_zero_twopi
         )
+        angles = pool.map(pfunc, [d["coords"] for d in self.structures], chunksize=250)
         pool.close()
         pool.join()
         for s, a in zip(self.structures, angles):
@@ -206,10 +214,15 @@ class NoisedAnglesDataset(Dataset):
         return retval
 
 
-def coords_to_angles(coords: Dict[str, List[List[float]]]) -> Optional[np.ndarray]:
+def coords_to_angles(
+    coords: Dict[str, List[List[float]]], shift_angles_positive: bool = True
+) -> Optional[np.ndarray]:
     """
     Sanitize the coordinates to not have NaN and convert them into
     arrays of angles. If sanitization fails, return None
+
+    if shift_angles_positive, take the angles given in [-pi, pi] range and
+    shift them to [0, 2pi] range
     """
     first_valid_idx, last_valid_idx = 0, len(coords["N"])
 
@@ -249,13 +262,20 @@ def coords_to_angles(coords: Dict[str, List[List[float]]]) -> Optional[np.ndarra
     )
     all_values = np.array([dist_slice, omega_slice, theta_slice, phi_slice]).T
     assert all_values.shape == (n - 1, 4)
+
+    assert np.all(
+        np.logical_and(all_values[:, 1:] <= np.pi, all_values[:, 1:] >= -np.pi,)
+    ), "Angle values outside of [-pi, pi] range"
+    if shift_angles_positive:
+        all_values[:, 1:] += np.pi
+
     return all_values
 
 
 def main():
-    dset = CathConsecutiveAnglesDataset(toy=True, split="train")
+    dset = CathConsecutiveAnglesDataset(toy=False, split="train")
     noised_dset = NoisedAnglesDataset(dset, dset_key="angles")
-    x = noised_dset.__getitem__(0, use_t_val=1000)
+    x = noised_dset[0]
     for k, v in x.items():
         print(k)
         print(v)
