@@ -56,12 +56,18 @@ def get_train_valid_test_sets(
     Note, these need to be wrapped in data loaders later
     """
     clean_dsets = [
-        datasets.CathConsecutiveAnglesDataset(split=s, toy=toy)
+        datasets.CathConsecutiveAnglesDataset(
+            split=s, shift_to_zero_twopi=True, toy=toy
+        )
         for s in ["train", "validation", "test"]
     ]
     noised_dsets = [
         datasets.NoisedAnglesDataset(
-            ds, dset_key="angles", timesteps=timesteps, beta_schedule=variance_schedule,
+            ds,
+            dset_key="angles",
+            timesteps=timesteps,
+            beta_schedule=variance_schedule,
+            modulo=[0, 2 * np.pi, 2 * np.pi, 2 * np.pi],
         )
         for ds in clean_dsets
     ]

@@ -144,6 +144,8 @@ class NoisedAnglesDataset(Dataset):
     Wrapped dset should return a tensor from __getitem__ if dset_key
     is not specified; otherwise, returns a dictionary where the item
     to noise is under dset_key
+
+    modulo can be given as either a float or a list of floats
     """
 
     def __init__(
@@ -152,10 +154,13 @@ class NoisedAnglesDataset(Dataset):
         dset_key: Optional[str] = None,
         timesteps: int = 1000,
         beta_schedule: beta_schedules.SCHEDULES = "linear",
+        modulo: Optional[Union[float, Iterable[float]]] = None,
     ) -> None:
         super().__init__()
         self.dset = dset
         self.dset_key = dset_key
+
+        self.modulo = modulo
 
         self.timesteps = timesteps
         self.schedule = beta_schedule
@@ -200,6 +205,22 @@ class NoisedAnglesDataset(Dataset):
         noised_vals = (
             sqrt_alphas_cumprod_t * vals + sqrt_one_minus_alphas_cumprod_t * noise
         )
+
+        # If modulo is given ensure that we do modulo
+        if self.modulo is not None:
+            try:
+                iter(self.modulo)
+                assert (
+                    len(self.modulo) == noised_vals.shape[1]
+                ), f"Mismatched shapes: {noised_vals.shape} vs {len(self.modulo)} modulo terms"
+                # Should have shape (seq_len, 4)
+                noised_vals = torch.vstack(
+                    [t % m if m != 0 else t for t, m in zip(noised_vals.T, self.modulo)]
+                ).T
+            except TypeError:
+                # not iterable --> float
+                noised_vals = noised_vals % self.modulo
+
         retval = {
             "corrupted": noised_vals,
             "t": t,
