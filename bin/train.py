@@ -83,7 +83,7 @@ def train(
     lr: float = 1e-4,
     loss: Literal["huber", "radian_l1"] = "huber",
     epochs: int = 200,
-    early_stop_patience: int = 3,
+    early_stop_patience: int = 5,
     multithread: bool = True,
     toy: bool = False,
 ):
@@ -101,6 +101,8 @@ def train(
     with open(results_folder / "training_args.json", "w") as sink:
         logging.info(f"Writing training args to {sink.name}")
         json.dump(func_args, sink, indent=4)
+        for k, v in func_args.items():
+            logging.info(f"Training argument: {k}={v}")
 
     # Get datasets and wrap them in dataloaders
     dsets = get_train_valid_test_sets(
