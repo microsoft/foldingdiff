@@ -65,9 +65,15 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
 
         # Store information about leraning rates and loss
         self.learning_rate = lr
+        # loss functio is either a callable or a list of callables
         self.loss_func = {
             "huber": F.smooth_l1_loss,
-            "radian_l1": losses.radian_l1_loss,
+            "radian_l1": [
+                F.smooth_l1_loss,
+                losses.radian_l1_loss,
+                losses.radian_l1_loss,
+                losses.radian_l1_loss,
+            ],
         }[loss]
 
         # Needed to project the low dimensional input to hidden dim
@@ -225,21 +231,29 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
             batch["corrupted"], batch["t"], attention_mask=batch["attn_mask"]
         )
 
+        # Indexes into batch then indices along sequence length
         unmask_idx = torch.where(batch["attn_mask"])
-        loss = self.loss_func(known_noise[unmask_idx], predicted_noise[unmask_idx])
-        return loss
+        loss = 0.0
+        for i in range(known_noise.shape[-1]):
+            loss_fn = (
+                self.loss_func[i]
+                if isinstance(self.loss_func, list)
+                else self.loss_func
+            )
+            loss += loss_fn(
+                known_noise[:, :, i][unmask_idx], predicted_noise[:, :, i][unmask_idx]
+            )
+        # print(len(batch["attn_mask"]))
+        # print(unmask_idx)
+        # loss = self.loss_func(known_noise[unmask_idx], predicted_noise[unmask_idx])
+        return loss / known_noise.shape[-1]
 
     def validation_step(self, batch, batch_idx):
         """
         Validation step
         """
-        known_noise = batch["known_noise"]
-        predicted_noise = self.forward(
-            batch["corrupted"], batch["t"], attention_mask=batch["attn_mask"]
-        )
-
-        unmask_idx = torch.where(batch["attn_mask"])
-        loss = self.loss_func(known_noise[unmask_idx], predicted_noise[unmask_idx])
+        with torch.no_grad():
+            loss = self.training_step(batch, batch_idx)
         self.log("val_loss", loss)
 
     def configure_optimizers(self):

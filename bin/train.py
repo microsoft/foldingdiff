@@ -48,7 +48,7 @@ def plot_epoch_losses(loss_values, fname: str):
 
 
 def get_train_valid_test_sets(
-    timesteps: int, variance_schedule: SCHEDULES
+    timesteps: int, variance_schedule: SCHEDULES, toy: bool = False
 ) -> Tuple[Dataset, Dataset, Dataset]:
     """
     Get the dataset objects to use for train/valid/test
@@ -56,7 +56,7 @@ def get_train_valid_test_sets(
     Note, these need to be wrapped in data loaders later
     """
     clean_dsets = [
-        datasets.CathConsecutiveAnglesDataset(split=s)
+        datasets.CathConsecutiveAnglesDataset(split=s, toy=toy)
         for s in ["train", "validation", "test"]
     ]
     noised_dsets = [
@@ -75,9 +75,11 @@ def train(
     gradient_clip: float = 0.0,
     batch_size: int = 128,
     lr: float = 1e-4,
+    loss: Literal["huber", "radian_l1"] = "huber",
     epochs: int = 200,
     early_stop_patience: int = 3,
     multithread: bool = True,
+    toy: bool = False,
 ):
     """Main training loop"""
     # Record the args given to the function before we create more vars
@@ -96,7 +98,7 @@ def train(
 
     # Get datasets and wrap them in dataloaders
     dsets = get_train_valid_test_sets(
-        timesteps=timesteps, variance_schedule=variance_schedule
+        timesteps=timesteps, variance_schedule=variance_schedule, toy=toy
     )
     train_dataloader, valid_dataloader, test_dataloader = [
         DataLoader(
@@ -109,7 +111,7 @@ def train(
     ]
 
     cfg = BertConfig(hidden_size=144, position_embedding_type="relative_key_query",)
-    model = modelling.BertForDiffusion(cfg, lr=lr)
+    model = modelling.BertForDiffusion(cfg, lr=lr, loss=loss)
 
     trainer = pl.Trainer(
         default_root_dir=results_folder,
@@ -146,6 +148,9 @@ def build_parser() -> argparse.ArgumentParser:
         default=os.path.join(os.getcwd(), "results"),
         help="Directory to write model training outputs",
     )
+    parser.add_argument(
+        "--toy", action="store_true", help="Use a toy dataset instead of the real one",
+    )
     return parser
 
 
@@ -157,7 +162,7 @@ def main():
     # Load in parameters and run training loop
     with open(args.config_json) as source:
         config_args = json.load(source)
-    train(results_dir=args.outdir, **config_args)
+    train(results_dir=args.outdir, toy=args.toy, **config_args)
 
 
 if __name__ == "__main__":
