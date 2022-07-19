@@ -226,9 +226,9 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         per_token_decoded = self.token_decoder(sequence_output)
         return per_token_decoded
 
-    def training_step(self, batch, batch_idx):
+    def _get_loss_terms(self, batch):
         """
-        Training step
+        Returns the loss terms for the model.
         """
         known_noise = batch["known_noise"]
         predicted_noise = self.forward(
@@ -237,18 +237,27 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
 
         # Indexes into batch then indices along sequence length
         unmask_idx = torch.where(batch["attn_mask"])
-        loss = 0.0
+        loss_terms = []
         for i in range(known_noise.shape[-1]):
             loss_fn = (
                 self.loss_func[i]
                 if isinstance(self.loss_func, list)
                 else self.loss_func
             )
-            loss += loss_fn(
-                known_noise[:, :, i][unmask_idx], predicted_noise[:, :, i][unmask_idx]
+            loss_terms.append(
+                loss_fn(
+                    known_noise[:, :, i][unmask_idx],
+                    predicted_noise[:, :, i][unmask_idx],
+                )
             )
+        return loss_terms
 
-        avg_loss = loss / known_noise.shape[-1]
+    def training_step(self, batch, batch_idx):
+        """
+        Training step
+        """
+        loss_terms = self._get_loss_terms(batch)
+        avg_loss = torch.mean(torch.stack(loss_terms))
 
         # L1 loss implementation
         if self.l1_lambda > 0:
@@ -262,8 +271,14 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         Validation step
         """
         with torch.no_grad():
-            loss = self.training_step(batch, batch_idx)
-        self.log("val_loss", loss)
+            loss_terms = self._get_loss_terms(batch)
+
+        # Log each of the loss terms
+        for val_name, val in zip(["bond_dist", "omega", "theta", "phi"], loss_terms):
+            self.log(f"val_loss_{val_name}", val)
+
+        avg_loss = torch.mean(torch.stack(loss_terms))
+        self.log("val_loss", avg_loss)
 
     def configure_optimizers(self):
         """
