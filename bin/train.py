@@ -82,6 +82,8 @@ def train(
     batch_size: int = 128,
     lr: float = 1e-4,
     loss: Literal["huber", "radian_l1"] = "huber",
+    l2_norm: float = 0.0,
+    l1_norm: float = 0.0,
     epochs: int = 200,
     early_stop_patience: int = 5,
     multithread: bool = True,
@@ -119,7 +121,7 @@ def train(
     ]
 
     cfg = BertConfig(hidden_size=144, position_embedding_type="relative_key_query",)
-    model = modelling.BertForDiffusion(cfg, lr=lr, loss=loss)
+    model = modelling.BertForDiffusion(cfg, lr=lr, loss=loss, l2=l2_norm, l1=l1_norm)
 
     trainer = pl.Trainer(
         default_root_dir=results_folder,

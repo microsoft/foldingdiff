@@ -55,6 +55,8 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         config,
         lr: float = 1e-4,
         loss: Literal["huber", "radian_l1"] = "huber",
+        l2: float = 0.0,
+        l1: float = 0.0,
         add_pooling_layer: bool = False,
     ) -> None:
         """
@@ -75,6 +77,8 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
                 losses.radian_l1_loss,
             ],
         }[loss]
+        self.l1_lambda = l1
+        self.l2_lambda = l2
 
         # Needed to project the low dimensional input to hidden dim
         self.inputs_to_hidden_dim = nn.Linear(
@@ -243,10 +247,15 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
             loss += loss_fn(
                 known_noise[:, :, i][unmask_idx], predicted_noise[:, :, i][unmask_idx]
             )
-        # print(len(batch["attn_mask"]))
-        # print(unmask_idx)
-        # loss = self.loss_func(known_noise[unmask_idx], predicted_noise[unmask_idx])
-        return loss / known_noise.shape[-1]
+
+        avg_loss = loss / known_noise.shape[-1]
+
+        # L1 loss implementation
+        if self.l1_lambda > 0:
+            l1_penalty = sum(torch.linalg.norm(p, 1) for p in self.parameters())
+            avg_loss += self.l1_lambda * l1_penalty
+
+        return avg_loss
 
     def validation_step(self, batch, batch_idx):
         """
@@ -260,7 +269,9 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         """
         Return optimizer
         """
-        return torch.optim.Adam(self.parameters(), lr=self.learning_rate)
+        return torch.optim.Adam(
+            self.parameters(), lr=self.learning_rate, weight_decay=self.l2_lambda
+        )
 
 
 def main():
