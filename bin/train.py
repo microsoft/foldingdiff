@@ -131,7 +131,10 @@ def train(
         callbacks=[
             pl.callbacks.early_stopping.EarlyStopping(
                 monitor="val_loss", mode="min", patience=early_stop_patience
-            )
+            ),
+            pl.callbacks.ModelCheckpoint(
+                monitor="val_loss", save_top_k=1, save_weights_only=True,
+            ),
         ],
         accelerator="gpu" if torch.cuda.is_available() else "cpu",
         devices=1,
