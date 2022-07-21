@@ -134,8 +134,10 @@ class CathConsecutiveAnglesDataset(Dataset):
         elif angles.shape[0] > self.pad:
             angles = angles[: self.pad]
 
+        position_ids = torch.arange(start=0, end=self.pad, step=1, dtype=torch.long)
+
         retval = torch.from_numpy(angles).float()
-        return {"angles": retval, "attn_mask": attn_mask}
+        return {"angles": retval, "attn_mask": attn_mask, "position_ids": position_ids}
 
 
 class NoisedAnglesDataset(Dataset):
