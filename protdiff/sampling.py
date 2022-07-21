@@ -7,12 +7,21 @@ from typing import *
 from tqdm.auto import tqdm
 
 import torch
+from torch import nn
 
 import utils
 
 
 @torch.no_grad()
-def p_sample(model, x, t, seq_lens: Sequence[int], t_index, betas, posterior_variance):
+def p_sample(
+    model: nn.Module,
+    x: torch.Tensor,
+    t: torch.Tensor,
+    seq_lens: Sequence[int],
+    t_index: torch.Tensor,
+    betas: torch.Tensor,
+    posterior_variance: torch.Tensor,
+):
     # Calculate alphas and betas
     alphas = 1.0 - betas
     sqrt_recip_alphas = torch.sqrt(1.0 / alphas)
@@ -50,12 +59,12 @@ def p_sample(model, x, t, seq_lens: Sequence[int], t_index, betas, posterior_var
 
 @torch.no_grad()
 def p_sample_loop(
-    model,
+    model: nn.Module,
     lengths: Sequence[int],
     shape: Tuple[int],
     timesteps: int,
-    betas,
-    posterior_variance,
+    betas: torch.Tensor,
+    posterior_variance: torch.Tensor,
 ) -> "list[torch.Tensor]":
     logging.info(f"Sampling of shape {shape}")
     device = next(model.parameters()).device
@@ -83,11 +92,11 @@ def p_sample_loop(
 
 @torch.no_grad()
 def sample(
-    model,
+    model: nn.Module,
     seq_lens: Sequence[int],
     seq_max_len: int,
-    betas,
-    posterior_variance,
+    betas: torch.Tensor,
+    posterior_variance: torch.Tensor,
     batch_size: int = 16,
     channels: int = 4,
     timesteps: int = 200,
