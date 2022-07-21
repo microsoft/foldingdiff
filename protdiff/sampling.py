@@ -12,7 +12,7 @@ import utils
 
 
 @torch.no_grad()
-def p_sample(model, x, t, t_index, betas, posterior_variance):
+def p_sample(model, x, t, seq_lens: Sequence[int], t_index, betas, posterior_variance):
     # Calculate alphas and betas
     alphas = 1.0 - betas
     sqrt_recip_alphas = torch.sqrt(1.0 / alphas)
@@ -25,10 +25,18 @@ def p_sample(model, x, t, t_index, betas, posterior_variance):
     )
     sqrt_recip_alphas_t = utils.extract(sqrt_recip_alphas, t, x.shape)
 
+    # Create the attention mask
+    attn_mask = torch.zeros(x.shape[:2], dtype=torch.bool, device=x.device)
+    for i, l in enumerate(seq_lens):
+        attn_mask[i, :l] = 1.0
+
     # Equation 11 in the paper
     # Use our model (noise predictor) to predict the mean
     model_mean = sqrt_recip_alphas_t * (
-        x - betas_t * model(x, t) / sqrt_one_minus_alphas_cumprod_t
+        x
+        - betas_t
+        * model(x, t, attention_mask=attn_mask)
+        / sqrt_one_minus_alphas_cumprod_t
     )
 
     if t_index == 0:
@@ -42,7 +50,12 @@ def p_sample(model, x, t, t_index, betas, posterior_variance):
 
 @torch.no_grad()
 def p_sample_loop(
-    model, shape: Tuple[int], timesteps: int, betas, posterior_variance
+    model,
+    lengths: Sequence[int],
+    shape: Tuple[int],
+    timesteps: int,
+    betas,
+    posterior_variance,
 ) -> "list[torch.Tensor]":
     logging.info(f"Sampling of shape {shape}")
     device = next(model.parameters()).device
@@ -56,10 +69,11 @@ def p_sample_loop(
         reversed(range(0, timesteps)), desc="sampling loop time step", total=timesteps
     ):
         img = p_sample(
-            model,
-            img,
-            torch.full((b,), i, device=device, dtype=torch.long),  # time vector
-            i,
+            model=model,
+            x=img,
+            t=torch.full((b,), i, device=device, dtype=torch.long),  # time vector
+            seq_lens=lengths,
+            t_index=i,
             betas=betas,
             posterior_variance=posterior_variance,
         )
@@ -70,16 +84,18 @@ def p_sample_loop(
 @torch.no_grad()
 def sample(
     model,
-    seq_len,
+    seq_lens: Sequence[int],
+    seq_max_len: int,
     betas,
     posterior_variance,
-    batch_size=16,
-    channels=4,
+    batch_size: int = 16,
+    channels: int = 4,
     timesteps: int = 200,
 ) -> torch.Tensor:
     return p_sample_loop(
         model,
-        shape=(batch_size, seq_len, channels),
+        lengths=seq_lens,
+        shape=(batch_size, seq_max_len, channels),
         timesteps=timesteps,
         betas=betas,
         posterior_variance=posterior_variance,
