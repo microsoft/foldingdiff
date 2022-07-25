@@ -65,13 +65,31 @@ def p_sample_loop(
     timesteps: int,
     betas: torch.Tensor,
     posterior_variance: torch.Tensor,
+    noise_modulo: Optional[Union[float, Iterable[float]]] = None,
 ) -> "list[torch.Tensor]":
     logging.info(f"Sampling of shape {shape}")
     device = next(model.parameters()).device
 
     b = shape[0]
     # start from pure noise (for each example in the batch)
-    img = torch.randn(shape, device=device)
+    assert len(shape) == 3
+    img = []
+    for _ in range(shape[0]):
+        rand_vals = torch.randn(shape[1:], device=device)
+        if noise_modulo:
+            rand_vals = torch.vstack(
+                [v % m if m > 0 else v for v, m in zip(rand_vals.T, noise_modulo)]
+            ).T
+        img.append(rand_vals)
+    img = torch.stack(img, axis=0)
+    assert img.shape == shape, f"Mismatched shapes: {img.shape} != {shape}"
+
+    # Report metrics on starting noise
+    # amin and amax support reducing on multiple dimensions
+    logging.info(
+        f"Starting from noise with modulo {noise_modulo} and range {torch.amin(img, dim=(0, 1))} - {torch.amax(img, dim=(0, 1))}"
+    )
+
     imgs = []
 
     for i in tqdm(
@@ -100,6 +118,7 @@ def sample(
     batch_size: int = 16,
     channels: int = 4,
     timesteps: int = 200,
+    noise_modulo: Optional[Union[float, Iterable[float]]] = None,
 ) -> torch.Tensor:
     retval = p_sample_loop(
         model,
@@ -108,6 +127,7 @@ def sample(
         timesteps=timesteps,
         betas=betas,
         posterior_variance=posterior_variance,
+        noise_modulo=noise_modulo,
     )[-1]
 
     # Trim the sequences by sequence lengths
