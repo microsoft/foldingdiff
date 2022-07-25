@@ -165,12 +165,14 @@ class NoisedAnglesDataset(Dataset):
         timesteps: int = 1000,
         beta_schedule: beta_schedules.SCHEDULES = "linear",
         modulo: Optional[Union[float, Iterable[float]]] = None,
+        noise_by_modulo: bool = False,
     ) -> None:
         super().__init__()
         self.dset = dset
         self.dset_key = dset_key
 
         self.modulo = modulo
+        self.noise_by_modulo = noise_by_modulo
 
         self.timesteps = timesteps
         self.schedule = beta_schedule
@@ -184,6 +186,27 @@ class NoisedAnglesDataset(Dataset):
 
     def __len__(self) -> int:
         return len(self.dset)
+
+    def sample_noise_adaptive(self, vals: torch.Tensor) -> torch.Tensor:
+        """
+        Adaptively sample noise based on modulo. This is necessary because
+        if we have a modulo term, then the minimum value is 0 and generating
+        noise with 0 mean results in a weird bimodal distribution
+        """
+        noise = torch.randn_like(vals)
+        # If modulo not given, or if noise_by_modulo is False, then just return noise
+        if self.modulo is None or not self.noise_by_modulo:
+            return noise
+        raise NotImplementedError
+        # Module is being used -- shift the noise
+        # TODO implement if necessary
+        try:
+            centers = torch.tensor([m / 2 for m in self.modulo])
+            noise += centers
+        except TypeError:
+            noise += self.modulo / 2
+
+        return noise
 
     def __getitem__(
         self, index, use_t_val: Optional[int] = None
@@ -211,7 +234,7 @@ class NoisedAnglesDataset(Dataset):
         sqrt_one_minus_alphas_cumprod_t = utils.extract(
             self.sqrt_one_minus_alphas_cumprod, t, vals.shape
         )
-        noise = torch.randn_like(vals)
+        noise = self.sample_noise_adaptive(vals)
         noised_vals = (
             sqrt_alphas_cumprod_t * vals + sqrt_one_minus_alphas_cumprod_t * noise
         )
