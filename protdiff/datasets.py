@@ -242,7 +242,6 @@ class NoisedAnglesDataset(Dataset):
         # If modulo is given ensure that we do modulo
         if self.modulo is not None:
             try:
-                iter(self.modulo)
                 assert (
                     len(self.modulo) == noised_vals.shape[1]
                 ), f"Mismatched shapes: {noised_vals.shape} vs {len(self.modulo)} modulo terms"
