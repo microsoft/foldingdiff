@@ -41,7 +41,7 @@ def radian_smooth_l1_loss(
     >>> radian_smooth_l1_loss(torch.tensor(0.1), torch.tensor(2 * np.pi - 0.1))
     tensor(0.0200)
     >>> radian_smooth_l1_loss(torch.tensor(0.0), torch.tensor(3.14))
-    tensor(2.64)
+    tensor(2.6400)
     """
     target = target % (2 * torch.pi)
     input = input % (2 * torch.pi)
