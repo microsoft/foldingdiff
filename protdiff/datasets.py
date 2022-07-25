@@ -102,10 +102,18 @@ class CathConsecutiveAnglesDataset(Dataset):
         logging.info(f"Removed structures with nan {orig_count} -> {new_count}")
 
         # Aggregate the lengths
-        all_lengths = [s["angles"].shape[0] for s in self.structures]
+        self.all_lengths = [s["angles"].shape[0] for s in self.structures]
+        self._length_rng = np.random.default_rng(seed=6489)
         logging.info(
-            f"Length of angles: {np.min(all_lengths)}-{np.max(all_lengths)}, mean {np.mean(all_lengths)}"
+            f"Length of angles: {np.min(self.all_lengths)}-{np.max(self.all_lengths)}, mean {np.mean(self.all_lengths)}"
         )
+
+    def sample_length(self) -> int:
+        """
+        Sample a observed length of a sequence
+        """
+        l = self._length_rng.choice(self.all_lengths)
+        return l
 
     def __len__(self) -> int:
         """Returns the length of this object"""
