@@ -120,8 +120,11 @@ def train(
         for i, ds in enumerate(dsets)
     ]
 
+    # https://jaketae.github.io/study/relative-positional-encoding/
+    # looking at the relative distance between things is more robust
     cfg = BertConfig(hidden_size=144, position_embedding_type="relative_key_query",)
     model = modelling.BertForDiffusion(cfg, lr=lr, loss=loss, l2=l2_norm, l1=l1_norm)
+    cfg.save_pretrained(results_folder)
 
     trainer = pl.Trainer(
         default_root_dir=results_folder,
