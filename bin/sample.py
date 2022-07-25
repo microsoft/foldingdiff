@@ -7,6 +7,8 @@ import json
 from pathlib import Path
 from typing import List, Optional
 
+import numpy as np
+
 import torch
 from torch.nn import functional as F
 
@@ -46,7 +48,7 @@ def sample(
     # Reproduce the variance schedules bsaed on the config json
     if config_json is None:
         # Try to find a default config
-        config_json = os.path.join(os.path.dirname(model_path, "config.json"))
+        config_json = os.path.join(os.path.dirname(model_path, "training_args.json"))
         assert os.path.isfile(
             config_json
         ), f"Could not automatically find config at {config_json}"
@@ -79,6 +81,7 @@ def sample(
             posterior_variance=posterior_variance,
             timesteps=model_config["timesteps"],
             batch_size=bs,
+            noise_modulo=[0, 2 * np.pi, 2 * np.pi, 2 * np.pi],
         )
         samps.extend(s)
     # samps = torch.vstack(samps)

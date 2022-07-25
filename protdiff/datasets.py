@@ -197,14 +197,14 @@ class NoisedAnglesDataset(Dataset):
         # If modulo not given, or if noise_by_modulo is False, then just return noise
         if self.modulo is None or not self.noise_by_modulo:
             return noise
-        raise NotImplementedError
         # Module is being used -- shift the noise
-        # TODO implement if necessary
+        assert self.modulo is not None
         try:
-            centers = torch.tensor([m / 2 for m in self.modulo])
-            noise += centers
+            centers = torch.tensor([m / 2 if m > 0 else 0 for m in self.modulo])
+            v = torch.tensor([m / 6 if m > 0 else 1 for m in self.modulo])
+            noise = noise * v + centers
         except TypeError:
-            noise += self.modulo / 2
+            noise = noise * self.modulo / 6 + self.modulo / 2
 
         return noise
 
