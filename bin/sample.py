@@ -5,7 +5,7 @@ import os, sys
 import logging
 import json
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 import torch
 from torch.nn import functional as F
@@ -22,11 +22,18 @@ import utils
 
 
 def sample(
-    num: int, model_path: str, config_json: Optional[str] = None, seed: int = 6489
-) -> torch.Tensor:
+    num: int,
+    dset_obj,
+    model_path: str,
+    config_json: Optional[str] = None,
+    seed: int = 6489,
+) -> List[torch.Tensor]:
     """
     Sample from the given model
     """
+    assert hasattr(
+        dset_obj, "sample_length"
+    ), "Passed dataset object must have a sample_length attribute"
     # Load in the model
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     cfg = BertConfig(hidden_size=144, position_embedding_type="relative_key_query")
@@ -42,7 +49,7 @@ def sample(
         config_json = os.path.join(os.path.dirname(model_path, "config.json"))
         assert os.path.isfile(
             config_json
-        ), f"Could not automiatcally find config at {config_json}"
+        ), f"Could not automatically find config at {config_json}"
     with open(config_json) as source:
         model_config = json.load(source)
     betas = beta_schedules.get_variance_schedule(
@@ -63,25 +70,33 @@ def sample(
     torch.manual_seed(seed)
     samps = []
     for bs in utils.num_to_groups(num, 512):
+        seq_lens = [dset_obj.sample_length() for _ in range(bs)]
         s = sampling.sample(
             model,
-            seq_len=512,
+            seq_lens=seq_lens,
+            seq_max_len=model.config.max_position_embeddings,
             betas=betas,
             posterior_variance=posterior_variance,
             timesteps=model_config["timesteps"],
             batch_size=bs,
         )
-        samps.append(s)
-    samps = torch.vstack(samps)
+        samps.extend(s)
+    # samps = torch.vstack(samps)
     return samps
 
 
 def main():
-    sample(
-        100,
-        "/home/t-kevinwu/projects/protein_diffusion/models/1000_timesteps_linear_variance_schedule_64_batch_size_0.0001_lr_0.5_gradient_clip/lightning_logs/version_0/checkpoints/epoch=9-step=1990.ckpt",
-        "/home/t-kevinwu/projects/protein_diffusion/models/1000_timesteps_linear_variance_schedule_64_batch_size_0.0001_lr_0.5_gradient_clip/training_args.json",
+    import datasets
+
+    cath_dset = datasets.CathConsecutiveAnglesDataset(split="train", toy=True)
+    x = sample(
+        10,
+        cath_dset,
+        "/home/t-kevinwu/projects/protein_diffusion/models_initial/1000_timesteps_linear_variance_schedule_64_batch_size_0.0001_lr_0.5_gradient_clip/lightning_logs/version_0/checkpoints/epoch=9-step=1990.ckpt",
+        "/home/t-kevinwu/projects/protein_diffusion/models_initial/1000_timesteps_linear_variance_schedule_64_batch_size_0.0001_lr_0.5_gradient_clip/training_args.json",
     )
+    for item in x:
+        print(item.shape)
 
 
 if __name__ == "__main__":

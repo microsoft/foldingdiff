@@ -101,7 +101,7 @@ def sample(
     channels: int = 4,
     timesteps: int = 200,
 ) -> torch.Tensor:
-    return p_sample_loop(
+    retval = p_sample_loop(
         model,
         lengths=seq_lens,
         shape=(batch_size, seq_max_len, channels),
@@ -109,3 +109,7 @@ def sample(
         betas=betas,
         posterior_variance=posterior_variance,
     )[-1]
+
+    # Trim the sequences by sequence lengths
+    retval = [retval[i, :l, :] for i, l in enumerate(seq_lens)]
+    return retval
