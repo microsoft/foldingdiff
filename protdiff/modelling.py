@@ -54,7 +54,7 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         self,
         config,
         lr: float = 1e-4,
-        loss: Literal["huber", "radian_l1"] = "huber",
+        loss: Literal["huber", "radian_l1", "radian_l1_smooth"] = "huber",
         l2: float = 0.0,
         l1: float = 0.0,
         add_pooling_layer: bool = False,
@@ -76,6 +76,12 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
                 losses.radian_l1_loss,
                 losses.radian_l1_loss,
             ],
+            "radian_l1_smooth": [
+                F.smooth_l1_loss,
+                losses.radian_smooth_l1_loss,
+                losses.radian_smooth_l1_loss,
+                losses.radian_smooth_l1_loss,
+            ]
         }[loss]
         self.l1_lambda = l1
         self.l2_lambda = l2

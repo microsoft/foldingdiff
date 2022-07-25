@@ -25,6 +25,34 @@ def radian_l1_loss(input: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
     return torch.mean(retval)
 
 
+def radian_smooth_l1_loss(
+    input: torch.Tensor, target: torch.Tensor, beta: float = 1.0
+) -> torch.Tensor:
+    """
+    Smooth radian L1 loss
+    if the abs(delta) < beta --> 0.5 * delta^2 / beta
+    else --> abs(delta) - 0.5 * beta
+
+    See:
+    https://pytorch.org/docs/stable/_modules/torch/nn/functional.html#smooth_l1_loss
+
+    >>> radian_smooth_l1_loss(torch.tensor(0.1), 2 * torch.pi)
+    tensor(0.0050)
+    >>> radian_smooth_l1_loss(torch.tensor(0.1), torch.tensor(2 * np.pi - 0.1))
+    tensor(0.0200)
+    >>> radian_smooth_l1_loss(torch.tensor(0.0), torch.tensor(3.14))
+    tensor(2.64)
+    """
+    target = target % (2 * torch.pi)
+    input = input % (2 * torch.pi)
+    d = target - input
+    d = (d + torch.pi) % (2 * torch.pi) - torch.pi
+    d = torch.abs(d)
+
+    retval = torch.where(d < beta, 0.5 * d ** 2 / beta, abs(d) - 0.5 * beta)
+    return retval
+
+
 def main():
     l = radian_l1_loss(torch.tensor(0.1), torch.tensor(2 * np.pi - 0.1))
     print(l)
