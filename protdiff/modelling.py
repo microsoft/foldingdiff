@@ -81,8 +81,9 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
                 losses.radian_smooth_l1_loss,
                 losses.radian_smooth_l1_loss,
                 losses.radian_smooth_l1_loss,
-            ]
+            ],
         }[loss]
+        logging.info(f"Using loss: {self.loss_func}")
         self.l1_lambda = l1
         self.l2_lambda = l2
 

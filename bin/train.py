@@ -48,7 +48,10 @@ def plot_epoch_losses(loss_values, fname: str):
 
 
 def get_train_valid_test_sets(
-    timesteps: int, variance_schedule: SCHEDULES, adaptive_noise_mean_var: bool = True, toy: bool = False
+    timesteps: int,
+    variance_schedule: SCHEDULES,
+    adaptive_noise_mean_var: bool = True,
+    toy: bool = False,
 ) -> Tuple[Dataset, Dataset, Dataset]:
     """
     Get the dataset objects to use for train/valid/test
@@ -79,11 +82,11 @@ def train(
     results_dir: str = "./results",
     timesteps: int = 1000,
     variance_schedule: SCHEDULES = "linear",
-    adaptive_noise_mean_var:bool=True,
+    adaptive_noise_mean_var: bool = True,
     gradient_clip: float = 0.5,
     batch_size: int = 64,
     lr: float = 1e-4,
-    loss: Literal["huber", "radian_l1"] = "radian_l1",
+    loss: Literal["huber", "radian_l1", "radian_l1_smooth"] = "radian_l1",
     l2_norm: float = 0.0,
     l1_norm: float = 0.0,
     epochs: int = 200,
@@ -110,7 +113,10 @@ def train(
 
     # Get datasets and wrap them in dataloaders
     dsets = get_train_valid_test_sets(
-        timesteps=timesteps, variance_schedule=variance_schedule, adaptive_noise_mean_var=adaptive_noise_mean_var, toy=toy
+        timesteps=timesteps,
+        variance_schedule=variance_schedule,
+        adaptive_noise_mean_var=adaptive_noise_mean_var,
+        toy=toy,
     )
     train_dataloader, valid_dataloader, test_dataloader = [
         DataLoader(
