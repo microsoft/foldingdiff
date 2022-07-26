@@ -137,6 +137,7 @@ def train(
     # Create plots in output directories of distributions from different timesteps
     os.makedirs(results_folder / "plots", exist_ok=True)
     for t in np.linspace(0, timesteps, num=11, endpoint=True).astype(int):
+        t = min(t, timesteps - 1)  # Ensure we don't exceed the number of timesteps
         logging.info(f"Plotting distirbution at time {t}")
         plotting.plot_val_dists_at_t(
             dsets[0],
