@@ -86,7 +86,7 @@ def train(
     gradient_clip: float = 0.5,
     batch_size: int = 64,
     lr: float = 1e-4,
-    loss: Literal["huber", "radian_l1", "radian_l1_smooth"] = "radian_l1",
+    loss: Literal["huber", "radian_l1", "radian_l1_smooth"] = "radian_l1_smooth",
     l2_norm: float = 0.0,
     l1_norm: float = 0.0,
     epochs: int = 200,
