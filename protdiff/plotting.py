@@ -21,7 +21,6 @@ def plot_val_dists_at_t(
     t: int,
     share_axes: bool = True,
     zero_center_angles: bool = False,
-    mod_2pi_angles: bool = True,
     fname: Optional[str] = None,
 ):
     select_by_attn = lambda x: x["corrupted"][torch.where(x["attn_mask"])]
@@ -41,8 +40,6 @@ def plot_val_dists_at_t(
         val_name = ["dist", "omega", "theta", "phi"][i]
         # Plot the values
         vals = vals_flat[:, i]
-        if val_name != "dist" and mod_2pi_angles:
-            vals = vals % (2 * np.pi)
         sns.histplot(vals, ax=ax)
         if val_name != "dist":
             if zero_center_angles:
