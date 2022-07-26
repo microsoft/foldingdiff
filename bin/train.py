@@ -51,6 +51,7 @@ def plot_epoch_losses(loss_values, fname: str):
 def get_train_valid_test_sets(
     timesteps: int,
     variance_schedule: SCHEDULES,
+    noise_prior: Literal["gaussian", "uniform"] = "gaussian",
     adaptive_noise_mean_var: bool = True,
     shift_to_zero_twopi: bool = True,
     toy: bool = False,
@@ -66,8 +67,17 @@ def get_train_valid_test_sets(
         )
         for s in ["train", "validation", "test"]
     ]
+
+    if noise_prior == "gaussian":
+        dset_noiser_class = datasets.NoisedAnglesDataset
+    elif noise_prior == "uniform":
+        dset_noiser_class = datasets.GaussianDistUniformAnglesNoisedDataset
+    else:
+        raise ValueError(f"Unrecognized noise prior: {noise_prior}")
+
+    logging.info(f"Using {dset_noiser_class.__name__} for noise")
     noised_dsets = [
-        datasets.NoisedAnglesDataset(
+        dset_noiser_class(
             ds,
             dset_key="angles",
             timesteps=timesteps,
@@ -85,6 +95,7 @@ def get_train_valid_test_sets(
 def train(
     results_dir: str = "./results",
     shift_angles_zero_twopi: bool = True,
+    noise_prior: Literal["gaussian", "uniform"] = "gaussian",
     timesteps: int = 1000,
     variance_schedule: SCHEDULES = "linear",
     adaptive_noise_mean_var: bool = True,
@@ -120,6 +131,7 @@ def train(
     dsets = get_train_valid_test_sets(
         timesteps=timesteps,
         variance_schedule=variance_schedule,
+        noise_prior=noise_prior,
         adaptive_noise_mean_var=adaptive_noise_mean_var,
         shift_to_zero_twopi=shift_angles_zero_twopi,
         toy=toy,
@@ -138,7 +150,7 @@ def train(
     os.makedirs(results_folder / "plots", exist_ok=True)
     for t in np.linspace(0, timesteps, num=11, endpoint=True).astype(int):
         t = min(t, timesteps - 1)  # Ensure we don't exceed the number of timesteps
-        logging.info(f"Plotting distirbution at time {t}")
+        logging.info(f"Plotting distribution at time {t}")
         plotting.plot_val_dists_at_t(
             dsets[0],
             t=t,

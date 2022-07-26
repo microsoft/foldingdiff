@@ -267,7 +267,7 @@ class NoisedAnglesDataset(Dataset):
         return retval
 
 
-class GaussianDistUniformAnglesNoisedAnglesDataset(NoisedAnglesDataset):
+class GaussianDistUniformAnglesNoisedDataset(NoisedAnglesDataset):
     """
     Same as NoisedAnglesDataset but with uniform noise for the angles. Importantly, we keep
     the Gaussian noise for the distances.
