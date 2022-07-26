@@ -31,6 +31,7 @@ sys.path.append(str(SRC_DIR))
 import datasets
 import modelling
 from beta_schedules import SCHEDULES
+import plotting
 
 
 # reproducibility
@@ -127,6 +128,17 @@ def train(
         )
         for i, ds in enumerate(dsets)
     ]
+
+    # Create plots in output directories of distributions from different timesteps
+    os.makedirs(results_folder / "plots", exist_ok=True)
+    for t in np.linspace(0, timesteps, num=11, endpoint=True).astype(int):
+        logging.info(f"Plotting distirbution at time {t}")
+        plotting.plot_val_dists_at_t(
+            dsets[0],
+            t=t,
+            share_axes=False,
+            fname=results_folder / "plots" / f"train_dists_at_t_{t}.pdf",
+        )
 
     # https://jaketae.github.io/study/relative-positional-encoding/
     # looking at the relative distance between things is more robust
