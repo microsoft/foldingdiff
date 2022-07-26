@@ -52,6 +52,7 @@ def get_train_valid_test_sets(
     timesteps: int,
     variance_schedule: SCHEDULES,
     adaptive_noise_mean_var: bool = True,
+    shift_to_zero_twopi: bool = True,
     toy: bool = False,
 ) -> Tuple[Dataset, Dataset, Dataset]:
     """
@@ -61,7 +62,7 @@ def get_train_valid_test_sets(
     """
     clean_dsets = [
         datasets.CathConsecutiveAnglesDataset(
-            split=s, shift_to_zero_twopi=True, toy=toy
+            split=s, shift_to_zero_twopi=shift_to_zero_twopi, toy=toy
         )
         for s in ["train", "validation", "test"]
     ]
@@ -71,7 +72,9 @@ def get_train_valid_test_sets(
             dset_key="angles",
             timesteps=timesteps,
             beta_schedule=variance_schedule,
-            modulo=[0, 2 * np.pi, 2 * np.pi, 2 * np.pi],
+            modulo=(
+                [0, 2 * np.pi, 2 * np.pi, 2 * np.pi] if shift_to_zero_twopi else None
+            ),
             noise_by_modulo=adaptive_noise_mean_var,
         )
         for ds in clean_dsets
@@ -81,6 +84,7 @@ def get_train_valid_test_sets(
 
 def train(
     results_dir: str = "./results",
+    shift_angles_zero_twopi: bool = True,
     timesteps: int = 1000,
     variance_schedule: SCHEDULES = "linear",
     adaptive_noise_mean_var: bool = True,
@@ -117,6 +121,7 @@ def train(
         timesteps=timesteps,
         variance_schedule=variance_schedule,
         adaptive_noise_mean_var=adaptive_noise_mean_var,
+        shift_to_zero_twopi=shift_angles_zero_twopi,
         toy=toy,
     )
     train_dataloader, valid_dataloader, test_dataloader = [
@@ -137,6 +142,7 @@ def train(
             dsets[0],
             t=t,
             share_axes=False,
+            zero_center_angles=not shift_angles_zero_twopi,
             fname=results_folder / "plots" / f"train_dists_at_t_{t}.pdf",
         )
 
