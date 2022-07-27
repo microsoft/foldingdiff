@@ -21,7 +21,12 @@ def p_sample(
     t_index: torch.Tensor,
     betas: torch.Tensor,
     posterior_variance: torch.Tensor,
-):
+) -> torch.Tensor:
+    """
+    Sample the given timestep. Note that this _may_ fall off the manifold if we just
+    feed the output back into itself repeatedly, so we need to perform modulo on it
+    (see p_sample_loop)
+    """
     # Calculate alphas and betas
     alphas = 1.0 - betas
     sqrt_recip_alphas = torch.sqrt(1.0 / alphas)
