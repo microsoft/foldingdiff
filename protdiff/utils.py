@@ -35,7 +35,7 @@ def num_to_groups(num: int, divisor: int) -> List[int]:
 
 def broadcast_mod(x: torch.Tensor, m: Union[float, torch.Tensor]) -> torch.Tensor:
     """
-    Perform modulo on x % m while broadcasting
+    Perform modulo on x % m while broadcasting. values in m that are 0 are ignored.
     >>> broadcast_mod(torch.arange(24).reshape(2, 3, 4), torch.tensor([5, 7, 9, 11]))
     tensor([[[0, 1, 2, 3],
              [4, 5, 6, 7],
@@ -44,12 +44,24 @@ def broadcast_mod(x: torch.Tensor, m: Union[float, torch.Tensor]) -> torch.Tenso
             [[2, 6, 5, 4],
              [1, 3, 0, 8],
              [0, 0, 4, 1]]])
+    >>> broadcast_mod(torch.arange(24).reshape(2, 3, 4), torch.tensor([0, 7, 9, 11]))
+    tensor([[[ 0,  1,  2,  3],
+             [ 4,  5,  6,  7],
+             [ 8,  2,  1,  0]],
+    <BLANKLINE>
+            [[12,  6,  5,  4],
+             [16,  3,  0,  8],
+             [20,  0,  4,  1]]])
     """
     if isinstance(m, float):
+        assert m != 0
         return torch.remainder(x, m)
     # m is a tensor so we need to broadcast
     # https://pytorch.org/docs/stable/generated/torch.Tensor.expand.html#torch.Tensor.expand
-    return torch.remainder(x, m.expand(*x.shape))
+    m_clipped = m.clamp(min=1)
+    moddded = torch.remainder(x, m_clipped.expand(*x.shape))
+    retval = torch.where(m == 0, x, moddded)
+    return retval
 
 
 if __name__ == "__main__":
