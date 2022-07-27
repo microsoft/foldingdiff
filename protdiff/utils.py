@@ -56,6 +56,7 @@ def broadcast_mod(x: torch.Tensor, m: Union[float, torch.Tensor]) -> torch.Tenso
     if isinstance(m, float):
         assert m != 0
         return torch.remainder(x, m)
+    m = m.to(x.device)
     # m is a tensor so we need to broadcast
     # https://pytorch.org/docs/stable/generated/torch.Tensor.expand.html#torch.Tensor.expand
     m_clipped = m.clamp(min=1)

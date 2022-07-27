@@ -81,7 +81,7 @@ def sample(
             posterior_variance=posterior_variance,
             timesteps=model_config["timesteps"],
             batch_size=bs,
-            noise_modulo=[0, 2 * np.pi, 2 * np.pi, 2 * np.pi],
+            noise_modulo=torch.Tensor([0, 2 * torch.pi, 2 * torch.pi, 2 * torch.pi]),
         )
         samps.extend(s)
     # samps = torch.vstack(samps)

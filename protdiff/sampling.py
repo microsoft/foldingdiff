@@ -65,7 +65,7 @@ def p_sample_loop(
     timesteps: int,
     betas: torch.Tensor,
     posterior_variance: torch.Tensor,
-    noise_modulo: Optional[Union[float, Iterable[float]]] = None,
+    noise_modulo: Optional[Union[float, torch.Tensor]] = None,
 ) -> "list[torch.Tensor]":
     logging.info(f"Sampling of shape {shape} with modulo {noise_modulo}")
     device = next(model.parameters()).device
@@ -73,15 +73,9 @@ def p_sample_loop(
     b = shape[0]
     # start from pure noise (for each example in the batch)
     assert len(shape) == 3
-    img = []
-    for _ in range(shape[0]):
-        rand_vals = torch.randn(shape[1:], device=device)
-        if noise_modulo:
-            rand_vals = torch.vstack(
-                [v % m if m > 0 else v for v, m in zip(rand_vals.T, noise_modulo)]
-            ).T
-        img.append(rand_vals)
-    img = torch.stack(img, axis=0)
+    img = torch.randn(shape, device=device)
+    if noise_modulo is not None:
+        img = utils.broadcast_mod(img, noise_modulo)
     assert img.shape == shape, f"Mismatched shapes: {img.shape} != {shape}"
 
     # Report metrics on starting noise
@@ -106,23 +100,9 @@ def p_sample_loop(
             posterior_variance=posterior_variance,
         )
 
-        if noise_modulo:
-            img_modded = []
-            for item in img:
-                # item has shape (seq_len, 4)
-                im = torch.vstack(
-                    [
-                        torch.remainder(v, m) if m > 0 else v
-                        for v, m in zip(item.T, noise_modulo)
-                    ]
-                ).T
-                img_modded.append(im)
-            img_modded = torch.stack(img_modded, axis=0)
-            assert (
-                img_modded.shape == img.shape
-            ), f"Mismatched shapes: {img_modded.shape} != {img.shape}"
-            imgs.append(img_modded.cpu())
-            img = img_modded
+        if noise_modulo is not None:
+            img = utils.broadcast_mod(img, noise_modulo)
+            imgs.append(img.cpu())
         else:
             imgs.append(img.cpu())
             # img[:, :, 1:] = torch.remainder(img[:, :, 1:], 2 * torch.pi)
@@ -140,7 +120,7 @@ def sample(
     batch_size: int = 16,
     channels: int = 4,
     timesteps: int = 200,
-    noise_modulo: Optional[Union[float, Iterable[float]]] = None,
+    noise_modulo: Optional[Union[float, torch.Tensor]] = None,
 ) -> torch.Tensor:
     retval = p_sample_loop(
         model,
