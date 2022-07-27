@@ -210,7 +210,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         usage=__doc__, formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument("-c", "--config", type=str, help="json of params")
+
+    # https://stackoverflow.com/questions/4480075/argparse-optional-positional-arguments
+    parser.add_argument("config", nargs="?", default="", type=str, help="json of params")
     parser.add_argument(
         "-o",
         "--outdir",
