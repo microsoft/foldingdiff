@@ -291,7 +291,7 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         """
         Return optimizer
         """
-        return torch.optim.Adam(
+        return torch.optim.AdamW(
             self.parameters(), lr=self.learning_rate, weight_decay=self.l2_lambda
         )
 
