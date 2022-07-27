@@ -171,7 +171,7 @@ class NoisedAnglesDataset(Dataset):
         self.dset = dset
         self.dset_key = dset_key
 
-        self.modulo = modulo
+        self.modulo = torch.tensor(modulo)
         self.noise_by_modulo = noise_by_modulo
 
         self.timesteps = timesteps
@@ -241,17 +241,7 @@ class NoisedAnglesDataset(Dataset):
 
         # If modulo is given ensure that we do modulo
         if self.modulo is not None:
-            try:
-                assert (
-                    len(self.modulo) == noised_vals.shape[1]
-                ), f"Mismatched shapes: {noised_vals.shape} vs {len(self.modulo)} modulo terms"
-                # Should have shape (seq_len, 4)
-                noised_vals = torch.vstack(
-                    [t % m if m != 0 else t for t, m in zip(noised_vals.T, self.modulo)]
-                ).T
-            except TypeError:
-                # not iterable --> float
-                noised_vals = noised_vals % self.modulo
+            utils.broadcast_mod(noised_vals, self.modulo)
 
         retval = {
             "corrupted": noised_vals,
