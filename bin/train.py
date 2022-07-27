@@ -93,22 +93,29 @@ def get_train_valid_test_sets(
 
 
 def train(
+    # Controls output
     results_dir: str = "./results",
+    # Controls data loading and noising process
     shift_angles_zero_twopi: bool = True,
     noise_prior: Literal["gaussian", "uniform"] = "gaussian",
     timesteps: int = 1000,
     variance_schedule: SCHEDULES = "linear",
     adaptive_noise_mean_var: bool = True,
+    # Related to model architecture
     num_hidden_layers: int = 6,
-    hidden_size: int = 144,
+    hidden_size: int = 72,
+    intermediate_size: int = 144,
+    num_heads: int = 8,
+    # Related to training strategy
     gradient_clip: float = 0.5,
     batch_size: int = 64,
-    lr: float = 1e-4,
+    lr: float = 1e-3,
     loss: Literal["huber", "radian_l1", "radian_l1_smooth"] = "radian_l1_smooth",
     l2_norm: float = 0.01,  # AdamW default has 0.01 L2 regularization
     l1_norm: float = 0.0,
     epochs: int = 200,
     early_stop_patience: int = 5,
+    # Misc.
     multithread: bool = True,
     toy: bool = False,
 ):
@@ -164,7 +171,9 @@ def train(
     # https://jaketae.github.io/study/relative-positional-encoding/
     # looking at the relative distance between things is more robust
     cfg = BertConfig(
+        num_attention_heads=num_heads,
         hidden_size=hidden_size,
+        intermediate_size=intermediate_size,
         num_hidden_layers=num_hidden_layers,
         position_embedding_type="relative_key_query",
     )
