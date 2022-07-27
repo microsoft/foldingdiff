@@ -67,7 +67,7 @@ def p_sample_loop(
     posterior_variance: torch.Tensor,
     noise_modulo: Optional[Union[float, Iterable[float]]] = None,
 ) -> "list[torch.Tensor]":
-    logging.info(f"Sampling of shape {shape}")
+    logging.info(f"Sampling of shape {shape} with modulo {noise_modulo}")
     device = next(model.parameters()).device
 
     b = shape[0]
@@ -95,6 +95,7 @@ def p_sample_loop(
     for i in tqdm(
         reversed(range(0, timesteps)), desc="sampling loop time step", total=timesteps
     ):
+        # Shape is (batch, seq_len, 4)
         img = p_sample(
             model=model,
             x=img,
@@ -104,6 +105,27 @@ def p_sample_loop(
             betas=betas,
             posterior_variance=posterior_variance,
         )
+
+        if noise_modulo:
+            img_modded = []
+            for item in img:
+                # item has shape (seq_len, 4)
+                im = torch.vstack(
+                    [
+                        torch.remainder(v, m) if m > 0 else v
+                        for v, m in zip(item.T, noise_modulo)
+                    ]
+                ).T
+                img_modded.append(im)
+            img_modded = torch.stack(img_modded, axis=0)
+            assert (
+                img_modded.shape == img.shape
+            ), f"Mismatched shapes: {img_modded.shape} != {img.shape}"
+            imgs.append(img_modded.cpu())
+            img = img_modded
+        else:
+            imgs.append(img.cpu())
+            # img[:, :, 1:] = torch.remainder(img[:, :, 1:], 2 * torch.pi)
         imgs.append(img.cpu())
     return imgs
 
