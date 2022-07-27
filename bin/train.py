@@ -99,11 +99,13 @@ def train(
     timesteps: int = 1000,
     variance_schedule: SCHEDULES = "linear",
     adaptive_noise_mean_var: bool = True,
+    num_hidden_layers: int = 6,
+    hidden_size: int = 144,
     gradient_clip: float = 0.5,
     batch_size: int = 64,
     lr: float = 1e-4,
     loss: Literal["huber", "radian_l1", "radian_l1_smooth"] = "radian_l1_smooth",
-    l2_norm: float = 0.0,
+    l2_norm: float = 0.01,  # AdamW default has 0.01 L2 regularization
     l1_norm: float = 0.0,
     epochs: int = 200,
     early_stop_patience: int = 5,
@@ -161,7 +163,11 @@ def train(
 
     # https://jaketae.github.io/study/relative-positional-encoding/
     # looking at the relative distance between things is more robust
-    cfg = BertConfig(hidden_size=144, position_embedding_type="relative_key_query",)
+    cfg = BertConfig(
+        hidden_size=hidden_size,
+        num_hidden_layers=num_hidden_layers,
+        position_embedding_type="relative_key_query",
+    )
     model = modelling.BertForDiffusion(cfg, lr=lr, loss=loss, l2=l2_norm, l1=l1_norm)
     cfg.save_pretrained(results_folder)
 
