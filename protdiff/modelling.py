@@ -3,6 +3,7 @@ Modelling
 """
 import logging
 import math
+import functools
 from typing import *
 
 import torch
@@ -78,9 +79,9 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
             ],
             "radian_l1_smooth": [
                 F.smooth_l1_loss,
-                losses.radian_smooth_l1_loss,
-                losses.radian_smooth_l1_loss,
-                losses.radian_smooth_l1_loss,
+                functools.partial(losses.radian_smooth_l1_loss, beta=torch.pi / 10),
+                functools.partial(losses.radian_smooth_l1_loss, beta=torch.pi / 10),
+                functools.partial(losses.radian_smooth_l1_loss, beta=torch.pi / 10),
             ],
         }[loss]
         logging.info(f"Using loss: {self.loss_func}")

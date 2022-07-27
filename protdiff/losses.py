@@ -36,13 +36,13 @@ def radian_smooth_l1_loss(
     See:
     https://pytorch.org/docs/stable/_modules/torch/nn/functional.html#smooth_l1_loss
 
-    >>> radian_smooth_l1_loss(torch.tensor(0.1), 2 * torch.pi)
+    >>> radian_smooth_l1_loss(torch.tensor(0.1), 2 * torch.pi, beta=1.0)
     tensor(0.0050)
-    >>> radian_smooth_l1_loss(torch.tensor(0.1), torch.tensor(2 * np.pi - 0.1))
+    >>> radian_smooth_l1_loss(torch.tensor(0.1), torch.tensor(2 * np.pi - 0.1), beta=1.0)
     tensor(0.0200)
-    >>> radian_smooth_l1_loss(torch.tensor(0.0), torch.tensor(3.14))
+    >>> radian_smooth_l1_loss(torch.tensor(0.0), torch.tensor(3.14), beta=1.0)
     tensor(2.6400)
-    >>> radian_smooth_l1_loss(torch.tensor(2.), torch.tensor(4.))
+    >>> radian_smooth_l1_loss(torch.tensor(2.), torch.tensor(4.), beta=1.0)
     tensor(1.5000)
     """
     target = target % (2 * torch.pi)
