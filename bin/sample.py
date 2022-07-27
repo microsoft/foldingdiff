@@ -27,6 +27,7 @@ def sample(
     num: int,
     dset_obj,
     model_path: str,
+    bert_cfg_path: Optional[str] = None,
     config_json: Optional[str] = None,
     seed: int = 6489,
 ) -> List[torch.Tensor]:
@@ -37,12 +38,18 @@ def sample(
         dset_obj, "sample_length"
     ), "Passed dataset object must have a sample_length attribute"
     # Load in the model
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    cfg = BertConfig(hidden_size=144, position_embedding_type="relative_key_query")
+    if bert_cfg_path is None:
+        # Try to automatically load the config from the model path
+        bert_cfg_path = os.path.join(os.path.dirname(model_path), "config.json")
+        assert os.path.isfile(
+            bert_cfg_path
+        ), f"Could not find config file at {bert_cfg_path}"
+    cfg = BertConfig.from_json_file(bert_cfg_path)
     model = modelling.BertForDiffusion.load_from_checkpoint(
         checkpoint_path=model_path, config=cfg
     )
     model.eval()
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
 
     # Reproduce the variance schedules bsaed on the config json
