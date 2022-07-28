@@ -3,6 +3,7 @@ Contains source code for loading in data and creating requisite PyTorch
 data loader object
 """
 
+import pickle
 import functools
 import multiprocessing
 import os, sys
@@ -155,10 +156,22 @@ class CathConsecutiveAnglesDataset(Dataset):
         return {"angles": retval, "attn_mask": attn_mask, "position_ids": position_ids}
 
 
-def read_and_extract_angles_from_pdb(fname: str) -> Dict[str, Any]:
+def read_and_extract_angles_from_pdb(
+    fname: str, force_compute: bool = False
+) -> Dict[str, Any]:
     """
     Helper function for reading and computing angles from pdb file
     """
+    # Check if cached computed results exists
+    # https://stackoverflow.com/questions/52444921/save-numpy-array-using-pickle
+    suffix = fname.split(".")[-1]
+    cached_fname = fname.replace(suffix, "extracted.pkl")
+    if os.path.isfile(cached_fname) and not force_compute:
+        logging.debug(f"Loading cached values from {cached_fname}")
+        with open(cached_fname, "rb") as f:
+            return pickle.load(f)
+
+    # Perform the computation
     atoms = ["N", "CA", "C"]
     coords, seq, valid_idx = pdb_utils.parse_PDB(fname, atoms=atoms)
     assert coords.shape[0] == len(
@@ -167,7 +180,13 @@ def read_and_extract_angles_from_pdb(fname: str) -> Dict[str, Any]:
     # coords has shape (length, atoms, 3)
     coords_dict = {atom: coords[:, i, :] for i, atom in enumerate(atoms)}
     angles = coords_to_angles(coords_dict, shift_angles_positive=True)
-    return {"coords": coords, "angles": angles, "seq": seq, "valid_idx": valid_idx}
+    retval = {"coords": coords, "angles": angles, "seq": seq, "valid_idx": valid_idx}
+    # Cache the result
+    with open(cached_fname, "wb") as f:
+        logging.debug(f"Dumping cached values from {fname} to {cached_fname}")
+        pickle.dump(retval, f)
+
+    return retval
 
 
 class AlphafoldConsecutiveAnglesDataset(Dataset):
@@ -202,7 +221,7 @@ class AlphafoldConsecutiveAnglesDataset(Dataset):
         logging.info(
             f"Length of angles: {np.min(self.all_lengths)}-{np.max(self.all_lengths)}, mean {np.mean(self.all_lengths)}"
         )
-    
+
     def __str__(self) -> str:
         return f"AlphafoldConsecutiveAnglesDataset with {len(self)} examples and sequence length {np.min(self.all_lengths)}-{np.max(self.all_lengths)} padded to {self.pad}"
 
@@ -439,7 +458,7 @@ def coords_to_angles(
 
 
 def main():
-    dset = AlphafoldConsecutiveAnglesDataset()
+    dset = AlphafoldConsecutiveAnglesDataset(toy=True)
     print(dset)
     # noised_dset = GaussianDistUniformAnglesNoisedAnglesDataset(
     #     dset,
@@ -454,5 +473,5 @@ def main():
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.DEBUG)
     main()

@@ -1,4 +1,5 @@
 # User-added files
+*.pkl
 data/alphafold/*.pdb.gz
 
 # Byte-compiled / optimized / DLL files
