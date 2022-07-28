@@ -195,7 +195,11 @@ class AlphafoldConsecutiveAnglesDataset(Dataset):
     """
 
     def __init__(
-        self, pad: int = 512, shift_to_zero_twopi: bool = True, toy: bool = False
+        self,
+        pad: int = 512,
+        shift_to_zero_twopi: bool = True,
+        force_recompute_angles: bool = False,
+        toy: bool = False,
     ) -> None:
         super().__init__()
         self.pad = pad
@@ -203,16 +207,17 @@ class AlphafoldConsecutiveAnglesDataset(Dataset):
 
         # Glob for the untarred files
         pdb_files = glob.glob(os.path.join(ALPHAFOLD_DIR, "*.pdb.gz"))
+        pfunc = functools.partial(
+            read_and_extract_angles_from_pdb, force_compute=force_recompute_angles
+        )
         if toy:
             logging.info("Using toy AlphaFold dataset")
             # Reduce number of examples and disable multithreading
             pdb_files = pdb_files[:10]
-            self.structures = list(map(read_and_extract_angles_from_pdb, pdb_files))
+            self.structures = list(map(pfunc, pdb_files))
         else:
             pool = multiprocessing.Pool()
-            self.structures = pool.map(
-                read_and_extract_angles_from_pdb, pdb_files, chunksize=100
-            )
+            self.structures = pool.map(pfunc, pdb_files, chunksize=100)
             pool.close()
             pool.join()
 
@@ -458,7 +463,7 @@ def coords_to_angles(
 
 
 def main():
-    dset = AlphafoldConsecutiveAnglesDataset(toy=True)
+    dset = AlphafoldConsecutiveAnglesDataset(force_recompute_angles=False, toy=False)
     print(dset)
     # noised_dset = GaussianDistUniformAnglesNoisedAnglesDataset(
     #     dset,
@@ -473,5 +478,5 @@ def main():
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
     main()
