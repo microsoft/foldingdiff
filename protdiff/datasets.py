@@ -197,6 +197,15 @@ class AlphafoldConsecutiveAnglesDataset(Dataset):
             pool.close()
             pool.join()
 
+        self.all_lengths = [s["angles"].shape[0] for s in self.structures]
+        self._length_rng = np.random.default_rng(seed=6489)
+        logging.info(
+            f"Length of angles: {np.min(self.all_lengths)}-{np.max(self.all_lengths)}, mean {np.mean(self.all_lengths)}"
+        )
+    
+    def __str__(self) -> str:
+        return f"AlphafoldConsecutiveAnglesDataset with {len(self)} examples and sequence length {np.min(self.all_lengths)}-{np.max(self.all_lengths)} padded to {self.pad}"
+
     def __len__(self) -> int:
         return len(self.structures)
 
@@ -430,9 +439,8 @@ def coords_to_angles(
 
 
 def main():
-    dset = AlphafoldConsecutiveAnglesDataset(toy=True)
+    dset = AlphafoldConsecutiveAnglesDataset()
     print(dset)
-    print(dset[0])
     # noised_dset = GaussianDistUniformAnglesNoisedAnglesDataset(
     #     dset,
     #     dset_key="angles",
