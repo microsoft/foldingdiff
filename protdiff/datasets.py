@@ -6,6 +6,8 @@ data loader object
 import functools
 import multiprocessing
 import os, sys
+import glob
+import tarfile
 import logging
 import json
 from typing import *
@@ -20,6 +22,11 @@ CATH_DIR = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data/cath"
 )
 assert os.path.isdir(CATH_DIR), f"Expected cath data at {CATH_DIR}"
+
+ALPHAFOLD_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data/alphafold"
+)
+assert os.path.isdir(ALPHAFOLD_DIR), f"Expected alphafold data at {ALPHAFOLD_DIR}"
 
 from sequence_models import pdb_utils
 import beta_schedules
@@ -146,6 +153,77 @@ class CathConsecutiveAnglesDataset(Dataset):
 
         retval = torch.from_numpy(angles).float()
         return {"angles": retval, "attn_mask": attn_mask, "position_ids": position_ids}
+
+
+def read_and_extract_angles_from_pdb(fname: str) -> Dict[str, Any]:
+    """
+    Helper function for reading and computing angles from pdb file
+    """
+    atoms = ["N", "CA", "C"]
+    coords, seq, valid_idx = pdb_utils.parse_PDB(fname, atoms=atoms)
+    assert coords.shape[0] == len(
+        seq
+    ), f"Mismatched lengths: {coords.shape[0]} vs {len(seq)} in {fname}"
+    # coords has shape (length, atoms, 3)
+    coords_dict = {atom: coords[:, i, :] for i, atom in enumerate(atoms)}
+    angles = coords_to_angles(coords_dict, shift_angles_positive=True)
+    return {"coords": coords, "angles": angles, "seq": seq, "valid_idx": valid_idx}
+
+
+class AlphafoldConsecutiveAnglesDataset(Dataset):
+    """
+    Represent the
+    """
+
+    def __init__(
+        self, pad: int = 512, shift_to_zero_twopi: bool = True, toy: bool = False
+    ) -> None:
+        super().__init__()
+        self.pad = pad
+        self.shift_to_zero_twpi = shift_to_zero_twopi
+
+        # Glob for the untarred files
+        pdb_files = glob.glob(os.path.join(ALPHAFOLD_DIR, "*.pdb.gz"))
+        if toy:
+            logging.info("Using toy AlphaFold dataset")
+            # Reduce number of examples and disable multithreading
+            pdb_files = pdb_files[:10]
+            self.structures = list(map(read_and_extract_angles_from_pdb, pdb_files))
+        else:
+            pool = multiprocessing.Pool()
+            self.structures = pool.map(
+                read_and_extract_angles_from_pdb, pdb_files, chunksize=100
+            )
+            pool.close()
+            pool.join()
+
+    def __len__(self) -> int:
+        return len(self.structures)
+
+    def __getitem__(self, index: int) -> Dict[str, torch.Tensor]:
+        if not 0 <= index <= len(self):
+            raise IndexError(index)
+
+        angles = self.structures[index]["angles"]
+        assert angles is not None
+        l = min(self.pad, angles.shape[0])
+        attn_mask = torch.zeros(size=(self.pad,))
+        attn_mask[:l] = 1.0
+
+        if angles.shape[0] < self.pad:
+            orig_shape = angles.shape
+            angles = np.pad(
+                angles,
+                ((0, self.pad - angles.shape[0]), (0, 0)),
+                mode="constant",
+                constant_values=0,
+            )
+            logging.debug(f"Padded {orig_shape} --> {angles.shape}")
+        elif angles.shape[0] > self.pad:
+            angles = angles[: self.pad]
+
+        position_ids = torch.arange(start=0, end=self.pad, step=1, dtype=torch.long)
+        return {"angles": angles, "attn_mask": attn_mask, "position_ids": position_ids}
 
 
 class NoisedAnglesDataset(Dataset):
@@ -293,7 +371,8 @@ class GaussianDistUniformAnglesNoisedDataset(NoisedAnglesDataset):
 
 
 def coords_to_angles(
-    coords: Dict[str, List[List[float]]], shift_angles_positive: bool = True
+    coords: Union[np.ndarray, Dict[str, List[List[float]]]],
+    shift_angles_positive: bool = True,
 ) -> Optional[np.ndarray]:
     """
     Sanitize the coordinates to not have NaN and convert them into
@@ -302,23 +381,23 @@ def coords_to_angles(
     if shift_angles_positive, take the angles given in [-pi, pi] range and
     shift them to [0, 2pi] range
     """
-    first_valid_idx, last_valid_idx = 0, len(coords["N"])
-
-    # Walk through coordinates and trim trailing nan
-    for k in ["N", "CA", "C"]:
-        logging.debug(f"{k}:\t{coords[k][:5]}")
-        arr = np.array(coords[k])
-        # Get all valid indices
-        valid_idx = np.where(~np.any(np.isnan(arr), axis=1))[0]
-        first_valid_idx = max(first_valid_idx, np.min(valid_idx))
-        last_valid_idx = min(last_valid_idx, np.max(valid_idx) + 1)
-    logging.debug(f"Trimming nans keeps {first_valid_idx}:{last_valid_idx}")
-    for k in ["N", "CA", "C"]:
-        coords[k] = coords[k][first_valid_idx:last_valid_idx]
-        arr = np.array(coords[k])
-        if np.any(np.isnan(arr)):
-            logging.debug("Got nan in middle of array")
-            return None
+    if isinstance(coords, dict):
+        first_valid_idx, last_valid_idx = 0, len(coords["N"])
+        # Walk through coordinates and trim trailing nan
+        for k in ["N", "CA", "C"]:
+            logging.debug(f"{k}:\t{coords[k][:5]}")
+            arr = np.array(coords[k])
+            # Get all valid indices
+            valid_idx = np.where(~np.any(np.isnan(arr), axis=1))[0]
+            first_valid_idx = max(first_valid_idx, np.min(valid_idx))
+            last_valid_idx = min(last_valid_idx, np.max(valid_idx) + 1)
+        logging.debug(f"Trimming nans keeps {first_valid_idx}:{last_valid_idx}")
+        for k in ["N", "CA", "C"]:
+            coords[k] = coords[k][first_valid_idx:last_valid_idx]
+            arr = np.array(coords[k])
+            if np.any(np.isnan(arr)):
+                logging.debug("Got nan in middle of array")
+                return None
     angles = pdb_utils.process_coords(coords)
     # https://www.rosettacommons.org/docs/latest/application_documentation/trRosetta/trRosetta#application-purpose_a-note-on-nomenclature
     # omega = inter-residue dihedral angle between CA/CB of first and CB/CA of second
@@ -351,14 +430,16 @@ def coords_to_angles(
 
 
 def main():
-    dset = CathConsecutiveAnglesDataset(toy=True, split="train")
-    noised_dset = GaussianDistUniformAnglesNoisedAnglesDataset(
-        dset,
-        dset_key="angles",
-        modulo=[0, 2 * np.pi, 2 * np.pi, 2 * np.pi],
-        noise_by_modulo=True,
-    )
-    x = noised_dset[0]
+    dset = AlphafoldConsecutiveAnglesDataset(toy=True)
+    print(dset)
+    print(dset[0])
+    # noised_dset = GaussianDistUniformAnglesNoisedAnglesDataset(
+    #     dset,
+    #     dset_key="angles",
+    #     modulo=[0, 2 * np.pi, 2 * np.pi, 2 * np.pi],
+    #     noise_by_modulo=True,
+    # )
+    # x = noised_dset[0]
     # for k, v in x.items():
     #     print(k)
     #     print(v)
