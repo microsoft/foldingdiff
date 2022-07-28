@@ -117,7 +117,7 @@ def main():
         if args.mode == "shellargs":
             # Build command
             cli_args = params_to_cli_args(d)
-            cmd = f"python {args.exec} {cli_args}"
+            cmd = f"python {os.path.abspath(args.exec)} {cli_args}"
             script_lines = header_lines + [cmd]
 
             # Write script
