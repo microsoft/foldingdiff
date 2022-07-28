@@ -157,7 +157,7 @@ class CathConsecutiveAnglesDataset(Dataset):
 
 
 def read_and_extract_angles_from_pdb(
-    fname: str, force_compute: bool = False
+    fname: str, force_compute: bool = False, write_cache: bool = True
 ) -> Dict[str, Any]:
     """
     Helper function for reading and computing angles from pdb file
@@ -185,9 +185,10 @@ def read_and_extract_angles_from_pdb(
     angles = coords_to_angles(coords_dict, shift_angles_positive=True)
     retval = {"coords": coords, "angles": angles, "seq": seq, "valid_idx": valid_idx}
     # Cache the result
-    with open(cached_fname, "wb") as f:
-        logging.debug(f"Dumping cached values from {fname} to {cached_fname}")
-        pickle.dump(retval, f)
+    if write_cache:
+        with open(cached_fname, "wb") as f:
+            logging.debug(f"Dumping cached values from {fname} to {cached_fname}")
+            pickle.dump(retval, f)
 
     return retval
 
