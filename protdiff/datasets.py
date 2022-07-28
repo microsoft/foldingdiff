@@ -216,6 +216,7 @@ class AlphafoldConsecutiveAnglesDataset(Dataset):
             pdb_files = pdb_files[:10]
             self.structures = list(map(pfunc, pdb_files))
         else:
+            logging.info(f"Computing angles for {len(pdb_files)} structures")
             pool = multiprocessing.Pool()
             self.structures = pool.map(pfunc, pdb_files, chunksize=100)
             pool.close()
