@@ -165,7 +165,10 @@ def read_and_extract_angles_from_pdb(
     # Check if cached computed results exists
     # https://stackoverflow.com/questions/52444921/save-numpy-array-using-pickle
     suffix = fname.split(".")[-1]
-    cached_fname = fname.replace(suffix, "extracted.pkl")
+    cached_fname = os.path.join(
+        os.path.dirname(os.path.abspath(fname)),
+        os.path.basename(fname).replace(suffix, "extracted.pkl"),
+    )
     if os.path.isfile(cached_fname) and not force_compute:
         logging.debug(f"Loading cached values from {cached_fname}")
         with open(cached_fname, "rb") as f:
