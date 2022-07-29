@@ -139,8 +139,9 @@ def train(
     loss: Literal["huber", "radian_l1", "radian_l1_smooth"] = "radian_l1_smooth",
     l2_norm: float = 0.01,  # AdamW default has 0.01 L2 regularization
     l1_norm: float = 0.0,
-    epochs: int = 200,
-    early_stop_patience: int = 5,
+    min_epochs: int = 500,
+    max_epochs: int = 2000,
+    early_stop_patience: int = 10,
     use_swa: bool = False,
     # Misc.
     multithread: bool = True,
@@ -210,7 +211,8 @@ def train(
     trainer = pl.Trainer(
         default_root_dir=results_folder,
         gradient_clip_val=gradient_clip,
-        max_epochs=epochs,
+        min_epochs=min_epochs,
+        max_epochs=max_epochs,
         check_val_every_n_epoch=1,
         callbacks=build_callbacks(early_stop_patience=early_stop_patience, swa=use_swa),
         logger=pl.loggers.CSVLogger(save_dir=results_folder / "logs"),
