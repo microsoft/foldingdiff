@@ -82,6 +82,7 @@ def get_train_valid_test_sets(
             ds,
             dset_key="angles",
             timesteps=timesteps,
+            exhaustive_t=(ds.split != "train"),
             beta_schedule=variance_schedule,
             modulo=(
                 [0, 2 * np.pi, 2 * np.pi, 2 * np.pi] if shift_to_zero_twopi else None

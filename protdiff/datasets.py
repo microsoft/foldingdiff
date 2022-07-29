@@ -78,7 +78,7 @@ class CathConsecutiveAnglesDataset(Dataset):
 
         # Get data split if given
         self.split = split
-        if split is not None:
+        if self.split is not None:
             splitfile = os.path.join(CATH_DIR, "chain_set_splits.json")
             with open(splitfile) as source:
                 data_splits = json.load(source)
@@ -122,6 +122,9 @@ class CathConsecutiveAnglesDataset(Dataset):
         """
         l = self._length_rng.choice(self.all_lengths)
         return l
+
+    def __str__(self) -> str:
+        return f"CathConsecutiveAnglesDataset {self.split} split with {len(self)} structures"
 
     def __len__(self) -> int:
         """Returns the length of this object"""
@@ -294,6 +297,8 @@ class NoisedAnglesDataset(Dataset):
         self.timesteps = timesteps
         self.schedule = beta_schedule
         self.exhaustive_timesteps = exhaustive_t
+        if self.exhaustive_timesteps:
+            logging.info(f"Exhuastive timesteps for {dset}")
 
         self.betas = beta_schedules.get_variance_schedule(beta_schedule, timesteps)
         self.alphas = 1.0 - self.betas
