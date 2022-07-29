@@ -93,7 +93,7 @@ def get_train_valid_test_sets(
     return tuple(noised_dsets)
 
 
-def build_callbacks(early_stop_patience: Optional[int] = None):
+def build_callbacks(early_stop_patience: Optional[int] = None, swa: bool = False):
     """
     Build out the callbacks
     """
@@ -111,6 +111,9 @@ def build_callbacks(early_stop_patience: Optional[int] = None):
                 mode="min",
             )
         )
+    if swa:
+        # Stochastic weight averaging
+        callbacks.append(pl.callbacks.StochasticWeightAveraging())
     logging.info(f"Model callbacks: {callbacks}")
     return callbacks
 
@@ -138,6 +141,7 @@ def train(
     l1_norm: float = 0.0,
     epochs: int = 200,
     early_stop_patience: int = 5,
+    use_swa: bool = False,
     # Misc.
     multithread: bool = True,
     toy: bool = False,
@@ -208,7 +212,7 @@ def train(
         gradient_clip_val=gradient_clip,
         max_epochs=epochs,
         check_val_every_n_epoch=1,
-        callbacks=build_callbacks(early_stop_patience=early_stop_patience),
+        callbacks=build_callbacks(early_stop_patience=early_stop_patience, swa=use_swa),
         logger=pl.loggers.CSVLogger(save_dir=results_folder / "logs"),
         accelerator="gpu" if torch.cuda.is_available() else "cpu",
         devices=1,
