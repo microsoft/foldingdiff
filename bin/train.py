@@ -93,6 +93,28 @@ def get_train_valid_test_sets(
     return tuple(noised_dsets)
 
 
+def build_callbacks(early_stop_patience: Optional[int] = None):
+    """
+    Build out the callbacks
+    """
+    callbacks = [
+        pl.callbacks.ModelCheckpoint(
+            monitor="val_loss", save_top_k=1, save_weights_only=True,
+        ),
+    ]
+    if early_stop_patience is not None:
+        callbacks.append(
+            pl.callbacks.early_stopping.EarlyStopping(
+                monitor="val_loss",
+                patience=early_stop_patience,
+                verbose=True,
+                mode="min",
+            )
+        )
+    logging.info(f"Model callbacks: {callbacks}")
+    return callbacks
+
+
 def train(
     # Controls output
     results_dir: str = "./results",
@@ -186,14 +208,7 @@ def train(
         gradient_clip_val=gradient_clip,
         max_epochs=epochs,
         check_val_every_n_epoch=1,
-        callbacks=[
-            pl.callbacks.early_stopping.EarlyStopping(
-                monitor="val_loss", mode="min", patience=early_stop_patience
-            ),
-            pl.callbacks.ModelCheckpoint(
-                monitor="val_loss", save_top_k=1, save_weights_only=True,
-            ),
-        ],
+        callbacks=build_callbacks(early_stop_patience=early_stop_patience),
         logger=pl.loggers.CSVLogger(save_dir=results_folder / "logs"),
         accelerator="gpu" if torch.cuda.is_available() else "cpu",
         devices=1,
