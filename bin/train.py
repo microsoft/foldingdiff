@@ -194,7 +194,7 @@ def train(
                 monitor="val_loss", save_top_k=1, save_weights_only=True,
             ),
         ],
-        logger=pl.loggers.CSVLogger(savedir=results_folder / "logs"),
+        logger=pl.loggers.CSVLogger(save_dir=results_folder / "logs"),
         accelerator="gpu" if torch.cuda.is_available() else "cpu",
         devices=1,
     )
