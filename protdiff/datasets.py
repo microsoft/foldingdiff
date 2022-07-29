@@ -357,7 +357,7 @@ class NoisedAnglesDataset(Dataset):
 
         # If modulo is given ensure that we do modulo
         if self.modulo is not None:
-            utils.broadcast_mod(noised_vals, self.modulo)
+            noised_vals = utils.broadcast_mod(noised_vals, self.modulo)
 
         retval = {
             "corrupted": noised_vals,
