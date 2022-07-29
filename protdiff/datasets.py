@@ -279,6 +279,7 @@ class NoisedAnglesDataset(Dataset):
         dset: Dataset,
         dset_key: Optional[str] = None,
         timesteps: int = 1000,
+        exhaustive_t: bool = False,
         beta_schedule: beta_schedules.SCHEDULES = "linear",
         modulo: Optional[Union[float, Iterable[float]]] = None,
         noise_by_modulo: bool = False,
@@ -292,6 +293,7 @@ class NoisedAnglesDataset(Dataset):
 
         self.timesteps = timesteps
         self.schedule = beta_schedule
+        self.exhaustive_timesteps = exhaustive_t
 
         self.betas = beta_schedules.get_variance_schedule(beta_schedule, timesteps)
         self.alphas = 1.0 - self.betas
@@ -301,7 +303,10 @@ class NoisedAnglesDataset(Dataset):
         self.sqrt_one_minus_alphas_cumprod = torch.sqrt(1.0 - self.alphas_cumprod)
 
     def __len__(self) -> int:
-        return len(self.dset)
+        if not self.exhaustive_timesteps:
+            return len(self.dset)
+        else:
+            return int(len(self.dset) * self.timesteps)
 
     def sample_noise_adaptive(self, vals: torch.Tensor) -> torch.Tensor:
         """
@@ -325,13 +330,27 @@ class NoisedAnglesDataset(Dataset):
         return noise
 
     def __getitem__(
-        self, index, use_t_val: Optional[int] = None
+        self, index: int, use_t_val: Optional[int] = None
     ) -> Dict[str, torch.Tensor]:
         """
         Gets the i-th item in the dataset and adds noise
         use_t_val is useful for manually querying specific timepoints
         """
-        item = self.dset.__getitem__(index)
+        assert 0 <= index < len(self), f"Index {index} out of bounds for {len(self)}"
+        if self.exhaustive_timesteps:
+            item_index = index // self.timesteps
+            assert item_index < len(self.dset)
+            time_index = index % self.timesteps
+            logging.debug(
+                f"Exhaustive {index} -> item {item_index} at time {time_index}"
+            )
+            assert (
+                item_index * self.timesteps + time_index == index
+            ), f"Unexpected indices for {index} -- {item_index} {time_index}"
+            item = self.dset.__getitem__(item_index)
+        else:
+            item = self.dset.__getitem__(index)
+
         # If wrapped dset returns a dictionary then we extract the item to noise
         if self.dset_key is not None:
             assert isinstance(item, dict)
@@ -342,8 +361,13 @@ class NoisedAnglesDataset(Dataset):
 
         # Sample a random timepoint and add corresponding noise
         if use_t_val is not None:
+            assert (
+                not self.exhaustive_timesteps
+            ), "Cannot use specific t in exhaustive mode"
             t_val = np.clip(np.array([use_t_val]), 0, self.timesteps - 1)
             t = torch.from_numpy(t_val).long()
+        elif self.exhaustive_timesteps:
+            t = torch.tensor([time_index]).long()  # list to get correct shape
         else:
             t = torch.randint(0, self.timesteps, (1,)).long()
         sqrt_alphas_cumprod_t = utils.extract(self.sqrt_alphas_cumprod, t, vals.shape)
@@ -468,14 +492,19 @@ def coords_to_angles(
 
 
 def main():
-    dset = AlphafoldConsecutiveAnglesDataset(force_recompute_angles=False, toy=False)
-    print(dset)
-    # noised_dset = GaussianDistUniformAnglesNoisedAnglesDataset(
-    #     dset,
-    #     dset_key="angles",
-    #     modulo=[0, 2 * np.pi, 2 * np.pi, 2 * np.pi],
-    #     noise_by_modulo=True,
-    # )
+    # dset = AlphafoldConsecutiveAnglesDataset(force_recompute_angles=False, toy=False)
+    # print(dset)
+    dset = CathConsecutiveAnglesDataset(split="validation")
+    noised_dset = NoisedAnglesDataset(
+        dset,
+        dset_key="angles",
+        modulo=[0, 2 * np.pi, 2 * np.pi, 2 * np.pi],
+        noise_by_modulo=True,
+        timesteps=10,
+        exhaustive_t=True,
+    )
+    for i in range(len(noised_dset)):
+        noised_dset[i]
     # x = noised_dset[0]
     # for k, v in x.items():
     #     print(k)
@@ -483,5 +512,5 @@ def main():
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.DEBUG)
     main()
