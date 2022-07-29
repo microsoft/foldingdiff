@@ -7,6 +7,7 @@ from typing import Optional
 from tqdm.auto import tqdm
 
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -51,4 +52,24 @@ def plot_val_dists_at_t(
         ax.set(title=f"Timestep {t} - {val_name}")
     if fname is not None:
         fig.savefig(fname, bbox_inches="tight")
+    return fig
+
+
+def plot_losses(log_fname: str, out_fname: Optional[str] = None):
+    """
+    Plot the validation loss values from a log file. Spuports multiple
+    validation losses if present in log file.
+    """
+    fig, ax = plt.subplots(dpi=300)
+
+    df = pd.read_csv(log_fname)
+    for colname in df.columns:
+        if "val_loss" not in colname:
+            continue
+        ax.plot(df["epoch"], df[colname], label=colname)
+    ax.legend(loc="upper right")
+    ax.set(xlabel="Epoch", ylabel="Loss", title="Loss over epochs")
+
+    if out_fname is not None:
+        fig.savefig(out_fname, bbox_inches="tight")
     return fig
