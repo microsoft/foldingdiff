@@ -66,14 +66,14 @@ def broadcast_mod(x: torch.Tensor, m: Union[float, torch.Tensor]) -> torch.Tenso
     return retval
 
 
-def update_dict_with_values(d: Dict[str, Any], vals: Dict[str, Any]) -> Dict[str, Any]:
+def update_dict(d: Dict[str, Any], vals: Dict[str, Any]) -> Dict[str, Any]:
     """
     Update a dictionary with values from another dictionary.
     >>> update_dict_with_values({'a': 1, 'b': 2}, {'b': 3, 'c': 4})
     {'a': 1, 'b': 3, 'c': 4}
     """
     for k, v in vals.items():
-        if k in d:
+        if k in d and d[k] != v:
             logging.info(f"Replacing key {k} original value {d[k]} with {v}")
         d[k] = v
     return d

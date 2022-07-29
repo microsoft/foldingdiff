@@ -32,6 +32,7 @@ import datasets
 import modelling
 from beta_schedules import SCHEDULES
 import plotting
+import utils
 
 
 # reproducibility
@@ -193,6 +194,7 @@ def train(
                 monitor="val_loss", save_top_k=1, save_weights_only=True,
             ),
         ],
+        logger=pl.loggers.CSVLogger(savedir=results_folder / "logs"),
         accelerator="gpu" if torch.cuda.is_available() else "cpu",
         devices=1,
     )
@@ -212,7 +214,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     # https://stackoverflow.com/questions/4480075/argparse-optional-positional-arguments
-    parser.add_argument("config", nargs="?", default="", type=str, help="json of params")
+    parser.add_argument(
+        "config", nargs="?", default="", type=str, help="json of params"
+    )
     parser.add_argument(
         "-o",
         "--outdir",
@@ -236,7 +240,10 @@ def main():
     if args.config:
         with open(args.config) as source:
             config_args = json.load(source)
-    train(results_dir=args.outdir, toy=args.toy, **config_args)
+    config_args = utils.update_dict(
+        config_args, {"results_dir": args.outdir, "toy": args.toy}
+    )
+    train(**config_args)
 
 
 if __name__ == "__main__":
