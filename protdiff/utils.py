@@ -1,6 +1,7 @@
 """
 Misc shared utility functions
 """
+import logging
 from typing import *
 
 import torch
@@ -63,6 +64,19 @@ def broadcast_mod(x: torch.Tensor, m: Union[float, torch.Tensor]) -> torch.Tenso
     moddded = torch.remainder(x, m_clipped.expand(*x.shape))
     retval = torch.where(m == 0, x, moddded)
     return retval
+
+
+def update_dict_with_values(d: Dict[str, Any], vals: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Update a dictionary with values from another dictionary.
+    >>> update_dict_with_values({'a': 1, 'b': 2}, {'b': 3, 'c': 4})
+    {'a': 1, 'b': 3, 'c': 4}
+    """
+    for k, v in vals.items():
+        if k in d:
+            logging.info(f"Replacing key {k} original value {d[k]} with {v}")
+        d[k] = v
+    return d
 
 
 if __name__ == "__main__":
