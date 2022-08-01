@@ -18,6 +18,7 @@ from tqdm.auto import tqdm
 
 import numpy as np
 from torch.utils.data import Dataset
+from torch.utils.data.dataloader import DataLoader
 
 CATH_DIR = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data/cath"
@@ -59,9 +60,18 @@ class CathConsecutiveAnglesDataset(Dataset):
         split: Optional[Literal["train", "test", "validation"]] = None,
         pad: int = 512,
         shift_to_zero_twopi: bool = True,
-        toy: bool = False,
+        toy: Union[bool, int] = False,
     ) -> None:
         super().__init__()
+
+        # Determine limit on reading based on toy argument
+        item_limit = None
+        if isinstance(toy, bool) and toy:
+            item_limit = 150
+        elif isinstance(toy, int):
+            item_limit = toy
+        else:
+            raise ValueError(f"Unrecognized value for toy: {toy} (type {type(toy)})")
 
         self.pad = pad
         self.shift_to_zero_twopi = shift_to_zero_twopi
@@ -73,7 +83,8 @@ class CathConsecutiveAnglesDataset(Dataset):
             for i, line in enumerate(source):
                 structure = json.loads(line.strip())
                 self.structures.append(structure)
-                if toy and i > 150:
+                if item_limit and i >= item_limit:
+                    logging.warning(f"Truncating CATH to {item_limit} structures")
                     break
 
         # Get data split if given
@@ -565,8 +576,9 @@ def main():
         timesteps=10,
         exhaustive_t=True,
     )
-    for i in range(len(noised_dset)):
-        noised_dset[i]
+    print(len(noised_dset))
+    dl = DataLoader(noised_dset, batch_size=4, shuffle=False)
+    print(len(dl))
     # x = noised_dset[0]
     # for k, v in x.items():
     #     print(k)
@@ -574,5 +586,5 @@ def main():
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
     main()

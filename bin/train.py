@@ -55,8 +55,7 @@ def get_train_valid_test_sets(
     noise_prior: Literal["gaussian", "uniform"] = "gaussian",
     adaptive_noise_mean_var: bool = True,
     shift_to_zero_twopi: bool = True,
-    toy: bool = False,
-    subset_train: Optional[int] = None,
+    toy: Union[int, bool] = False,
     exhaustive_t: bool = False,
 ) -> Tuple[Dataset, Dataset, Dataset]:
     """
@@ -70,12 +69,6 @@ def get_train_valid_test_sets(
         )
         for s in ["train", "validation", "test"]
     ]
-
-    if subset_train is not None:
-        rng = np.random.default_rng(seed=6489)
-        train_indices = rng.choice(len(clean_dsets[0]), subset_train, replace=False)
-        logging.info(f"Subsetting training set to {len(train_indices)} samples")
-        clean_dsets[0] = Subset(clean_dsets[0], train_indices)
 
     if noise_prior == "gaussian":
         dset_noiser_class = datasets.NoisedAnglesDataset
@@ -133,9 +126,7 @@ def train(
     results_dir: str = "./results",
     # Controls data loading and noising process
     shift_angles_zero_twopi: bool = True,
-    noise_prior: Literal[
-        "gaussian", "uniform"
-    ] = "gaussian",  # Uniform is not yet tested
+    noise_prior: Literal["gaussian", "uniform"] = "gaussian",  # Uniform not tested
     timesteps: int = 1000,
     variance_schedule: SCHEDULES = "linear",
     adaptive_noise_mean_var: bool = True,
@@ -157,9 +148,8 @@ def train(
     use_swa: bool = False,  # Stochastic weight averaging can improve training genearlization
     # Misc.
     multithread: bool = True,
-    subset: Optional[int] = None,  # Subset to n training examples
+    subset: Union[bool, int] = False,  # Subset to n training examples
     exhaustive_validation_t: bool = False,  # Exhaustively enumerate t for validation/test
-    toy: bool = False,
 ):
     """Main training loop"""
     # Record the args given to the function before we create more vars
@@ -185,8 +175,7 @@ def train(
         noise_prior=noise_prior,
         adaptive_noise_mean_var=adaptive_noise_mean_var,
         shift_to_zero_twopi=shift_angles_zero_twopi,
-        toy=toy,
-        subset_train=subset,
+        toy=subset,
         exhaustive_t=exhaustive_validation_t,
     )
     train_dataloader, valid_dataloader, test_dataloader = [
@@ -263,7 +252,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Directory to write model training outputs",
     )
     parser.add_argument(
-        "--toy", action="store_true", help="Use a toy dataset instead of the real one",
+        "--toy", type=int, default=0, help="Use a toy dataset of n items rather than full dataset",
     )
     return parser
 
@@ -279,7 +268,7 @@ def main():
         with open(args.config) as source:
             config_args = json.load(source)
     config_args = utils.update_dict(
-        config_args, {"results_dir": args.outdir, "toy": args.toy}
+        config_args, {"results_dir": args.outdir, "subset": args.toy}
     )
     train(**config_args)
 
