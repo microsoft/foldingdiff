@@ -133,7 +133,9 @@ def train(
     results_dir: str = "./results",
     # Controls data loading and noising process
     shift_angles_zero_twopi: bool = True,
-    noise_prior: Literal["gaussian", "uniform"] = "gaussian",
+    noise_prior: Literal[
+        "gaussian", "uniform"
+    ] = "gaussian",  # Uniform is not yet tested
     timesteps: int = 1000,
     variance_schedule: SCHEDULES = "linear",
     adaptive_noise_mean_var: bool = True,
@@ -152,7 +154,7 @@ def train(
     min_epochs: int = 500,
     max_epochs: int = 2000,
     early_stop_patience: int = 10,  # Set to 0 to disable early stopping
-    use_swa: bool = False,
+    use_swa: bool = False,  # Stochastic weight averaging can improve training genearlization
     # Misc.
     multithread: bool = True,
     subset: Optional[int] = None,  # Subset to n training examples
@@ -230,6 +232,7 @@ def train(
         check_val_every_n_epoch=1,
         callbacks=build_callbacks(early_stop_patience=early_stop_patience, swa=use_swa),
         logger=pl.loggers.CSVLogger(save_dir=results_folder / "logs"),
+        log_every_n_steps=min(50, len(train_dataloader)),  # Log at least once per epoch
         accelerator="gpu" if torch.cuda.is_available() else "cpu",
         devices=1,
     )
