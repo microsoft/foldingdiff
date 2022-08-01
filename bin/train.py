@@ -57,6 +57,7 @@ def get_train_valid_test_sets(
     shift_to_zero_twopi: bool = True,
     toy: bool = False,
     subset_train: Optional[int] = None,
+    exhaustive_t: bool = False,
 ) -> Tuple[Dataset, Dataset, Dataset]:
     """
     Get the dataset objects to use for train/valid/test
@@ -89,14 +90,14 @@ def get_train_valid_test_sets(
             ds,
             dset_key="angles",
             timesteps=timesteps,
-            exhaustive_t=(ds.split != "train"),
+            exhaustive_t=(i != 0) and exhaustive_t,
             beta_schedule=variance_schedule,
             modulo=(
                 [0, 2 * np.pi, 2 * np.pi, 2 * np.pi] if shift_to_zero_twopi else None
             ),
             noise_by_modulo=adaptive_noise_mean_var,
         )
-        for ds in clean_dsets
+        for i, ds in enumerate(clean_dsets)
     ]
     return tuple(noised_dsets)
 
@@ -155,6 +156,7 @@ def train(
     # Misc.
     multithread: bool = True,
     subset: Optional[int] = None,  # Subset to n training examples
+    exhaustive_validation_t: bool = False,  # Exhaustively enumerate t for validation/test
     toy: bool = False,
 ):
     """Main training loop"""
@@ -183,6 +185,7 @@ def train(
         shift_to_zero_twopi=shift_angles_zero_twopi,
         toy=toy,
         subset_train=subset,
+        exhaustive_t=exhaustive_validation_t,
     )
     train_dataloader, valid_dataloader, test_dataloader = [
         DataLoader(
