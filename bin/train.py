@@ -16,7 +16,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 import torch
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, Subset
 from torch.utils.data.dataloader import DataLoader
 import torch.nn.functional as F
 
@@ -56,6 +56,7 @@ def get_train_valid_test_sets(
     adaptive_noise_mean_var: bool = True,
     shift_to_zero_twopi: bool = True,
     toy: bool = False,
+    subset_train: Optional[int] = None,
 ) -> Tuple[Dataset, Dataset, Dataset]:
     """
     Get the dataset objects to use for train/valid/test
@@ -68,6 +69,12 @@ def get_train_valid_test_sets(
         )
         for s in ["train", "validation", "test"]
     ]
+
+    if subset_train is not None:
+        rng = np.random.default_rng(seed=6489)
+        train_indices = rng.choice(len(clean_dsets[0]), subset_train, replace=False)
+        logging.info(f"Subsetting training set to {len(train_indices)} samples")
+        clean_dsets[0] = Subset(clean_dsets[0], train_indices)
 
     if noise_prior == "gaussian":
         dset_noiser_class = datasets.NoisedAnglesDataset
@@ -103,7 +110,8 @@ def build_callbacks(early_stop_patience: Optional[int] = None, swa: bool = False
             monitor="val_loss", save_top_k=1, save_weights_only=True,
         ),
     ]
-    if early_stop_patience is not None:
+    if early_stop_patience is not None and early_stop_patience > 0:
+        logging.info(f"Using early stopping with patience {early_stop_patience}")
         callbacks.append(
             pl.callbacks.early_stopping.EarlyStopping(
                 monitor="val_loss",
@@ -129,10 +137,10 @@ def train(
     variance_schedule: SCHEDULES = "linear",
     adaptive_noise_mean_var: bool = True,
     # Related to model architecture
-    num_hidden_layers: int = 6,
-    hidden_size: int = 72,
-    intermediate_size: int = 144,
-    num_heads: int = 8,
+    num_hidden_layers: int = 6,  # Default 12
+    hidden_size: int = 72,  # Default 768
+    intermediate_size: int = 144,  # Default 3072
+    num_heads: int = 8,  # Default 12
     # Related to training strategy
     gradient_clip: float = 0.5,
     batch_size: int = 64,
@@ -142,10 +150,11 @@ def train(
     l1_norm: float = 0.0,
     min_epochs: int = 500,
     max_epochs: int = 2000,
-    early_stop_patience: int = 10,
+    early_stop_patience: int = 10,  # Set to 0 to disable early stopping
     use_swa: bool = False,
     # Misc.
     multithread: bool = True,
+    subset: Optional[int] = None,  # Subset to n training examples
     toy: bool = False,
 ):
     """Main training loop"""
@@ -173,6 +182,7 @@ def train(
         adaptive_noise_mean_var=adaptive_noise_mean_var,
         shift_to_zero_twopi=shift_angles_zero_twopi,
         toy=toy,
+        subset_train=subset,
     )
     train_dataloader, valid_dataloader, test_dataloader = [
         DataLoader(
