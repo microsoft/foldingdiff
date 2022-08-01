@@ -272,6 +272,7 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
             l1_penalty = sum(torch.linalg.norm(p, 1) for p in self.parameters())
             avg_loss += self.l1_lambda * l1_penalty
 
+        self.log("train_loss", avg_loss)
         return avg_loss
 
     def validation_step(self, batch, batch_idx):
