@@ -437,6 +437,63 @@ class GaussianDistUniformAnglesNoisedDataset(NoisedAnglesDataset):
         return noise
 
 
+class ScoreMatchingNoisedAnglesDataset(Dataset):
+    """
+    Add noise to perform score matching
+
+    Based on:
+    * https://arxiv.org/pdf/2206.01729.pdf
+    * https://openreview.net/pdf?id=PxTIG12RRHS
+    """
+
+    sigma_min = 0.01 * np.pi
+    sigma_max = np.pi
+    num_ks = 5000  # Number of 2 * pi * k values to sample
+
+    def __init__(self, dset, dset_key: Optional[str] = None) -> None:
+        super().__init__()
+        self.dset = dset
+        self.dset_key = dset_key
+
+    @staticmethod
+    def get_sigma(t: float) -> float:
+        """Return the value for sigma at time t"""
+        assert 0 <= t <= 1
+        return ScoreMatchingNoisedAnglesDataset.sigma_min ** (
+            1.0 - t
+        ) * ScoreMatchingNoisedAnglesDataset.sigma_max ** (t)
+
+    @staticmethod
+    def get_score(corr, orig, t: float):
+        """
+        Get the score for the given corrupted set of angles given the original set of angles
+        Score corresponds to the negative log likelihood of the corrupted angles
+        """
+        # NOTE this is untested
+        corr = (corr + np.pi) % (2 * np.pi) - np.pi
+        orig = (orig + np.pi) % (2 * np.pi) - np.pi
+
+        assert corr.shape == orig.shape
+        assert 0 <= t <= 1
+        sigma = ScoreMatchingNoisedAnglesDataset.get_sigma(t)
+        delta = corr - orig
+        delta = (delta + np.pi) % (2 * np.pi) - np.pi
+
+        logp = 0
+        for k in range(
+            -ScoreMatchingNoisedAnglesDataset.num_ks,
+            ScoreMatchingNoisedAnglesDataset.num_ks,
+        ):
+            logp += delta + 2 * np.pi * k / (2 * sigma * sigma)
+        return logp
+
+    def __len__(self) -> int:
+        return len(self.dset)
+
+    def __getitem__(self, index) -> Dict[str, torch.Tensor]:
+        return super().__getitem__(index)
+
+
 def coords_to_angles(
     coords: Union[np.ndarray, Dict[str, List[List[float]]]],
     shift_angles_positive: bool = True,
