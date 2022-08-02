@@ -238,7 +238,8 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         # input head_mask has shape [num_heads] or [num_hidden_layers x num_heads]
         # and head_mask is converted to shape [num_hidden_layers x batch x num_heads x seq_length x seq_length]
         head_mask = self.get_head_mask(
-            torch.ones(size=self.config.num_heads), self.config.num_hidden_layers
+            torch.ones(size=(self.config.num_attention_heads,)).to(device),
+            self.config.num_hidden_layers,
         )
 
         inputs_upscaled = self.inputs_to_hidden_dim(inputs)  # Batch * seq_len * dim
