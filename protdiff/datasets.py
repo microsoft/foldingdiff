@@ -564,6 +564,8 @@ def coords_to_angles(
     ), "Angle values outside of [-pi, pi] range"
     if shift_angles_positive:
         all_values[:, 1:] = all_values[:, 1:] % (2 * np.pi)
+        assert all_values[:, 1:].min() >= 0
+        assert all_values[:, 1:].max() < 2 * np.pi
 
     return all_values
 
