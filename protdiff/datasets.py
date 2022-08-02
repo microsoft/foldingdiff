@@ -337,12 +337,16 @@ class NoisedAnglesDataset(Dataset):
         # Module is being used -- shift the noise
         assert self.modulo is not None
         try:
+            # In the torsional diffusion paper, sigma varies up to pi
+            # Consider doing something similar here so the variance covers
+            # more of the range of angles
             centers = torch.tensor([m / 2 if m > 0 else 0 for m in self.modulo])
             v = torch.tensor([m / 6 if m > 0 else 1 for m in self.modulo])
             noise = noise * v + centers
         except TypeError:
             noise = noise * self.modulo / 6 + self.modulo / 2
 
+        noise = utils.broadcast_mod(noise, self.modulo)
         return noise
 
     def __getitem__(
@@ -559,7 +563,7 @@ def coords_to_angles(
         np.logical_and(all_values[:, 1:] <= np.pi, all_values[:, 1:] >= -np.pi,)
     ), "Angle values outside of [-pi, pi] range"
     if shift_angles_positive:
-        all_values[:, 1:] += np.pi
+        all_values[:, 1:] = all_values[:, 1:] % (2 * np.pi)
 
     return all_values
 
