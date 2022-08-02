@@ -313,7 +313,6 @@ class NoisedAnglesDataset(Dataset):
 
         self.betas = beta_schedules.get_variance_schedule(beta_schedule, timesteps)
         self.alphas = 1.0 - self.betas
-        self.sqrt_recip_alphas = torch.sqrt(1.0 / self.alphas)
         self.alphas_cumprod = torch.cumprod(self.alphas, axis=0)
         self.sqrt_alphas_cumprod = torch.sqrt(self.alphas_cumprod)
         self.sqrt_one_minus_alphas_cumprod = torch.sqrt(1.0 - self.alphas_cumprod)
@@ -326,10 +325,10 @@ class NoisedAnglesDataset(Dataset):
 
     def sample_noise_adaptive(self, vals: torch.Tensor) -> torch.Tensor:
         """
-        Adaptively sample noise based on modulo. This is necessary because
-        if we have a modulo term, then the minimum value is 0 and generating
-        noise with 0 mean results in a weird bimodal distribution
+        Adaptively sample noise based on modulo. We scale only the variance because
+        we want the noise to remain zero centered
         """
+        # Noise is always 0 centered
         noise = torch.randn_like(vals)
         # If modulo not given, or if noise_by_modulo is False, then just return noise
         if self.modulo is None or not self.noise_by_modulo:
@@ -337,14 +336,12 @@ class NoisedAnglesDataset(Dataset):
         # Module is being used -- shift the noise
         assert self.modulo is not None
         try:
-            # In the torsional diffusion paper, sigma varies up to pi
-            # Consider doing something similar here so the variance covers
-            # more of the range of angles
-            centers = torch.tensor([m / 2 if m > 0 else 0 for m in self.modulo])
-            v = torch.tensor([m / 6 if m > 0 else 1 for m in self.modulo])
-            noise = noise * v + centers
+            # Note that scarling only affects variance because we want mean to
+            # still be 0
+            v = torch.tensor([m / 2 if m > 0 else 1 for m in self.modulo])
+            noise *= v
         except TypeError:
-            noise = noise * self.modulo / 6 + self.modulo / 2
+            noise *= self.modulo / 2
 
         noise = utils.broadcast_mod(noise, self.modulo)
         return noise
@@ -357,6 +354,7 @@ class NoisedAnglesDataset(Dataset):
         use_t_val is useful for manually querying specific timepoints
         """
         assert 0 <= index < len(self), f"Index {index} out of bounds for {len(self)}"
+        # Handle cases where we exhaustively loop over t
         if self.exhaustive_timesteps:
             item_index = index // self.timesteps
             assert item_index < len(self.dset)
@@ -390,6 +388,7 @@ class NoisedAnglesDataset(Dataset):
             t = torch.tensor([time_index]).long()  # list to get correct shape
         else:
             t = torch.randint(0, self.timesteps, (1,)).long()
+        # Get the values for alpha and beta
         sqrt_alphas_cumprod_t = utils.extract(self.sqrt_alphas_cumprod, t, vals.shape)
         sqrt_one_minus_alphas_cumprod_t = utils.extract(
             self.sqrt_one_minus_alphas_cumprod, t, vals.shape

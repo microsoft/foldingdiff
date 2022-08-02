@@ -84,6 +84,13 @@ def get_train_valid_test_sets(
         raise ValueError(f"Unrecognized noise prior: {noise_prior}")
 
     logging.info(f"Using {dset_noiser_class.__name__} for noise")
+    m = None
+    if shift_to_zero_twopi:
+        if single_angle_debug:
+            m = 2 * np.pi
+        else:
+            m = [0, 2 * np.pi, 2 * np.pi, 2 * np.pi]
+    logging.info(f"Loading datasets with noiser modulo {m}")
     noised_dsets = [
         dset_noiser_class(
             ds,
@@ -91,9 +98,7 @@ def get_train_valid_test_sets(
             timesteps=timesteps,
             exhaustive_t=(i != 0) and exhaustive_t,
             beta_schedule=variance_schedule,
-            modulo=(
-                [0, 2 * np.pi, 2 * np.pi, 2 * np.pi] if shift_to_zero_twopi else None
-            ),
+            modulo=m,
             noise_by_modulo=adaptive_noise_mean_var,
         )
         for i, ds in enumerate(clean_dsets)
@@ -126,8 +131,10 @@ def build_callbacks(early_stop_patience: Optional[int] = None, swa: bool = False
     logging.info(f"Model callbacks: {callbacks}")
     return callbacks
 
+
 # For some arg defaults, see as reference:
 # https://huggingface.co/docs/transformers/main/en/main_classes/trainer.html
+
 
 def train(
     # Controls output
