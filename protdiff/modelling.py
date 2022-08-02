@@ -44,6 +44,44 @@ class SinusoidalPositionEmbeddings(nn.Module):
         return embeddings
 
 
+class BertEmbeddings(nn.Module):
+    def __init__(self, config):
+        super().__init__()
+        self.position_embeddings = nn.Embedding(
+            config.max_position_embeddings, config.hidden_size
+        )
+
+        # self.LayerNorm is not snake-cased to stick with TensorFlow model variable name and be able to load
+        # any TensorFlow checkpoint file
+        self.LayerNorm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
+        self.dropout = nn.Dropout(config.hidden_dropout_prob)
+        # position_ids (1, len position emb) is contiguous in memory and exported when serialized
+        self.position_embedding_type = getattr(
+            config, "position_embedding_type", "absolute"
+        )
+        self.register_buffer(
+            "position_ids", torch.arange(config.max_position_embeddings).expand((1, -1))
+        )
+        self.register_buffer(
+            "token_type_ids",
+            torch.zeros(self.position_ids.size(), dtype=torch.long),
+            persistent=False,
+        )
+
+    def forward(
+        self, input_embeds: torch.Tensor, position_ids: torch.LongTensor,
+    ) -> torch.Tensor:
+        assert position_ids is not None, "`position_ids` must be defined"
+        embeddings = input_embeds
+        if self.position_embedding_type == "absolute":
+            position_embeddings = self.position_embeddings(position_ids)
+            embeddings += position_embeddings
+
+        embeddings = self.LayerNorm(embeddings)
+        embeddings = self.dropout(embeddings)
+        return embeddings
+
+
 class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
     """
     BERT designed to be used with continuous inputs instead of tokens
@@ -68,7 +106,7 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
 
         # Store information about leraning rates and loss
         self.learning_rate = lr
-        # loss functio is either a callable or a list of callables
+        # loss function is either a callable or a list of callables
         self.loss_func = {
             "huber": F.smooth_l1_loss,
             "radian_l1": [
@@ -92,6 +130,7 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         self.inputs_to_hidden_dim = nn.Linear(
             in_features=4, out_features=config.hidden_size
         )
+        self.embeddings = BertEmbeddings(config)
         self.encoder = BertEncoder(config)
         self.pooler = BertPooler(config) if add_pooling_layer else None
 
@@ -114,7 +153,7 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         self,
         inputs: torch.Tensor,
         timestep: torch.Tensor,  # Tensor of shape batch_length with time indices
-        attention_mask: Optional[torch.Tensor] = None,
+        attention_mask: torch.Tensor,
         position_ids: Optional[torch.Tensor] = None,
         head_mask: Optional[torch.Tensor] = None,
         inputs_embeds: Optional[torch.Tensor] = None,
@@ -178,15 +217,7 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         logging.debug(f"Detected batch {batch_size} and seq length {seq_length}")
         device = inputs.device if inputs is not None else inputs_embeds.device
 
-        # past_key_values_length
-        past_key_values_length = (
-            past_key_values[0][0].shape[2] if past_key_values is not None else 0
-        )
-
-        if attention_mask is None:
-            attention_mask = torch.ones(
-                ((batch_size, seq_length + past_key_values_length)), device=device
-            )
+        assert attention_mask is not None
 
         # We can provide a self-attention mask of dimensions [batch_size, from_seq_length, to_seq_length]
         # ourselves in which case we just need to make it broadcastable to all heads.
@@ -206,9 +237,15 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         # attention_probs has shape bsz x n_heads x N x N
         # input head_mask has shape [num_heads] or [num_hidden_layers x num_heads]
         # and head_mask is converted to shape [num_hidden_layers x batch x num_heads x seq_length x seq_length]
-        head_mask = self.get_head_mask(head_mask, self.config.num_hidden_layers)
+        head_mask = self.get_head_mask(
+            torch.ones(size=self.config.num_heads), self.config.num_hidden_layers
+        )
 
         inputs_upscaled = self.inputs_to_hidden_dim(inputs)  # Batch * seq_len * dim
+
+        # Pass through embeddings
+        inputs_upscaled = self.embeddings(inputs_upscaled, position_ids=position_ids)
+
         # timestep is (batch, 1), squeeze to (batch,)
         # embedding gets to (batch, embed_dim) -> unsqueee to (batch, 1, dim)
         time_encoded = self.time_embed(timestep.squeeze(dim=-1)).unsqueeze(1)
@@ -240,7 +277,10 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         """
         known_noise = batch["known_noise"]
         predicted_noise = self.forward(
-            batch["corrupted"], batch["t"], attention_mask=batch["attn_mask"]
+            batch["corrupted"],
+            batch["t"],
+            attention_mask=batch["attn_mask"],
+            position_ids=batch["position_ids"],
         )
 
         # Indexes into batch then indices along sequence length
