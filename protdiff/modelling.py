@@ -102,7 +102,7 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         self.time_embed = SinusoidalPositionEmbeddings(config.hidden_size)
 
         # Initialize weights and apply final processing
-        # self.post_init()
+        self.init_weights()
 
     def get_input_embeddings(self) -> nn.Module:
         raise NotImplementedError
