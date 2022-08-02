@@ -201,8 +201,9 @@ def train(
     ]
 
     # Create plots in output directories of distributions from different timesteps
+    plots_folder = results_folder / "plots"
+    os.makedirs(plots_folder, exist_ok=True)
     if not single_angle_debug:  # Skip this for debug runs
-        os.makedirs(results_folder / "plots", exist_ok=True)
         for t in np.linspace(0, timesteps, num=11, endpoint=True).astype(int):
             t = min(t, timesteps - 1)  # Ensure we don't exceed the number of timesteps
             logging.info(f"Plotting distribution at time {t}")
@@ -211,7 +212,7 @@ def train(
                 t=t,
                 share_axes=False,
                 zero_center_angles=not shift_angles_zero_twopi,
-                fname=results_folder / "plots" / f"train_dists_at_t_{t}.pdf",
+                fname=plots_folder / f"train_dists_at_t_{t}.pdf",
             )
 
     # https://jaketae.github.io/study/relative-positional-encoding/
@@ -234,13 +235,14 @@ def train(
     )
     cfg.save_pretrained(results_folder)
 
+    callbacks = build_callbacks(early_stop_patience=early_stop_patience, swa=use_swa)
     trainer = pl.Trainer(
         default_root_dir=results_folder,
         gradient_clip_val=gradient_clip,
         min_epochs=min_epochs,
         max_epochs=max_epochs,
         check_val_every_n_epoch=1,
-        callbacks=build_callbacks(early_stop_patience=early_stop_patience, swa=use_swa),
+        callbacks=callbacks,
         logger=pl.loggers.CSVLogger(save_dir=results_folder / "logs"),
         log_every_n_steps=min(50, len(train_dataloader)),  # Log at least once per epoch
         accelerator="gpu" if torch.cuda.is_available() else "cpu",
@@ -251,6 +253,14 @@ def train(
         train_dataloaders=train_dataloader,
         val_dataloaders=valid_dataloader,
     )
+
+    # Plot the losses
+    metrics_csv = os.path.join(
+        trainer.logger.save_dir, "lightning_logs/version_0/metrics.csv"
+    )
+    assert os.path.isfile(metrics_csv)
+    # Plot the losses
+    plotting.plot_losses(metrics_csv, out_fname=plots_folder / "losses.pdf")
 
 
 def build_parser() -> argparse.ArgumentParser:
