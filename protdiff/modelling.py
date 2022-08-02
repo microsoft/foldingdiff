@@ -115,6 +115,21 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
 
     Reference: https://github.com/huggingface/transformers/blob/f681437203baa7671de3174b0fa583c349d9d5e1/src/transformers/models/bert/modeling_bert.py#L870
     """
+    loss_fn_dict = {
+        "huber": F.smooth_l1_loss,
+        "radian_l1": [
+            F.smooth_l1_loss,
+            losses.radian_l1_loss,
+            losses.radian_l1_loss,
+            losses.radian_l1_loss,
+        ],
+        "radian_l1_smooth": [
+            F.smooth_l1_loss,
+            functools.partial(losses.radian_smooth_l1_loss, beta=torch.pi / 10),
+            functools.partial(losses.radian_smooth_l1_loss, beta=torch.pi / 10),
+            functools.partial(losses.radian_smooth_l1_loss, beta=torch.pi / 10),
+        ],
+    }
 
     def __init__(
         self,
@@ -122,7 +137,7 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         n_inputs: int = 4,
         time_encoding: Literal["gaussian_fourier", "sinusoidal"] = "sinusoidal",
         lr: float = 1e-4,
-        loss: Literal["huber", "radian_l1", "radian_l1_smooth"] = "huber",
+        loss: Union[Callable, Literal["huber", "radian_l1", "radian_l1_smooth"]] = "huber",
         l2: float = 0.0,
         l1: float = 0.0,
         add_pooling_layer: bool = False,
@@ -136,21 +151,7 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         # Store information about leraning rates and loss
         self.learning_rate = lr
         # loss function is either a callable or a list of callables
-        self.loss_func = {
-            "huber": F.smooth_l1_loss,
-            "radian_l1": [
-                F.smooth_l1_loss,
-                losses.radian_l1_loss,
-                losses.radian_l1_loss,
-                losses.radian_l1_loss,
-            ],
-            "radian_l1_smooth": [
-                F.smooth_l1_loss,
-                functools.partial(losses.radian_smooth_l1_loss, beta=torch.pi / 10),
-                functools.partial(losses.radian_smooth_l1_loss, beta=torch.pi / 10),
-                functools.partial(losses.radian_smooth_l1_loss, beta=torch.pi / 10),
-            ],
-        }[loss]
+        self.loss_func = self.loss_fn_dict[loss] if isinstance(loss, str) else loss
         logging.info(f"Using loss: {self.loss_func}")
         self.l1_lambda = l1
         self.l2_lambda = l2

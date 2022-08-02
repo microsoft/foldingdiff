@@ -30,6 +30,7 @@ sys.path.append(str(SRC_DIR))
 
 import datasets
 import modelling
+import losses
 from beta_schedules import SCHEDULES
 import plotting
 import utils
@@ -227,7 +228,7 @@ def train(
         time_encoding=time_encoding,
         n_inputs=1 if single_angle_debug else 4,
         lr=lr,
-        loss=loss,
+        loss=loss if not single_angle_debug else losses.radian_smooth_l1_loss,
         l2=l2_norm,
         l1=l1_norm,
     )
