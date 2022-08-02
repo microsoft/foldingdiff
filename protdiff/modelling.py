@@ -22,6 +22,33 @@ from transformers.models.bert.modeling_bert import (
 import losses
 
 
+class GaussianFourierProjection(nn.Module):
+    """
+    Gaussian random features for encoding time steps.
+    Built primarily for score-based models.
+
+    Source:
+    https://colab.research.google.com/drive/120kYYBOVa1i0TD85RjlEkFjaWDxSFUx3?usp=sharing#scrollTo=YyQtV7155Nht
+    """
+
+    def __init__(self, embed_dim: int, scale: float = 2 * torch.pi):
+        super().__init__()
+        # Randomly sample weights during initialization. These weights are fixed
+        # during optimization and are not trainable.
+        self.W = nn.Parameter(torch.randn(embed_dim // 2) * scale, requires_grad=False)
+        print(self.W)
+
+    def forward(self, x: torch.Tensor):
+        """
+        takes as input the time vector and returns the time encoding
+        time (x): (batch_size, )
+        output  : (batch_size, embed_dim) 
+        """
+        x = x.squeeze()
+        x_proj = x[:, None] * self.W[None, :] * 2 * torch.pi
+        return torch.cat([torch.sin(x_proj), torch.cos(x_proj)], dim=-1)
+
+
 class SinusoidalPositionEmbeddings(nn.Module):
     """
     Positional embeddings
@@ -31,7 +58,7 @@ class SinusoidalPositionEmbeddings(nn.Module):
         super().__init__()
         self.dim = dim
 
-    def forward(self, time) -> torch.Tensor:
+    def forward(self, time: torch.Tensor) -> torch.Tensor:
         device = time.device
         half_dim = self.dim // 2
         embeddings = math.log(10000) / (half_dim - 1)
@@ -92,6 +119,7 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
     def __init__(
         self,
         config,
+        time_encoding: Literal["gaussian_fourier", "sinusoidal"] = "sinusoidal",
         lr: float = 1e-4,
         loss: Literal["huber", "radian_l1", "radian_l1_smooth"] = "huber",
         l2: float = 0.0,
@@ -138,7 +166,13 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         self.token_decoder = nn.Linear(config.hidden_size, 4)
 
         # Set up the time embedder
-        self.time_embed = SinusoidalPositionEmbeddings(config.hidden_size)
+        if time_encoding == "gaussian_fourier":
+            self.time_embed = GaussianFourierProjection(config.hidden_size)
+        elif time_encoding == "sinusoidal":
+            self.time_embed = SinusoidalPositionEmbeddings(config.hidden_size)
+        else:
+            raise ValueError(f"Unknown time encoding: {time_encoding}")
+        logging.info(f"Using time embedding: {self.time_embed}")
 
         # Initialize weights and apply final processing
         self.init_weights()
@@ -344,23 +378,28 @@ def main():
     import datasets
     from torch.utils.data.dataloader import default_collate
 
-    clean_dset = datasets.CathConsecutiveAnglesDataset(toy=True)
-    noised_dset = datasets.NoisedAnglesDataset(clean_dset)
-    torch.utils.data.dataloader.default_collate
-    x = default_collate([noised_dset[i] for i in range(8)])
-    print(x["corrupted"].shape, x["corrupted"].dtype)
-    print(x["t"].shape)
+    proj = GaussianFourierProjection(embed_dim=32)
+    t_proj = proj(torch.randint(0, 250, (2,)))
+    print(t_proj)
+    print(t_proj.shape)
 
-    # Create model
-    # device = torch.device("cuda")
-    model = BertForDiffusion(
-        BertConfig(hidden_size=144, position_embedding_type="relative_key_query")
-    )
-    # print(model)
-    y = model.forward(x["corrupted"], x["t"].squeeze())
-    print(y.shape)
+    # clean_dset = datasets.CathConsecutiveAnglesDataset(toy=True)
+    # noised_dset = datasets.NoisedAnglesDataset(clean_dset)
+    # torch.utils.data.dataloader.default_collate
+    # x = default_collate([noised_dset[i] for i in range(8)])
+    # print(x["corrupted"].shape, x["corrupted"].dtype)
+    # print(x["t"].shape)
+
+    # # Create model
+    # # device = torch.device("cuda")
+    # model = BertForDiffusion(
+    #     BertConfig(hidden_size=144, position_embedding_type="relative_key_query")
+    # )
+    # # print(model)
+    # y = model.forward(x["corrupted"], x["t"].squeeze())
+    # print(y.shape)
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
     main()

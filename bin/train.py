@@ -131,11 +131,14 @@ def train(
     variance_schedule: SCHEDULES = "linear",
     adaptive_noise_mean_var: bool = True,
     # Related to model architecture
+    time_encoding: Literal["gaussian_fourier", "sinusoidal"] = "sinusoidal",
     num_hidden_layers: int = 6,  # Default 12
     hidden_size: int = 72,  # Default 768
     intermediate_size: int = 144,  # Default 3072
     num_heads: int = 8,  # Default 12
-    position_embedding_type: Literal["absolute", "relative_key", "relative_key_query"] = 'relative_key_query',
+    position_embedding_type: Literal[
+        "absolute", "relative_key", "relative_key_query"
+    ] = "relative_key_query",
     # Related to training strategy
     gradient_clip: float = 0.5,
     batch_size: int = 64,
@@ -211,7 +214,9 @@ def train(
         num_hidden_layers=num_hidden_layers,
         position_embedding_type=position_embedding_type,
     )
-    model = modelling.BertForDiffusion(cfg, lr=lr, loss=loss, l2=l2_norm, l1=l1_norm)
+    model = modelling.BertForDiffusion(
+        cfg, time_encoding=time_encoding, lr=lr, loss=loss, l2=l2_norm, l1=l1_norm
+    )
     cfg.save_pretrained(results_folder)
 
     trainer = pl.Trainer(
@@ -253,7 +258,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="Directory to write model training outputs",
     )
     parser.add_argument(
-        "--toy", type=int, default=0, help="Use a toy dataset of n items rather than full dataset",
+        "--toy",
+        type=int,
+        default=0,
+        help="Use a toy dataset of n items rather than full dataset",
     )
     return parser
 
