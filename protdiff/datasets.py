@@ -417,6 +417,31 @@ class NoisedAnglesDataset(Dataset):
         return retval
 
 
+class SingleNoisedAngleDataset(NoisedAnglesDataset):
+    """
+    Dataset that adds noise to the angles in the dataset.
+    """
+
+    selected_index = 1
+
+    def __getitem__(
+        self, index: int, use_t_val: Optional[int] = None
+    ) -> Dict[str, torch.Tensor]:
+        """Get only one angle"""
+        assert (
+            use_t_val is None
+        ), "SingleNoisedAngleDataset does not support explicit t val"
+        vals = super().__getitem__(index)
+        # Select a single angle
+        for k in ["angles", "corrupted", "known_noise"]:
+            assert (
+                len(vals[k].shape) == 2
+            ), f"Expected 2D tensor but got {vals[k].shape}"
+            v = vals[k][:, self.selected_index].unsqueeze(1)
+            vals[k] = v
+        return vals
+
+
 class GaussianDistUniformAnglesNoisedDataset(NoisedAnglesDataset):
     """
     Same as NoisedAnglesDataset but with uniform noise for the angles. Importantly, we keep

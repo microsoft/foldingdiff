@@ -57,6 +57,7 @@ def get_train_valid_test_sets(
     shift_to_zero_twopi: bool = True,
     toy: Union[int, bool] = False,
     exhaustive_t: bool = False,
+    single_angle_debug: bool = False,  # Noise and retur a single angle
 ) -> Tuple[Dataset, Dataset, Dataset]:
     """
     Get the dataset objects to use for train/valid/test
@@ -71,7 +72,11 @@ def get_train_valid_test_sets(
     ]
 
     if noise_prior == "gaussian":
-        dset_noiser_class = datasets.NoisedAnglesDataset
+        if single_angle_debug:
+            logging.warning("Using single angle noise!")
+            dset_noiser_class = datasets.SingleNoisedAngleDataset
+        else:
+            dset_noiser_class = datasets.NoisedAnglesDataset
     elif noise_prior == "uniform":
         dset_noiser_class = datasets.GaussianDistUniformAnglesNoisedDataset
     else:
@@ -154,6 +159,7 @@ def train(
     multithread: bool = True,
     subset: Union[bool, int] = False,  # Subset to n training examples
     exhaustive_validation_t: bool = False,  # Exhaustively enumerate t for validation/test
+    single_angle_debug: bool = False,  # Noise and return a single angle
 ):
     """Main training loop"""
     # Record the args given to the function before we create more vars
@@ -181,6 +187,7 @@ def train(
         shift_to_zero_twopi=shift_angles_zero_twopi,
         toy=subset,
         exhaustive_t=exhaustive_validation_t,
+        single_angle_debug=single_angle_debug,
     )
     train_dataloader, valid_dataloader, test_dataloader = [
         DataLoader(
@@ -193,17 +200,18 @@ def train(
     ]
 
     # Create plots in output directories of distributions from different timesteps
-    os.makedirs(results_folder / "plots", exist_ok=True)
-    for t in np.linspace(0, timesteps, num=11, endpoint=True).astype(int):
-        t = min(t, timesteps - 1)  # Ensure we don't exceed the number of timesteps
-        logging.info(f"Plotting distribution at time {t}")
-        plotting.plot_val_dists_at_t(
-            dsets[0],
-            t=t,
-            share_axes=False,
-            zero_center_angles=not shift_angles_zero_twopi,
-            fname=results_folder / "plots" / f"train_dists_at_t_{t}.pdf",
-        )
+    if not single_angle_debug:  # Skip this for debug runs
+        os.makedirs(results_folder / "plots", exist_ok=True)
+        for t in np.linspace(0, timesteps, num=11, endpoint=True).astype(int):
+            t = min(t, timesteps - 1)  # Ensure we don't exceed the number of timesteps
+            logging.info(f"Plotting distribution at time {t}")
+            plotting.plot_val_dists_at_t(
+                dsets[0],
+                t=t,
+                share_axes=False,
+                zero_center_angles=not shift_angles_zero_twopi,
+                fname=results_folder / "plots" / f"train_dists_at_t_{t}.pdf",
+            )
 
     # https://jaketae.github.io/study/relative-positional-encoding/
     # looking at the relative distance between things is more robust
@@ -215,7 +223,13 @@ def train(
         position_embedding_type=position_embedding_type,
     )
     model = modelling.BertForDiffusion(
-        cfg, time_encoding=time_encoding, lr=lr, loss=loss, l2=l2_norm, l1=l1_norm
+        cfg,
+        time_encoding=time_encoding,
+        n_inputs=1 if single_angle_debug else 4,
+        lr=lr,
+        loss=loss,
+        l2=l2_norm,
+        l1=l1_norm,
     )
     cfg.save_pretrained(results_folder)
 
@@ -263,6 +277,9 @@ def build_parser() -> argparse.ArgumentParser:
         default=0,
         help="Use a toy dataset of n items rather than full dataset",
     )
+    parser.add_argument(
+        "--debug_single", action="store_true", help="Debug single angle"
+    )
     return parser
 
 
@@ -277,7 +294,12 @@ def main():
         with open(args.config) as source:
             config_args = json.load(source)
     config_args = utils.update_dict(
-        config_args, {"results_dir": args.outdir, "subset": args.toy}
+        config_args,
+        {
+            "results_dir": args.outdir,
+            "subset": args.toy,
+            "single_angle_debug": args.debug_single,
+        },
     )
     train(**config_args)
 

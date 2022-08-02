@@ -36,7 +36,6 @@ class GaussianFourierProjection(nn.Module):
         # Randomly sample weights during initialization. These weights are fixed
         # during optimization and are not trainable.
         self.W = nn.Parameter(torch.randn(embed_dim // 2) * scale, requires_grad=False)
-        print(self.W)
 
     def forward(self, x: torch.Tensor):
         """
@@ -46,7 +45,8 @@ class GaussianFourierProjection(nn.Module):
         """
         x = x.squeeze()
         x_proj = x[:, None] * self.W[None, :] * 2 * torch.pi
-        return torch.cat([torch.sin(x_proj), torch.cos(x_proj)], dim=-1)
+        embed = torch.cat([torch.sin(x_proj), torch.cos(x_proj)], dim=-1)
+        return embed
 
 
 class SinusoidalPositionEmbeddings(nn.Module):
@@ -119,6 +119,7 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
     def __init__(
         self,
         config,
+        n_inputs: int = 4,
         time_encoding: Literal["gaussian_fourier", "sinusoidal"] = "sinusoidal",
         lr: float = 1e-4,
         loss: Literal["huber", "radian_l1", "radian_l1_smooth"] = "huber",
@@ -156,14 +157,14 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
 
         # Needed to project the low dimensional input to hidden dim
         self.inputs_to_hidden_dim = nn.Linear(
-            in_features=4, out_features=config.hidden_size
+            in_features=n_inputs, out_features=config.hidden_size
         )
         self.embeddings = BertEmbeddings(config)
         self.encoder = BertEncoder(config)
         self.pooler = BertPooler(config) if add_pooling_layer else None
 
         # Set up the network to project token representation to our four outputs
-        self.token_decoder = nn.Linear(config.hidden_size, 4)
+        self.token_decoder = nn.Linear(config.hidden_size, n_inputs)
 
         # Set up the time embedder
         if time_encoding == "gaussian_fourier":
@@ -276,6 +277,7 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
             self.config.num_hidden_layers,
         )
 
+        assert len(inputs.shape) == 3  # batch_size, seq_length, features
         inputs_upscaled = self.inputs_to_hidden_dim(inputs)  # Batch * seq_len * dim
 
         # Pass through embeddings
@@ -317,6 +319,9 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
             attention_mask=batch["attn_mask"],
             position_ids=batch["position_ids"],
         )
+        assert (
+            known_noise.shape == predicted_noise.shape
+        ), f"{known_noise.shape} != {predicted_noise.shape}"
 
         # Indexes into batch then indices along sequence length
         unmask_idx = torch.where(batch["attn_mask"])
@@ -378,26 +383,19 @@ def main():
     import datasets
     from torch.utils.data.dataloader import default_collate
 
-    proj = GaussianFourierProjection(embed_dim=32)
-    t_proj = proj(torch.randint(0, 250, (2,)))
-    print(t_proj)
-    print(t_proj.shape)
-
-    # clean_dset = datasets.CathConsecutiveAnglesDataset(toy=True)
-    # noised_dset = datasets.NoisedAnglesDataset(clean_dset)
-    # torch.utils.data.dataloader.default_collate
-    # x = default_collate([noised_dset[i] for i in range(8)])
-    # print(x["corrupted"].shape, x["corrupted"].dtype)
-    # print(x["t"].shape)
+    clean_dset = datasets.CathConsecutiveAnglesDataset(toy=True)
+    noised_dset = datasets.NoisedAnglesDataset(clean_dset)
+    torch.utils.data.dataloader.default_collate
+    x = default_collate([noised_dset[i] for i in range(128)])
 
     # # Create model
-    # # device = torch.device("cuda")
-    # model = BertForDiffusion(
-    #     BertConfig(hidden_size=144, position_embedding_type="relative_key_query")
-    # )
-    # # print(model)
-    # y = model.forward(x["corrupted"], x["t"].squeeze())
-    # print(y.shape)
+    # device = torch.device("cuda")
+    model = BertForDiffusion(
+        BertConfig(hidden_size=144, position_embedding_type="relative_key_query")
+    )
+    # print(model)
+    y = model.forward(x["corrupted"], x["t"].squeeze())
+    print(y.shape)
 
 
 if __name__ == "__main__":
