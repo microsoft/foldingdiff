@@ -126,6 +126,8 @@ def build_callbacks(early_stop_patience: Optional[int] = None, swa: bool = False
     logging.info(f"Model callbacks: {callbacks}")
     return callbacks
 
+# For some arg defaults, see as reference:
+# https://huggingface.co/docs/transformers/main/en/main_classes/trainer.html
 
 def train(
     # Controls output
@@ -146,11 +148,11 @@ def train(
         "absolute", "relative_key", "relative_key_query"
     ] = "relative_key_query",
     # Related to training strategy
-    gradient_clip: float = 0.5,
+    gradient_clip: float = 1.0,  # From BERT trainer
     batch_size: int = 64,
-    lr: float = 1e-3,
+    lr: float = 5e-5,  # Default lr for huggingface BERT trainer
     loss: Literal["huber", "radian_l1", "radian_l1_smooth"] = "radian_l1_smooth",
-    l2_norm: float = 0.01,  # AdamW default has 0.01 L2 regularization
+    l2_norm: float = 0.0,  # AdamW default has 0.01 L2 regularization, but BERT trainer uses 0.0
     l1_norm: float = 0.0,
     min_epochs: int = 500,
     max_epochs: int = 2000,
