@@ -29,7 +29,7 @@ def plot_val_dists_at_t(
     retval = []
     for i in tqdm(range(len(dset))):
         vals = dset.__getitem__(i, use_t_val=t)
-        assert vals["t"].item() == t
+        assert vals["t"].item() == t, f"Unexpected values of t: {vals['t']} != {t}"
         retval.append(select_by_attn(vals))
     vals_flat = torch.vstack(retval).numpy()
     assert len(vals_flat.shape) == 2
