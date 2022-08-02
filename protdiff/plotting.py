@@ -64,9 +64,11 @@ def plot_losses(log_fname: str, out_fname: Optional[str] = None):
 
     df = pd.read_csv(log_fname)
     for colname in df.columns:
-        if "val_loss" not in colname:
+        if "loss" not in colname:
             continue
-        ax.plot(df["epoch"], df[colname], label=colname)
+        vals = df.loc[:, ["epoch", colname]]
+        vals.dropna(axis="index", how="any", inplace=True)
+        ax.plot(vals["epoch"], vals[colname], label=colname)
     ax.legend(loc="upper right")
     ax.set(xlabel="Epoch", ylabel="Loss", title="Loss over epochs")
 
