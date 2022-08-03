@@ -73,8 +73,11 @@ def update_dict_nonnull(d: Dict[str, Any], vals: Dict[str, Any]) -> Dict[str, An
     {'a': 1, 'b': 3, 'c': 4}
     """
     for k, v in vals.items():
-        if k in d and d[k] != v and v is not None:
-            logging.info(f"Replacing key {k} original value {d[k]} with {v}")
+        if k in d:
+            if d[k] != v and v is not None:
+                logging.info(f"Replacing key {k} original value {d[k]} with {v}")
+                d[k] = v
+        else:
             d[k] = v
     return d
 
