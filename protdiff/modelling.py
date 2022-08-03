@@ -329,7 +329,11 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         ), f"{known_noise.shape} != {predicted_noise.shape}"
 
         # Indexes into batch then indices along sequence length
+        # attn_mask has shape (batch, seq_len) --> where gives back
+        # two lists of values, one for each dimension
+        # known_noise has shape (batch, seq_len, num_fts)
         unmask_idx = torch.where(batch["attn_mask"])
+        assert len(unmask_idx) == 2
         loss_terms = []
         for i in range(known_noise.shape[-1]):
             loss_fn = (
@@ -337,10 +341,11 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
                 if isinstance(self.loss_func, list)
                 else self.loss_func
             )
+            logging.debug(f"Using loss function {loss_fn}")
             loss_terms.append(
                 loss_fn(
-                    known_noise[:, :, i][unmask_idx],
-                    predicted_noise[:, :, i][unmask_idx],
+                    known_noise[unmask_idx[0], unmask_idx[1], i],
+                    predicted_noise[unmask_idx[0], unmask_idx[1], i],
                 )
             )
         return loss_terms
