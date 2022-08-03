@@ -168,9 +168,7 @@ class CathConsecutiveAnglesDataset(Dataset):
 
         # Shift to [0, 2pi] if configured as such
         if self.shift_to_zero_twopi:
-            angles[:, 1:] = utils.modulo_with_wrapped_range(
-                angles[:, 1:], range_min=0.0, range_max=2 * np.pi
-            )
+            angles[:, 1:] += np.pi  # Shift from [-pi, pi] to [0, 2pi]
             assert angles[:, 1:].min() >= 0
             assert angles[:, 1:].max() < 2 * np.pi
 
