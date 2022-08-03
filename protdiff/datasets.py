@@ -106,10 +106,9 @@ class CathConsecutiveAnglesDataset(Dataset):
 
         # Generate angles in parallel and attach them to corresponding structures
         pool = multiprocessing.Pool(multiprocessing.cpu_count())
-        pfunc = functools.partial(
-            coords_to_angles, shift_angles_positive=self.shift_to_zero_twopi
+        angles = pool.map(
+            coords_to_angles, [d["coords"] for d in self.structures], chunksize=250
         )
-        angles = pool.map(pfunc, [d["coords"] for d in self.structures], chunksize=250)
         pool.close()
         pool.join()
         for s, a in zip(self.structures, angles):
@@ -153,6 +152,7 @@ class CathConsecutiveAnglesDataset(Dataset):
         attn_mask = torch.zeros(size=(self.pad,))
         attn_mask[:l] = 1.0
 
+        # Perform padding
         if angles.shape[0] < self.pad:
             orig_shape = angles.shape
             angles = np.pad(
@@ -164,6 +164,15 @@ class CathConsecutiveAnglesDataset(Dataset):
             logging.debug(f"Padded {orig_shape} -> {angles.shape}")
         elif angles.shape[0] > self.pad:
             angles = angles[: self.pad]
+        assert angles.shape == (self.pad, 4)
+
+        # Shift to [0, 2pi] if configured as such
+        if self.shift_to_zero_twopi:
+            angles[:, 1:] = utils.modulo_with_wrapped_range(
+                angles[:, 1:], range_min=0.0, range_max=2 * np.pi
+            )
+            assert angles[:, 1:].min() >= 0
+            assert angles[:, 1:].max() < 2 * np.pi
 
         position_ids = torch.arange(start=0, end=self.pad, step=1, dtype=torch.long)
 
@@ -356,7 +365,7 @@ class NoisedAnglesDataset(Dataset):
         except TypeError:
             noise *= self.modulo / 2
 
-        noise = utils.broadcast_mod(noise, self.modulo)
+        # noise = utils.broadcast_mod(noise, self.modulo)
         return noise
 
     def __getitem__(
@@ -567,7 +576,6 @@ class ScoreMatchingNoisedAnglesDataset(Dataset):
 
 def coords_to_angles(
     coords: Union[np.ndarray, Dict[str, List[List[float]]]],
-    shift_angles_positive: bool = True,
 ) -> Optional[np.ndarray]:
     """
     Sanitize the coordinates to not have NaN and convert them into
@@ -617,12 +625,7 @@ def coords_to_angles(
 
     assert np.all(
         np.logical_and(all_values[:, 1:] <= np.pi, all_values[:, 1:] >= -np.pi,)
-    ), "Angle values outside of [-pi, pi] range"
-    if shift_angles_positive:
-        all_values[:, 1:] = all_values[:, 1:] % (2 * np.pi)
-        assert all_values[:, 1:].min() >= 0
-        assert all_values[:, 1:].max() < 2 * np.pi
-
+    ), "Angle values outside of expected [-pi, pi] range"
     return all_values
 
 
