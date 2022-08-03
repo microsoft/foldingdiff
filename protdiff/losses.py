@@ -7,6 +7,8 @@ import numpy as np
 import torch
 from torch import nn
 
+import utils
+
 
 def radian_l1_loss(input: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
     """
@@ -44,11 +46,16 @@ def radian_smooth_l1_loss(
     tensor(2.6400)
     >>> radian_smooth_l1_loss(torch.tensor(2.), torch.tensor(4.), beta=1.0)
     tensor(1.5000)
+    >>> radian_smooth_l1_loss(torch.tensor(-0.1), torch.tensor(torch.pi + 2), beta=0.1) # 
+    tensor(0.9916)
+    >>> radian_smooth_l1_loss(torch.tensor(0.5), torch.tensor(-torch.pi), beta=0.1) # 3.14 - 0.5 = 2.64 - 0.1 / 2 = 2.59
+    tensor(2.5916)
+    >>> radian_smooth_l1_loss(torch.tensor(0.), torch.tensor(- 2 * torch.pi), beta=0.1)
+    tensor(0.)
     """
     assert beta > 0
     d = target - input
-    # Adhere to unit cirle
-    d = (d + torch.pi) % (2 * torch.pi) - torch.pi
+    d = utils.modulo_with_wrapped_range(d, -torch.pi, torch.pi)
 
     abs_d = torch.abs(d)
     retval = torch.where(abs_d < beta, 0.5 * (d ** 2) / beta, abs_d - 0.5 * beta)
@@ -59,7 +66,7 @@ def radian_smooth_l1_loss(
 
 def main():
     l = radian_l1_loss(torch.tensor(0.1), torch.tensor(2 * np.pi - 0.1))
-    print(l)
+    # print(l)
 
 
 if __name__ == "__main__":
