@@ -440,10 +440,7 @@ class SingleNoisedAngleDataset(NoisedAnglesDataset):
         self, index: int, use_t_val: Optional[int] = None
     ) -> Dict[str, torch.Tensor]:
         """Get only one angle"""
-        assert (
-            use_t_val is None
-        ), "SingleNoisedAngleDataset does not support explicit t val"
-        vals = super().__getitem__(index)
+        vals = super().__getitem__(index, use_t_val)
         # Select a single angle
         for k in ["angles", "corrupted", "known_noise"]:
             assert (
@@ -452,6 +449,28 @@ class SingleNoisedAngleDataset(NoisedAnglesDataset):
             v = vals[k][:, self.selected_index].unsqueeze(1)
             vals[k] = v
         return vals
+
+    def __str__(self) -> str:
+        return f"{self.__name__} returning feature {self.selected_index}"
+
+
+class SingleNoisedAngleAndTimeDataset(SingleNoisedAngleDataset):
+    """
+    Datsaet that adds noise to just one angle and at only one timestep
+    For extreme debugging to overfit
+    """
+
+    selected_timestep = 100
+
+    def __getitem__(
+        self, index: int, use_t_val: Optional[int] = None
+    ) -> Dict[str, torch.Tensor]:
+        assert use_t_val is None, "Cannot use specific t for fixed timestep sampler"
+        retval = super().__getitem__(index, use_t_val=self.selected_timestep)
+        return retval
+
+    def __str__(self) -> str:
+        return super().__str__() + f" at timestep {self.selected_timestep}"
 
 
 class GaussianDistUniformAnglesNoisedDataset(NoisedAnglesDataset):

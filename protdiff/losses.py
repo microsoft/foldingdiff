@@ -52,6 +52,7 @@ def radian_smooth_l1_loss(
     d = torch.abs(d)
 
     retval = torch.where(d < beta, 0.5 * d ** 2 / beta, abs(d) - 0.5 * beta)
+    assert torch.all(retval >= 0)
     return torch.mean(retval)
 
 

@@ -115,6 +115,7 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
 
     Reference: https://github.com/huggingface/transformers/blob/f681437203baa7671de3174b0fa583c349d9d5e1/src/transformers/models/bert/modeling_bert.py#L870
     """
+
     loss_fn_dict = {
         "huber": F.smooth_l1_loss,
         "radian_l1": [
@@ -137,7 +138,9 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         n_inputs: int = 4,
         time_encoding: Literal["gaussian_fourier", "sinusoidal"] = "sinusoidal",
         lr: float = 1e-4,
-        loss: Union[Callable, Literal["huber", "radian_l1", "radian_l1_smooth"]] = "huber",
+        loss: Union[
+            Callable, Literal["huber", "radian_l1", "radian_l1_smooth"]
+        ] = "huber",
         l2: float = 0.0,
         l1: float = 0.0,
         add_pooling_layer: bool = False,

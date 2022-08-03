@@ -58,7 +58,8 @@ def get_train_valid_test_sets(
     shift_to_zero_twopi: bool = True,
     toy: Union[int, bool] = False,
     exhaustive_t: bool = False,
-    single_angle_debug: bool = False,  # Noise and retur a single angle
+    single_angle_debug: bool = False,  # Noise and return a single angle
+    single_time_debug: bool = False,  # Noise and return a single time
 ) -> Tuple[Dataset, Dataset, Dataset]:
     """
     Get the dataset objects to use for train/valid/test
@@ -76,6 +77,9 @@ def get_train_valid_test_sets(
         if single_angle_debug:
             logging.warning("Using single angle noise!")
             dset_noiser_class = datasets.SingleNoisedAngleDataset
+        elif single_time_debug:
+            logging.warning("Using single angle and single time noise!")
+            dset_noiser_class = datasets.SingleNoisedAngleAndTimeDataset
         else:
             dset_noiser_class = datasets.NoisedAnglesDataset
     elif noise_prior == "uniform":
@@ -83,7 +87,7 @@ def get_train_valid_test_sets(
     else:
         raise ValueError(f"Unrecognized noise prior: {noise_prior}")
 
-    logging.info(f"Using {dset_noiser_class.__name__} for noise")
+    logging.info(f"Using {dset_noiser_class} for noise")
     m = None
     if shift_to_zero_twopi:
         if single_angle_debug:
@@ -170,6 +174,7 @@ def train(
     subset: Union[bool, int] = False,  # Subset to n training examples
     exhaustive_validation_t: bool = False,  # Exhaustively enumerate t for validation/test
     single_angle_debug: bool = False,  # Noise and return a single angle
+    single_timestep_debug: bool = False,  # Noise and return a single timestep
 ):
     """Main training loop"""
     # Record the args given to the function before we create more vars
@@ -198,6 +203,7 @@ def train(
         toy=subset,
         exhaustive_t=exhaustive_validation_t,
         single_angle_debug=single_angle_debug,
+        single_time_debug=single_timestep_debug,
     )
     train_dataloader, valid_dataloader, test_dataloader = [
         DataLoader(
@@ -212,7 +218,7 @@ def train(
     # Create plots in output directories of distributions from different timesteps
     plots_folder = results_folder / "plots"
     os.makedirs(plots_folder, exist_ok=True)
-    if not single_angle_debug:  # Skip this for debug runs
+    if not single_angle_debug and not single_timestep_debug:  # Skip this for debug runs
         for t in np.linspace(0, timesteps, num=11, endpoint=True).astype(int):
             t = min(t, timesteps - 1)  # Ensure we don't exceed the number of timesteps
             logging.info(f"Plotting distribution at time {t}")
@@ -236,7 +242,7 @@ def train(
     model = modelling.BertForDiffusion(
         cfg,
         time_encoding=time_encoding,
-        n_inputs=1 if single_angle_debug else 4,
+        n_inputs=1 if (single_angle_debug or single_timestep_debug) else 4,
         lr=lr,
         loss=loss if not single_angle_debug else losses.radian_smooth_l1_loss,
         l2=l2_norm,
@@ -300,6 +306,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--debug_single", action="store_true", help="Debug single angle"
     )
+    parser.add_argument(
+        "--debug_single_time",
+        action="store_true",
+        help="Debug single angle and timestep",
+    )
     return parser
 
 
@@ -319,6 +330,7 @@ def main():
             "results_dir": args.outdir,
             "subset": args.toy,
             "single_angle_debug": args.debug_single,
+            "single_timestep_debug": args.debug_single_time,
         },
     )
     train(**config_args)
