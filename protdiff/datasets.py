@@ -16,6 +16,7 @@ import torch
 
 from tqdm.auto import tqdm
 
+from matplotlib import pyplot as plt
 import numpy as np
 from torch.utils.data import Dataset
 from torch.utils.data.dataloader import DataLoader
@@ -323,6 +324,18 @@ class NoisedAnglesDataset(Dataset):
         else:
             return int(len(self.dset) * self.timesteps)
 
+    def plot_alpha_bar_t(self, fname: str) -> str:
+        """Plot the alpha bar for each timestep"""
+        fig, ax = plt.subplots(dpi=300, figsize=(8, 4))
+        vals = self.alphas_cumprod.numpy()
+        ax.plot(np.arange(len(vals)), vals)
+        ax.set(
+            ylabel=r"$\bar \alpha_t$",
+            xlabel=r"Timestep $t$",
+            title=f"Alpha bar for {self.schedule} across {self.timesteps} timesteps",
+        )
+        fig.savefig(fname, bbox_inches="tight")
+
     def sample_noise_adaptive(self, vals: torch.Tensor) -> torch.Tensor:
         """
         Adaptively sample noise based on modulo. We scale only the variance because
@@ -602,13 +615,13 @@ def main():
         dset,
         dset_key="angles",
         modulo=[0, 2 * np.pi, 2 * np.pi, 2 * np.pi],
+        beta_schedule="cosine",
         noise_by_modulo=True,
-        timesteps=10,
-        exhaustive_t=True,
+        timesteps=250,
+        exhaustive_t=False,
     )
     print(len(noised_dset))
-    dl = DataLoader(noised_dset, batch_size=4, shuffle=False)
-    print(len(dl))
+    noised_dset.plot_alpha_bar_t("alpha_bar_t.pdf")
     # x = noised_dset[0]
     # for k, v in x.items():
     #     print(k)
