@@ -45,12 +45,13 @@ def radian_smooth_l1_loss(
     >>> radian_smooth_l1_loss(torch.tensor(2.), torch.tensor(4.), beta=1.0)
     tensor(1.5000)
     """
+    assert beta > 0
     d = target - input
     # Adhere to unit cirle
     d = (d + torch.pi) % (2 * torch.pi) - torch.pi
-    d = torch.abs(d)
 
-    retval = torch.where(d < beta, 0.5 * (d ** 2) / beta, abs(d) - 0.5 * beta)
+    abs_d = torch.abs(d)
+    retval = torch.where(abs_d < beta, 0.5 * (d ** 2) / beta, abs_d - 0.5 * beta)
     assert torch.all(retval >= 0)
     retval = torch.mean(retval)
     return retval
