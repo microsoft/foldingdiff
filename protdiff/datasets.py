@@ -60,7 +60,7 @@ class CathConsecutiveAnglesDataset(Dataset):
         self,
         split: Optional[Literal["train", "test", "validation"]] = None,
         pad: int = 512,
-        shift_to_zero_twopi: bool = True,
+        shift_to_zero_twopi: bool = False,
         toy: Union[bool, int] = False,
     ) -> None:
         super().__init__()
@@ -303,15 +303,29 @@ class NoisedAnglesDataset(Dataset):
         timesteps: int = 1000,
         exhaustive_t: bool = False,
         beta_schedule: beta_schedules.SCHEDULES = "linear",
-        modulo: Optional[Union[float, Iterable[float]]] = None,
-        noise_by_modulo: bool = False,
+        variances: Optional[Tuple[float, float, float, float]] = (
+            1.0,
+            np.pi,
+            np.pi,
+            np.pi,
+        ),
+        shift_to_zero_twopi: bool = False,
     ) -> None:
         super().__init__()
         self.dset = dset
         self.dset_key = dset_key
 
-        self.modulo = torch.tensor(modulo)
-        self.noise_by_modulo = noise_by_modulo
+        if variances is not None:
+            assert len(variances) == 4
+        self.variances = torch.tensor(variances)
+        self.shift_to_zero_twopi = shift_to_zero_twopi
+        if hasattr(self.dset, "shift_angles_zero_twopi"):
+            assert (
+                self.shift_to_zero_twopi == self.dset.shift_to_zero_twopi
+            ), "Mismatched shift_to_zero_twopi"
+            logging.info(
+                f"Checked shift_to_zero_twopi between noiser and underlying dset -- both {self.shift_to_zero_twopi}"
+            )
 
         self.timesteps = timesteps
         self.schedule = beta_schedule
@@ -342,28 +356,27 @@ class NoisedAnglesDataset(Dataset):
             title=f"Alpha bar for {self.schedule} across {self.timesteps} timesteps",
         )
         fig.savefig(fname, bbox_inches="tight")
+        return fname
 
-    def sample_noise_adaptive(self, vals: torch.Tensor) -> torch.Tensor:
+    def sample_noise(self, vals: torch.Tensor) -> torch.Tensor:
         """
         Adaptively sample noise based on modulo. We scale only the variance because
         we want the noise to remain zero centered
         """
         # Noise is always 0 centered
         noise = torch.randn_like(vals)
-        # If modulo not given, or if noise_by_modulo is False, then just return noise
-        if self.modulo is None or not self.noise_by_modulo:
-            return noise
-        # Module is being used -- shift the noise
-        assert self.modulo is not None
-        try:
-            # Note that scarling only affects variance because we want mean to
-            # still be 0
-            v = torch.tensor([m / 2 if m > 0 else 1 for m in self.modulo])
-            noise *= v
-        except TypeError:
-            noise *= self.modulo / 2
+        assert noise.shape[1] == 4
 
-        # noise = utils.broadcast_mod(noise, self.modulo)
+        # Scale by provided variance
+        if self.variances is not None:
+            noise *= self.variances
+
+        # Make sure that the noise doesn't run over the boundaries
+        noise[:, 1:] = utils.modulo_with_wrapped_range(noise[:, 1:], -np.pi, np.pi)
+        if self.shift_to_zero_twopi:
+            # Add pi
+            noise[:, 1:] += np.pi
+
         return noise
 
     def __getitem__(
@@ -408,19 +421,31 @@ class NoisedAnglesDataset(Dataset):
             t = torch.tensor([time_index]).long()  # list to get correct shape
         else:
             t = torch.randint(0, self.timesteps, (1,)).long()
+
         # Get the values for alpha and beta
         sqrt_alphas_cumprod_t = utils.extract(self.sqrt_alphas_cumprod, t, vals.shape)
         sqrt_one_minus_alphas_cumprod_t = utils.extract(
             self.sqrt_one_minus_alphas_cumprod, t, vals.shape
         )
-        noise = self.sample_noise_adaptive(vals)
+        # Noise is sampled within range of [-pi, pi], and optionally
+        # shifted to [0, 2pi] by adding pi
+        noise = self.sample_noise(vals)
+
+        # Add noise and ensure noised vals are still in range
         noised_vals = (
             sqrt_alphas_cumprod_t * vals + sqrt_one_minus_alphas_cumprod_t * noise
         )
-
-        # If modulo is given ensure that we do modulo
-        if self.modulo is not None:
-            noised_vals = utils.broadcast_mod(noised_vals, self.modulo)
+        assert noised_vals.shape == vals.shape, f"Unexpected shape {noised_vals.shape}"
+        # The underlying vals are already shifted, and noise is already shifted
+        # All we need to do is ensure we stay on the corresponding manifold
+        if self.shift_to_zero_twopi:
+            noised_vals[:, 1:] = utils.modulo_with_wrapped_range(
+                noised_vals[:, 1:], 0, 2 * np.pi
+            )
+        else:
+            noised_vals[:, 1:] = utils.modulo_with_wrapped_range(
+                noised_vals[:, 1:], -np.pi, np.pi
+            )
 
         retval = {
             "corrupted": noised_vals,

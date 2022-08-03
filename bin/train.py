@@ -54,8 +54,7 @@ def get_train_valid_test_sets(
     timesteps: int,
     variance_schedule: SCHEDULES,
     noise_prior: Literal["gaussian", "uniform"] = "gaussian",
-    adaptive_noise_mean_var: bool = True,
-    shift_to_zero_twopi: bool = True,
+    shift_to_zero_twopi: bool = False,
     toy: Union[int, bool] = False,
     exhaustive_t: bool = False,
     single_angle_debug: bool = False,  # Noise and return a single angle
@@ -88,13 +87,6 @@ def get_train_valid_test_sets(
         raise ValueError(f"Unrecognized noise prior: {noise_prior}")
 
     logging.info(f"Using {dset_noiser_class} for noise")
-    m = None
-    if shift_to_zero_twopi:
-        if single_angle_debug or single_time_debug:
-            m = 2 * np.pi
-        else:
-            m = [0, 2 * np.pi, 2 * np.pi, 2 * np.pi]
-    logging.info(f"Loading datasets with noiser modulo {m}")
     noised_dsets = [
         dset_noiser_class(
             ds,
@@ -102,11 +94,16 @@ def get_train_valid_test_sets(
             timesteps=timesteps,
             exhaustive_t=(i != 0) and exhaustive_t,
             beta_schedule=variance_schedule,
-            modulo=m,
-            noise_by_modulo=adaptive_noise_mean_var,
+            shift_to_zero_twopi=shift_to_zero_twopi,
         )
         for i, ds in enumerate(clean_dsets)
     ]
+
+    # Lot an example of the data
+    logging.debug(f"Example clean vals:  {noised_dsets[0][0]['angles']}")
+    logging.debug(f"Example noised vals: {noised_dsets[0][0]['corrupted']}")
+    logging.debug(f"Example noise:       {noised_dsets[0][0]['known_noise']}")
+
     return tuple(noised_dsets)
 
 
@@ -145,11 +142,10 @@ def train(
     # Controls output
     results_dir: str = "./results",
     # Controls data loading and noising process
-    shift_angles_zero_twopi: bool = True,
+    shift_angles_zero_twopi: bool = False,
     noise_prior: Literal["gaussian", "uniform"] = "gaussian",  # Uniform not tested
     timesteps: int = 1000,
     variance_schedule: SCHEDULES = "cosine",  # cosine better on single angle toy test
-    adaptive_noise_mean_var: bool = True,
     # Related to model architecture
     time_encoding: Literal["gaussian_fourier", "sinusoidal"] = "sinusoidal",
     num_hidden_layers: int = 6,  # Default 12
@@ -199,7 +195,6 @@ def train(
         timesteps=timesteps,
         variance_schedule=variance_schedule,
         noise_prior=noise_prior,
-        adaptive_noise_mean_var=adaptive_noise_mean_var,
         shift_to_zero_twopi=shift_angles_zero_twopi,
         toy=subset,
         exhaustive_t=exhaustive_validation_t,
