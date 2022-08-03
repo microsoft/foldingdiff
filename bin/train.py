@@ -155,6 +155,7 @@ def train(
     position_embedding_type: Literal[
         "absolute", "relative_key", "relative_key_query"
     ] = "relative_key_query",
+    dropout_p: float = 0.1,  # Default 0.1, can disable for debugging
     # Related to training strategy
     gradient_clip: float = 1.0,  # From BERT trainer
     batch_size: int = 64,
@@ -234,6 +235,8 @@ def train(
         intermediate_size=intermediate_size,
         num_hidden_layers=num_hidden_layers,
         position_embedding_type=position_embedding_type,
+        hidden_dropout_prob=dropout_p,
+        attention_probs_dropout_prob=dropout_p,
     )
     model = modelling.BertForDiffusion(
         cfg,
