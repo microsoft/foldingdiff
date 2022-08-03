@@ -118,6 +118,7 @@ def build_callbacks(early_stop_patience: Optional[int] = None, swa: bool = False
         pl.callbacks.ModelCheckpoint(
             monitor="val_loss", save_top_k=1, save_weights_only=True,
         ),
+        pl.callbacks.LearningRateMonitor(logging_interval="epoch", log_momentum=True),
     ]
     if early_stop_patience is not None and early_stop_patience > 0:
         logging.info(f"Using early stopping with patience {early_stop_patience}")

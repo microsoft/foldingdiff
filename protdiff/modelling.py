@@ -312,9 +312,10 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         per_token_decoded = self.token_decoder(sequence_output)
         return per_token_decoded
 
-    def _get_loss_terms(self, batch):
+    def _get_loss_terms(self, batch) -> List[torch.Tensor]:
         """
-        Returns the loss terms for the model.
+        Returns the loss terms for the model. Length of the returned list
+        is equivalent to the number of features we are fitting to.
         """
         known_noise = batch["known_noise"]
         predicted_noise = self.forward(
