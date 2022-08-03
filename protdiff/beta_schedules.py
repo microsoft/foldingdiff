@@ -15,7 +15,7 @@ SCHEDULES = Literal["linear", "cosine", "quadratic"]
 
 def cosine_beta_schedule(timesteps: int, s: float = 8e-3) -> torch.Tensor:
     """
-    Cosine scheduling
+    Cosine scheduling https://arxiv.org/pdf/2102.09672.pdf
     """
     steps = timesteps + 1
     x = torch.linspace(0, timesteps, steps)

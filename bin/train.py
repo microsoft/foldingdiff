@@ -294,7 +294,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--toy",
         type=int,
-        default=0,
+        default=None,
         help="Use a toy dataset of n items rather than full dataset",
     )
     parser.add_argument(
@@ -313,7 +313,7 @@ def main():
     if args.config:
         with open(args.config) as source:
             config_args = json.load(source)
-    config_args = utils.update_dict(
+    config_args = utils.update_dict_nonnull(
         config_args,
         {
             "results_dir": args.outdir,
