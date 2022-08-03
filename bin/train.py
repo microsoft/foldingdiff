@@ -90,7 +90,7 @@ def get_train_valid_test_sets(
     logging.info(f"Using {dset_noiser_class} for noise")
     m = None
     if shift_to_zero_twopi:
-        if single_angle_debug:
+        if single_angle_debug or single_time_debug:
             m = 2 * np.pi
         else:
             m = [0, 2 * np.pi, 2 * np.pi, 2 * np.pi]
