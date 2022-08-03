@@ -143,7 +143,7 @@ def train(
     shift_angles_zero_twopi: bool = True,
     noise_prior: Literal["gaussian", "uniform"] = "gaussian",  # Uniform not tested
     timesteps: int = 1000,
-    variance_schedule: SCHEDULES = "linear",
+    variance_schedule: SCHEDULES = "cosine",  # cosine better on single angle toy test
     adaptive_noise_mean_var: bool = True,
     # Related to model architecture
     time_encoding: Literal["gaussian_fourier", "sinusoidal"] = "sinusoidal",
