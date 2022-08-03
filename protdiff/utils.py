@@ -4,6 +4,7 @@ Misc shared utility functions
 import logging
 from typing import *
 
+import numpy as np
 import torch
 
 
@@ -64,6 +65,44 @@ def broadcast_mod(x: torch.Tensor, m: Union[float, torch.Tensor]) -> torch.Tenso
     moddded = torch.remainder(x, m_clipped.expand(*x.shape))
     retval = torch.where(m == 0, x, moddded)
     return retval
+
+
+def modulo_with_wrapped_range(
+    vals, range_min: float = -np.pi, range_max: float = np.pi
+):
+    """
+    Modulo with wrapped range -- capable of handing a range with a negative min
+
+    >>> modulo_with_wrapped_range(3, -2, 2)
+    -1
+    >>> modulo_with_wrapped_range(3 + 2, -2, 2)
+    1
+    >>> modulo_with_wrapped_range(-1, -2, 2)
+    -1
+    >>> modulo_with_wrapped_range(-3, -2, 2)
+    1
+    >>> modulo_with_wrapped_range(3, 0, 4)
+    3
+    >>> modulo_with_wrapped_range(3.5 + 4, 0, 4)
+    3.5
+    >>> modulo_with_wrapped_range(-1, 0, 4)
+    3
+    >>> modulo_with_wrapped_range(np.array([-2, 2]), -2, 2)
+    array([-2, -2])
+    >>> modulo_with_wrapped_range(np.array([-1, -3.5]), -2, 2)
+    array([-1. ,  0.5])
+    """
+    assert range_min <= 0.0
+    assert range_min < range_max
+
+    # Modulo after we shift values
+    top_end = range_max - range_min
+    # Shift the values to be in the range [0, top_end)
+    vals_shifted = vals - range_min
+    # Perform modulo
+    vals_shifted_mod = vals_shifted % top_end
+    # Shift back down
+    return vals_shifted_mod + range_min
 
 
 def update_dict_nonnull(d: Dict[str, Any], vals: Dict[str, Any]) -> Dict[str, Any]:
