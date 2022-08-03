@@ -244,7 +244,9 @@ def train(
         time_encoding=time_encoding,
         n_inputs=1 if (single_angle_debug or single_timestep_debug) else 4,
         lr=lr,
-        loss=loss if not single_angle_debug else losses.radian_smooth_l1_loss,
+        loss=loss
+        if not (single_angle_debug or single_timestep_debug)
+        else losses.radian_smooth_l1_loss,
         l2=l2_norm,
         l1=l1_norm,
     )
