@@ -9,6 +9,7 @@ import logging
 from pathlib import Path
 import multiprocessing
 import argparse
+import functools
 from typing import *
 
 import numpy as np
@@ -98,6 +99,8 @@ def get_train_valid_test_sets(
         )
         for i, ds in enumerate(clean_dsets)
     ]
+    for dsname, ds in zip(['train', 'val', 'test'], noised_dsets):
+        logging.info(f"{dsname}: {ds}")
 
     # Lot an example of the data
     logging.debug(f"Example clean vals:  {noised_dsets[0][0]['angles']}")
@@ -206,7 +209,7 @@ def train(
         DataLoader(
             dataset=ds,
             batch_size=batch_size,
-            shuffle=i == 0,  # Shuffle only train loader
+            shuffle=False,  # Shuffle only train loader
             num_workers=multiprocessing.cpu_count() if multithread else 1,
         )
         for i, ds in enumerate(dsets)
@@ -237,6 +240,7 @@ def train(
         position_embedding_type=position_embedding_type,
         hidden_dropout_prob=dropout_p,
         attention_probs_dropout_prob=dropout_p,
+        use_cache=False,
     )
     model = modelling.BertForDiffusion(
         cfg,
@@ -245,7 +249,7 @@ def train(
         lr=lr,
         loss=loss
         if not (single_angle_debug or single_timestep_debug)
-        else losses.radian_smooth_l1_loss,
+        else functools.partial(losses.radian_smooth_l1_loss, beta=0.1 * np.pi),
         l2=l2_norm,
         l1=l1_norm,
     )
