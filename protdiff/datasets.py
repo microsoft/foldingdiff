@@ -469,17 +469,22 @@ class SingleNoisedAngleDataset(NoisedAnglesDataset):
     selected_index = 1
     __name__ = "SingleNoisedAngleDataset"
 
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, use_fixed_noise: bool = False, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         # Generate a new set of noise for each instance
         # This means validation/train/test haver differnet noise
         # losses should diverge
-        self.fixed_noise = torch.randn((512, 4)) * torch.tensor(
-            [1.0, torch.pi, torch.pi, torch.pi]
-        )
+        self.fixed_noise = None
+        if use_fixed_noise:
+            logging.warning("Using fixed noise!")
+            self.fixed_noise = torch.randn((512, 4)) * torch.tensor(
+                [1.0, torch.pi, torch.pi, torch.pi]
+            )
 
-    def sample_noise(self, _vals):
-        return self.fixed_noise
+    def sample_noise(self, vals):
+        if self.fixed_noise is not None:
+            return self.fixed_noise
+        return super().sample_noise(vals)
 
     def __getitem__(
         self, index: int, use_t_val: Optional[int] = None
@@ -496,7 +501,7 @@ class SingleNoisedAngleDataset(NoisedAnglesDataset):
         return vals
 
     def __str__(self) -> str:
-        return f"{self.__name__} returning feature {self.selected_index} with fixed noise {self.fixed_noise.flatten()[:5]}"
+        return f"{self.__name__} returning feature {self.selected_index} with fixed noise {self.fixed_noise.flatten()[:5] if self.fixed_noise is not None else None}"
 
 
 class SingleNoisedAngleAndTimeDataset(SingleNoisedAngleDataset):

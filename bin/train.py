@@ -90,7 +90,7 @@ def get_train_valid_test_sets(
     logging.info(f"Using {dset_noiser_class} for noise")
     noised_dsets = [
         dset_noiser_class(
-            ds,
+            dset=ds,
             dset_key="angles",
             timesteps=timesteps,
             exhaustive_t=(i != 0) and exhaustive_t,
