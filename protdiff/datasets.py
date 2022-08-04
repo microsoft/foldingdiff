@@ -507,6 +507,14 @@ class SingleNoisedAngleDataset(NoisedAnglesDataset):
         return f"{self.__name__} returning feature {self.selected_index} with fixed noise {self.fixed_noise.flatten()[:5] if self.fixed_noise is not None else None}"
 
 
+class SingleNoisedBondDistanceDataset(SingleNoisedAngleDataset):
+    """
+    Dataset that does only the bond distance
+    """
+    __name__ = "SingleNoisedBondDistanceDataset"
+    selected_index = 0
+
+
 class SingleNoisedAngleAndTimeDataset(SingleNoisedAngleDataset):
     """
     Datsaet that adds noise to just one angle and at only one timestep

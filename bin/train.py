@@ -59,6 +59,7 @@ def get_train_valid_test_sets(
     var_scale: float = np.pi,
     toy: Union[int, bool] = False,
     exhaustive_t: bool = False,
+    single_dist_debug: bool = False,
     single_angle_debug: bool = False,  # Noise and return a single angle
     single_time_debug: bool = False,  # Noise and return a single time
 ) -> Tuple[Dataset, Dataset, Dataset]:
@@ -75,7 +76,10 @@ def get_train_valid_test_sets(
     ]
 
     if noise_prior == "gaussian":
-        if single_angle_debug:
+        if single_dist_debug:
+            logging.warning("Using single dist debug")
+            dset_noiser_class = datasets.SingleNoisedBondDistanceDataset
+        elif single_angle_debug:
             logging.warning("Using single angle noise!")
             dset_noiser_class = datasets.SingleNoisedAngleDataset
         elif single_time_debug:
@@ -178,6 +182,7 @@ def train(
     multithread: bool = True,
     subset: Union[bool, int] = False,  # Subset to n training examples
     exhaustive_validation_t: bool = False,  # Exhaustively enumerate t for validation/test
+    single_dist_debug: bool = False,  # Debug on distance (no periodicity)
     single_angle_debug: bool = False,  # Noise and return a single angle
     single_timestep_debug: bool = False,  # Noise and return a single timestep
 ):
@@ -247,14 +252,17 @@ def train(
         attention_probs_dropout_prob=dropout_p,
         use_cache=False,
     )
+    loss_fn = loss
+    if single_angle_debug or single_timestep_debug:
+        loss_fn = functools.partial(losses.radian_smooth_l1_loss, beta=0.1 * np.pi)
+    elif single_dist_debug:
+        loss_fn = F.smooth_l1_loss
     model = modelling.BertForDiffusion(
         cfg,
         time_encoding=time_encoding,
         n_inputs=1 if (single_angle_debug or single_timestep_debug) else 4,
         lr=lr,
-        loss=loss
-        if not (single_angle_debug or single_timestep_debug)
-        else functools.partial(losses.radian_smooth_l1_loss, beta=0.1 * np.pi),
+        loss=loss_fn,
         l2=l2_norm,
         l1=l1_norm,
         circle_reg=circle_reg,
@@ -314,6 +322,7 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Use a toy dataset of n items rather than full dataset",
     )
+    parser.add_argument("--debug_dist", action="store_true", help="Debug distances")
     parser.add_argument(
         "--debug_single", action="store_true", help="Debug single angle"
     )
@@ -340,6 +349,7 @@ def main():
         {
             "results_dir": args.outdir,
             "subset": args.toy,
+            "single_dist_debug": args.debug_dist,
             "single_angle_debug": args.debug_single,
             "single_timestep_debug": args.debug_single_time,
         },
