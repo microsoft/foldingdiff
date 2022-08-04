@@ -1,6 +1,7 @@
 """
 Modelling
 """
+import inspect
 import logging
 import math
 import functools
@@ -143,6 +144,7 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         ] = "huber",
         l2: float = 0.0,
         l1: float = 0.0,
+        circle_reg: float = 0.0,
         add_pooling_layer: bool = False,
     ) -> None:
         """
@@ -158,6 +160,7 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         logging.info(f"Using loss: {self.loss_func}")
         self.l1_lambda = l1
         self.l2_lambda = l2
+        self.circle_lambda = circle_reg
 
         # Needed to project the low dimensional input to hidden dim
         self.inputs_to_hidden_dim = nn.Linear(
@@ -342,12 +345,26 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
                 else self.loss_func
             )
             logging.debug(f"Using loss function {loss_fn}")
-            loss_terms.append(
-                loss_fn(
-                    known_noise[unmask_idx[0], unmask_idx[1], i],
+            # Determine whether the loss accepts circle_penalty
+            # https://stackoverflow.com/questions/23228664/how-to-check-which-arguments-a-function-method-takes
+            loss_args = inspect.getfullargspec(loss_fn)
+            if (
+                "circle_penalty" in loss_args.args
+                or "circle_penalty" in loss_args.kwonlyargs
+            ):
+                logging.debug(f"Loss function {loss_fn} accepts circle_penalty")
+                l = loss_fn(
                     predicted_noise[unmask_idx[0], unmask_idx[1], i],
+                    known_noise[unmask_idx[0], unmask_idx[1], i],
+                    circle_penalty=self.circle_lambda,
                 )
-            )
+            else:
+                logging.debug(f"Loss function {loss_fn} does not accept circle_penalty")
+                l = loss_fn(
+                    predicted_noise[unmask_idx[0], unmask_idx[1], i],
+                    known_noise[unmask_idx[0], unmask_idx[1], i],
+                )
+            loss_terms.append(l)
         return loss_terms
 
     def training_step(self, batch, batch_idx):

@@ -28,7 +28,10 @@ def radian_l1_loss(input: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
 
 
 def radian_smooth_l1_loss(
-    input: torch.Tensor, target: torch.Tensor, beta: float = 1.0
+    input: torch.Tensor,
+    target: torch.Tensor,
+    beta: float = 1.0,
+    circle_penalty: float = 0.0,
 ) -> torch.Tensor:
     """
     Smooth radian L1 loss
@@ -61,6 +64,11 @@ def radian_smooth_l1_loss(
     retval = torch.where(abs_d < beta, 0.5 * (d ** 2) / beta, abs_d - 0.5 * beta)
     assert torch.all(retval >= 0)
     retval = torch.mean(retval)
+
+    # Regularize on "turns" around the circle
+    if circle_penalty > 0:
+        retval += circle_penalty * torch.mean(torch.floor(input / torch.pi))
+
     return retval
 
 

@@ -169,6 +169,7 @@ def train(
     loss: Literal["huber", "radian_l1", "radian_l1_smooth"] = "radian_l1_smooth",
     l2_norm: float = 0.0,  # AdamW default has 0.01 L2 regularization, but BERT trainer uses 0.0
     l1_norm: float = 0.0,
+    circle_reg: float = 0.0,
     min_epochs: int = 500,
     max_epochs: int = 2000,
     early_stop_patience: int = 10,  # Set to 0 to disable early stopping
@@ -256,6 +257,7 @@ def train(
         else functools.partial(losses.radian_smooth_l1_loss, beta=0.1 * np.pi),
         l2=l2_norm,
         l1=l1_norm,
+        circle_reg=circle_reg,
     )
     cfg.save_pretrained(results_folder)
 
