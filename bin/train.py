@@ -212,6 +212,7 @@ def train(
         var_scale=variance_scale,
         toy=subset,
         exhaustive_t=exhaustive_validation_t,
+        single_dist_debug=single_dist_debug,
         single_angle_debug=single_angle_debug,
         single_time_debug=single_timestep_debug,
     )
@@ -228,7 +229,8 @@ def train(
     # Create plots in output directories of distributions from different timesteps
     plots_folder = results_folder / "plots"
     os.makedirs(plots_folder, exist_ok=True)
-    if not single_angle_debug and not single_timestep_debug:  # Skip this for debug runs
+    # Skip this for debug runs
+    if not single_angle_debug and not single_timestep_debug and not single_dist_debug:
         for t in np.linspace(0, timesteps, num=11, endpoint=True).astype(int):
             t = min(t, timesteps - 1)  # Ensure we don't exceed the number of timesteps
             logging.info(f"Plotting distribution at time {t}")
