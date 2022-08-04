@@ -67,7 +67,9 @@ def radian_smooth_l1_loss(
 
     # Regularize on "turns" around the circle
     if circle_penalty > 0:
-        retval += circle_penalty * torch.mean(torch.floor(input / torch.pi))
+        retval += circle_penalty * torch.mean(
+            torch.div(torch.abs(input), torch.pi, mode="trunc")
+        )
 
     return retval
 
