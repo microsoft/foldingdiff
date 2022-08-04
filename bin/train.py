@@ -56,6 +56,7 @@ def get_train_valid_test_sets(
     variance_schedule: SCHEDULES,
     noise_prior: Literal["gaussian", "uniform"] = "gaussian",
     shift_to_zero_twopi: bool = False,
+    var_scale: float = np.pi,
     toy: Union[int, bool] = False,
     exhaustive_t: bool = False,
     single_angle_debug: bool = False,  # Noise and return a single angle
@@ -96,10 +97,11 @@ def get_train_valid_test_sets(
             exhaustive_t=(i != 0) and exhaustive_t,
             beta_schedule=variance_schedule,
             shift_to_zero_twopi=shift_to_zero_twopi,
+            variances=[1.0, var_scale, var_scale, var_scale],
         )
         for i, ds in enumerate(clean_dsets)
     ]
-    for dsname, ds in zip(['train', 'val', 'test'], noised_dsets):
+    for dsname, ds in zip(["train", "val", "test"], noised_dsets):
         logging.info(f"{dsname}: {ds}")
 
     # Lot an example of the data
@@ -149,6 +151,7 @@ def train(
     noise_prior: Literal["gaussian", "uniform"] = "gaussian",  # Uniform not tested
     timesteps: int = 1000,
     variance_schedule: SCHEDULES = "cosine",  # cosine better on single angle toy test
+    variance_scale: float = np.pi,
     # Related to model architecture
     time_encoding: Literal["gaussian_fourier", "sinusoidal"] = "sinusoidal",
     num_hidden_layers: int = 6,  # Default 12
@@ -200,6 +203,7 @@ def train(
         variance_schedule=variance_schedule,
         noise_prior=noise_prior,
         shift_to_zero_twopi=shift_angles_zero_twopi,
+        var_scale=variance_scale,
         toy=subset,
         exhaustive_t=exhaustive_validation_t,
         single_angle_debug=single_angle_debug,
