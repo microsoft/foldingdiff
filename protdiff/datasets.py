@@ -304,7 +304,7 @@ class NoisedAnglesDataset(Dataset):
         exhaustive_t: bool = False,
         beta_schedule: beta_schedules.SCHEDULES = "linear",
         variances: Optional[Tuple[float, float, float, float]] = (
-            1.0,
+            1.0,  # For the distance
             np.pi,
             np.pi,
             np.pi,
@@ -338,6 +338,9 @@ class NoisedAnglesDataset(Dataset):
         self.alphas_cumprod = torch.cumprod(self.alphas, axis=0)
         self.sqrt_alphas_cumprod = torch.sqrt(self.alphas_cumprod)
         self.sqrt_one_minus_alphas_cumprod = torch.sqrt(1.0 - self.alphas_cumprod)
+
+    def __str__(self) -> str:
+        return f"NoisedAnglesDataset wrapping {self.dset} with {len(self)} examples with {self.schedule}-{self.timesteps} with variance scale {self.variances}"
 
     def __len__(self) -> int:
         if not self.exhaustive_timesteps:
