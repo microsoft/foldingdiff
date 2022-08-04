@@ -262,7 +262,9 @@ def train(
     model = modelling.BertForDiffusion(
         cfg,
         time_encoding=time_encoding,
-        n_inputs=1 if (single_angle_debug or single_timestep_debug) else 4,
+        n_inputs=1
+        if (single_angle_debug or single_timestep_debug or single_dist_debug)
+        else 4,
         lr=lr,
         loss=loss_fn,
         l2=l2_norm,
