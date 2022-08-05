@@ -589,21 +589,25 @@ class SynNoisedByPositionDataset(Dataset):
         self,
         dset: Dataset,
         dset_key: Optional[str] = None,
-        var_val: float = np.pi / 2,
+        var_val: float = 1.0,
         timesteps: int = 250,
+        ft_subset: Optional[int] = 1,
+        **kwargs,  # Allow passthrough since this is a debugging dataset
     ) -> None:
         super().__init__()
         self.dset = dset
         self.dset_key = dset_key
+        self.ft_subset = ft_subset
 
         self.timesteps = timesteps
         self.var_val = var_val
+        logging.warning(f"Ignoring noiser class kwargs: {kwargs}")
 
     def __len__(self) -> int:
         return len(self.dset)
 
     def __str__(self):
-        return f"{self.__name__} wrapping {self.dset} with var_val {self.var_val}"
+        return f"{self.__name__} wrapping {self.dset} with var_val {self.var_val} selecting ft {self.ft_subset}"
 
     def __getitem__(self, index) -> Dict[str, torch.Tensor]:
         item = self.dset.__getitem__(index)
@@ -612,6 +616,12 @@ class SynNoisedByPositionDataset(Dataset):
             vals = item[self.dset_key]
         else:
             vals = item
+
+        if self.ft_subset is not None:
+            item[self.dset_key] = vals[:, self.ft_subset].unsqueeze(1)
+            vals = vals[:, self.ft_subset].unsqueeze(1)
+            assert len(vals.shape) == 2
+            assert vals.shape[-1] == 1
 
         # Find the positions that are seq
         # seq_pos = torch.where(vals[''])

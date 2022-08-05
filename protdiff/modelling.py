@@ -1,6 +1,8 @@
 """
 Modelling
 """
+import os
+import json
 import inspect
 import logging
 import math
@@ -146,6 +148,7 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         l1: float = 0.0,
         circle_reg: float = 0.0,
         add_pooling_layer: bool = False,
+        write_preds_to_dir: Optional[str] = None,
     ) -> None:
         """
         dim should be the dimension of the inputs
@@ -184,6 +187,11 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
 
         # Initialize weights and apply final processing
         self.init_weights()
+
+        # Set up the output directory for writing predictions
+        self.write_preds_to_dir = write_preds_to_dir
+        self.write_preds_counter = 0
+        os.makedirs(self.write_preds_to_dir, exist_ok=True)
 
     def get_input_embeddings(self) -> nn.Module:
         raise NotImplementedError
@@ -315,7 +323,9 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         per_token_decoded = self.token_decoder(sequence_output)
         return per_token_decoded
 
-    def _get_loss_terms(self, batch) -> List[torch.Tensor]:
+    def _get_loss_terms(
+        self, batch, write_preds: Optional[str] = None
+    ) -> List[torch.Tensor]:
         """
         Returns the loss terms for the model. Length of the returned list
         is equivalent to the number of features we are fitting to.
@@ -365,6 +375,17 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
                     known_noise[unmask_idx[0], unmask_idx[1], i],
                 )
             loss_terms.append(l)
+
+        if write_preds is not None:
+            with open(write_preds, "w") as f:
+                d_to_write = {
+                    "known_noise": known_noise.cpu().numpy().tolist(),
+                    "predicted_noise": predicted_noise.cpu().numpy().tolist(),
+                    "attn_mask": batch["attn_mask"].cpu().numpy().tolist(),
+                    "losses": [l.item() for l in loss_terms],
+                }
+                json.dump(d_to_write, f)
+
         return loss_terms
 
     def training_step(self, batch, batch_idx):
@@ -387,7 +408,13 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         Validation step
         """
         with torch.no_grad():
-            loss_terms = self._get_loss_terms(batch)
+            loss_terms = self._get_loss_terms(
+                batch,
+                write_preds=os.path.join(
+                    self.write_preds_to_dir, f"{self.write_preds_counter}_preds.json"
+                ),
+            )
+            self.write_preds_counter += 1
 
         # Log each of the loss terms
         for val_name, val in zip(["bond_dist", "omega", "theta", "phi"], loss_terms):

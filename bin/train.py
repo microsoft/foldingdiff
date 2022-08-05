@@ -59,6 +59,7 @@ def get_train_valid_test_sets(
     var_scale: float = np.pi,
     toy: Union[int, bool] = False,
     exhaustive_t: bool = False,
+    syn_noiser: str = "",
     single_dist_debug: bool = False,
     single_angle_debug: bool = False,  # Noise and return a single angle
     single_time_debug: bool = False,  # Noise and return a single time
@@ -75,7 +76,13 @@ def get_train_valid_test_sets(
         for s in ["train", "validation", "test"]
     ]
 
-    if noise_prior == "gaussian":
+    if syn_noiser != "":
+        if syn_noiser == "halfhalf":
+            logging.warning("Using synthetic half-half noiser")
+            dset_noiser_class = datasets.SynNoisedByPositionDataset
+        else:
+            raise ValueError(f"Unknown synthetic noiser {syn_noiser}")
+    elif noise_prior == "gaussian":
         if single_dist_debug:
             logging.warning("Using single dist debug")
             dset_noiser_class = datasets.SingleNoisedBondDistanceDataset
@@ -178,10 +185,11 @@ def train(
     max_epochs: int = 2000,
     early_stop_patience: int = 10,  # Set to 0 to disable early stopping
     use_swa: bool = False,  # Stochastic weight averaging can improve training genearlization
-    # Misc.
+    # Misc. and debugging
     multithread: bool = True,
     subset: Union[bool, int] = False,  # Subset to n training examples
     exhaustive_validation_t: bool = False,  # Exhaustively enumerate t for validation/test
+    syn_noiser: str = "",  # If specified, use a synthetic noiser
     single_dist_debug: bool = False,  # Debug on distance (no periodicity)
     single_angle_debug: bool = False,  # Noise and return a single angle
     single_timestep_debug: bool = False,  # Noise and return a single timestep
@@ -211,6 +219,7 @@ def train(
         shift_to_zero_twopi=shift_angles_zero_twopi,
         var_scale=variance_scale,
         toy=subset,
+        syn_noiser=syn_noiser,
         exhaustive_t=exhaustive_validation_t,
         single_dist_debug=single_dist_debug,
         single_angle_debug=single_angle_debug,
@@ -230,7 +239,12 @@ def train(
     plots_folder = results_folder / "plots"
     os.makedirs(plots_folder, exist_ok=True)
     # Skip this for debug runs
-    if not single_angle_debug and not single_timestep_debug and not single_dist_debug:
+    if (
+        not single_angle_debug
+        and not single_timestep_debug
+        and not single_dist_debug
+        and not syn_noiser
+    ):
         for t in np.linspace(0, timesteps, num=11, endpoint=True).astype(int):
             t = min(t, timesteps - 1)  # Ensure we don't exceed the number of timesteps
             logging.info(f"Plotting distribution at time {t}")
@@ -255,7 +269,7 @@ def train(
         use_cache=False,
     )
     loss_fn = loss
-    if single_angle_debug or single_timestep_debug:
+    if single_angle_debug or single_timestep_debug or syn_noiser:
         loss_fn = functools.partial(losses.radian_smooth_l1_loss, beta=0.1 * np.pi)
     elif single_dist_debug:
         loss_fn = F.smooth_l1_loss
@@ -263,13 +277,19 @@ def train(
         cfg,
         time_encoding=time_encoding,
         n_inputs=1
-        if (single_angle_debug or single_timestep_debug or single_dist_debug)
+        if (
+            single_angle_debug
+            or single_timestep_debug
+            or single_dist_debug
+            or syn_noiser
+        )
         else 4,
         lr=lr,
         loss=loss_fn,
         l2=l2_norm,
         l1=l1_norm,
         circle_reg=circle_reg,
+        write_preds_to_dir=results_folder / "valid_preds",
     )
     cfg.save_pretrained(results_folder)
 
