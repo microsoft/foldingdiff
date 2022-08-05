@@ -18,6 +18,7 @@ from tqdm.auto import tqdm
 
 from matplotlib import pyplot as plt
 import numpy as np
+from torch import nn
 from torch.utils.data import Dataset
 from torch.utils.data.dataloader import DataLoader
 
@@ -511,6 +512,7 @@ class SingleNoisedBondDistanceDataset(SingleNoisedAngleDataset):
     """
     Dataset that does only the bond distance
     """
+
     __name__ = "SingleNoisedBondDistanceDataset"
     selected_index = 0
 
@@ -567,6 +569,95 @@ class GaussianDistUniformAnglesNoisedDataset(NoisedAnglesDataset):
             noise = noise * self.modulo
 
         return noise
+
+
+class SynNoisedByPositionDataset(Dataset):
+    """
+    SYNTHETIC NOISE FOR DEBUGGING AND TESTING
+
+    Add noise in by time. Specifically, have the front half of the angles get
+    negative noise, and the latter half get positive noise. This simple setup
+    requires the model to use positional embedding effectively.
+
+    Note that timesteps is provided only for compatibility in calling and is
+    NOT actually used.
+    """
+
+    __name__ = "SynNoisedByPositionDataset"
+
+    def __init__(
+        self,
+        dset: Dataset,
+        dset_key: Optional[str] = None,
+        var_val: float = np.pi / 2,
+        timesteps: int = 250,
+    ) -> None:
+        super().__init__()
+        self.dset = dset
+        self.dset_key = dset_key
+
+        self.timesteps = timesteps
+        self.var_val = var_val
+
+    def __len__(self) -> int:
+        return len(self.dset)
+
+    def __str__(self):
+        return f"{self.__name__} wrapping {self.dset} with var_val {self.var_val}"
+
+    def __getitem__(self, index) -> Dict[str, torch.Tensor]:
+        item = self.dset.__getitem__(index)
+        if self.dset_key is not None:
+            assert isinstance(item, dict)
+            vals = item[self.dset_key]
+        else:
+            vals = item
+
+        # Find the positions that are seq
+        # seq_pos = torch.where(vals[''])
+        # Attention mask is 1 in non-null positions -- sum of attention
+        # mask is sequence length
+        seq_len = torch.sum(item["attn_mask"])
+        assert (
+            seq_len <= vals.shape[0]
+        ), f"Expected seq_len <= {vals.shape[0]} but got {seq_len}"
+
+        # Sample a truncated normal distribution for both +/-
+        # https://stackoverflow.com/questions/60233216/how-to-make-a-truncated-normal-distribution-in-pytorch
+        pos_dist = torch.zeros_like(vals)
+        nn.init.trunc_normal_(pos_dist, mean=0.0, std=self.var_val, a=0, b=torch.pi)
+        assert torch.all(pos_dist >= 0.0)
+        assert torch.all(pos_dist <= torch.pi)
+        neg_dist = torch.zeros_like(vals)
+        nn.init.trunc_normal_(neg_dist, mean=0.0, std=self.var_val, a=-torch.pi, b=0)
+        assert torch.all(neg_dist >= -torch.pi)
+        assert torch.all(neg_dist <= 0.0)
+
+        # Create a noise vector where first/second half of sequence have different noise
+        # Creates indices like
+        # [1, 1, 1, 1]
+        # [2, 2, 2, 2]
+        # [3, 3, 3, 3]
+        # ...
+        broadcasted_indices = (
+            torch.arange(vals.shape[0]).unsqueeze(1).broadcast_to(vals.shape)
+        )
+        noise = torch.where(broadcasted_indices < seq_len / 2, pos_dist, neg_dist)
+
+        # Get the corrupted example
+        noised_vals = vals + noise
+        # Build output. Note that timestep is random as there is no correlation
+        # between time and noise.
+        retval = {
+            "corrupted": noised_vals,
+            "t": torch.randint(0, self.timesteps, (1,)).long(),
+            "known_noise": noise,
+        }
+        if isinstance(item, dict):
+            assert item.keys().isdisjoint(retval.keys())
+            item.update(retval)
+            return item
+        raise NotImplementedError
 
 
 class ScoreMatchingNoisedAnglesDataset(Dataset):
@@ -684,18 +775,10 @@ def coords_to_angles(
 def main():
     # dset = AlphafoldConsecutiveAnglesDataset(force_recompute_angles=False, toy=False)
     # print(dset)
-    dset = CathConsecutiveAnglesDataset(split="validation")
-    noised_dset = NoisedAnglesDataset(
-        dset,
-        dset_key="angles",
-        modulo=[0, 2 * np.pi, 2 * np.pi, 2 * np.pi],
-        beta_schedule="cosine",
-        noise_by_modulo=True,
-        timesteps=250,
-        exhaustive_t=False,
-    )
+    dset = CathConsecutiveAnglesDataset(toy=10, split="train")
+    noised_dset = SynNoisedByPositionDataset(dset, dset_key="angles",)
     print(len(noised_dset))
-    noised_dset.plot_alpha_bar_t("alpha_bar_t.pdf")
+    print(noised_dset[0])
     # x = noised_dset[0]
     # for k, v in x.items():
     #     print(k)
