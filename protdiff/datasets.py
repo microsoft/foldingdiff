@@ -433,7 +433,7 @@ class NoisedAnglesDataset(Dataset):
         )
         # Noise is sampled within range of [-pi, pi], and optionally
         # shifted to [0, 2pi] by adding pi
-        noise = self.sample_noise(vals)
+        noise = self.sample_noise(vals)  # Vals passed in only for shape
 
         # Add noise and ensure noised vals are still in range
         noised_vals = (
