@@ -366,6 +366,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="Directory to write model training outputs",
     )
     parser.add_argument(
+        "--implementation",
+        type=str,
+        choices=["pytorch_encoder", "huggingface_encoder"],
+        default="pytorch_encoder",
+        help="Which implementation to use",
+    )
+    parser.add_argument(
         "--toy",
         type=int,
         default=None,
@@ -397,6 +404,7 @@ def main():
         config_args,
         {
             "results_dir": args.outdir,
+            "implementation": args.implementation,
             "subset": args.toy,
             "single_dist_debug": args.debug_dist,
             "single_angle_debug": args.debug_single,
