@@ -412,7 +412,7 @@ class NoisedAnglesDataset(Dataset):
             vals = item[self.dset_key]
         else:
             vals = item
-        assert isinstance(vals, torch.Tensor), f"Expected tensor but got {type(vals)}"
+        assert isinstance(vals, torch.Tensor), f"Using dset_key {self.dset_key} - expected tensor but got {type(vals)}"
 
         # Sample a random timepoint and add corresponding noise
         if use_t_val is not None:

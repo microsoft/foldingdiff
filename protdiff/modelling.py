@@ -74,6 +74,34 @@ class SinusoidalPositionEmbeddings(nn.Module):
         return embeddings
 
 
+class PositionalEncoding(nn.Module):
+    """
+    Positional embedding for BERT.
+    Source: https://pytorch.org/tutorials/beginner/transformer_tutorial.html
+    """
+
+    def __init__(self, d_model: int, dropout: float = 0.1, max_len: int = 5000):
+        super().__init__()
+        self.dropout = nn.Dropout(p=dropout)
+
+        position = torch.arange(max_len).unsqueeze(1)
+        div_term = torch.exp(
+            torch.arange(0, d_model, 2) * (-math.log(10000.0) / d_model)
+        )
+        pe = torch.zeros(max_len, 1, d_model)
+        pe[:, 0, 0::2] = torch.sin(position * div_term)
+        pe[:, 0, 1::2] = torch.cos(position * div_term)
+        self.register_buffer("pe", pe)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Args:
+            x: Tensor, shape [seq_len, batch_size, embedding_dim]
+        """
+        x = x + self.pe[: x.size(0)]
+        return self.dropout(x)
+
+
 class BertEmbeddings(nn.Module):
     def __init__(self, config):
         super().__init__()
@@ -432,21 +460,216 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         )
 
 
+class BertDenoiserEncoderModel(pl.LightningModule):
+    """
+    Self implementation. Make sure that we know every bit of what goes into here so
+    there's no more issues
+    """
+
+    loss_fn_dict = {
+        "huber": F.smooth_l1_loss,
+        "radian_l1": [
+            F.smooth_l1_loss,
+            losses.radian_l1_loss,
+            losses.radian_l1_loss,
+            losses.radian_l1_loss,
+        ],
+        "radian_l1_smooth": [
+            F.smooth_l1_loss,
+            functools.partial(losses.radian_smooth_l1_loss, beta=torch.pi / 10),
+            functools.partial(losses.radian_smooth_l1_loss, beta=torch.pi / 10),
+            functools.partial(losses.radian_smooth_l1_loss, beta=torch.pi / 10),
+        ],
+    }
+
+    def __init__(
+        self,
+        n_inputs: int = 4,
+        d_model: int = 256,
+        max_seq_len: int = 512,
+        time_encoding: Literal["gaussian_fourier", "sinusoidal"] = "gaussian_fourier",
+        loss: Union[
+            Callable, Literal["huber", "radian_l1", "radian_l1_smooth"]
+        ] = "huber",
+        lr: float = 1e-4,
+    ) -> None:
+        super().__init__()
+        self.n_inputs = n_inputs
+        self.max_seq_len = max_seq_len
+        self.learning_rate = lr
+        self.loss_func = self.loss_fn_dict[loss] if isinstance(loss, str) else loss
+        logging.info(f"Using loss: {self.loss_func}")
+
+        # Define the positional embedding. Called as self.pos_encoder(x) and
+        # returns the input + the positional embedding
+        self.pos_encoder = PositionalEncoding(n_inputs, max_len=self.max_seq_len)
+
+        # Define the time embedding
+        if time_encoding == "gaussian_fourier":
+            self.time_encoder = GaussianFourierProjection(n_inputs)
+        elif time_encoding == "sinusoidal":
+            self.time_encoder = SinusoidalPositionEmbeddings(n_inputs)
+        else:
+            raise ValueError(f"Unknown time encoding {time_encoding}")
+
+        self.d_model = d_model
+        self.src_proj = nn.Linear(n_inputs, d_model)
+        self.tgt_out = nn.Linear(d_model, n_inputs)
+
+        # Define the seq2seq model itself
+        # https://pytorch.org/docs/stable/generated/torch.nn.Transformer.html#torch.nn.Transformer
+        self.transformer = self.get_transformer()
+
+    def get_transformer(self) -> nn.Module:
+        """
+        Return the transformer model. Allows for easy overriding of the
+        transformer aspect of the model
+        """
+        enc_layer = nn.TransformerEncoderLayer(d_model=self.d_model, nhead=8)
+        encoder = nn.TransformerEncoder(enc_layer, num_layers=6,)
+        return encoder
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        timestep: torch.Tensor,
+        attn_mask: Optional[torch.Tensor] = None,
+    ) -> torch.Tensor:
+        # Add positional embeddings
+        src_with_pos = self.pos_encoder(x)
+        # src_with_pos shape (batch, seq_len, n_features)
+
+        # Add time embeddings
+        # time_embed shape (batch, n_features) --> (batch, 1, n_features)
+        time_embed = self.time_encoder(timestep.squeeze()).unsqueeze(1)
+        assert time_embed.shape[1] == 1 and time_embed.shape[0] == x.shape[0]
+        src_with_pos_time = src_with_pos + time_embed
+
+        # Upscalethe input to the transformer
+        src_upscaled = self.src_proj(src_with_pos_time)
+
+        # shape (batch, seq_len, d_model)
+        decoded = self.transformer(src_upscaled, src_key_padding_mask=attn_mask)
+        out = self.tgt_out(decoded)
+        assert out.shape == x.shape
+        return out
+
+    def ensure_mask_fmt(self, mask: torch.Tensor) -> torch.Tensor:
+        """
+        Ensure that the mask is given in the correct format (i.e., a True
+        value indicates masked and a False indicates not masked). This is
+        required because HuggingFace transformers use the opposite where
+        a 1/True value indicates a position to be attended and 0/False
+        indicates a position that is masked
+        """
+        first_item = mask.flatten()[0].item()
+        print(first_item)
+
+    def _get_loss_terms(self, batch, write_preds: Optional[str] = None) -> torch.Tensor:
+        """
+        Gets the loss terms for the model
+        """
+        known_noise = batch["known_noise"]
+        corrupted = batch["corrupted"]
+        attn_mask = self.ensure_mask_fmt(batch["attn_mask"])
+
+        predicted_noise = self.forward(
+            corrupted, timestep=batch["t"], attn_mask=attn_mask
+        )
+
+        unmask_idx = torch.where(batch["attn_mask"])
+        assert len(unmask_idx) == 2
+        loss_terms = []
+        for i in range(known_noise.shape[-1]):
+            loss_fn = (
+                self.loss_func[i]
+                if isinstance(self.loss_func, list)
+                else self.loss_func
+            )
+            logging.debug(f"Using loss function {loss_fn}")
+
+            l = loss_fn(
+                predicted_noise[unmask_idx[0], unmask_idx[1], i],
+                known_noise[unmask_idx[0], unmask_idx[1], i],
+            )
+            loss_terms.append(l)
+        return torch.stack(loss_terms)
+
+    def training_step(self, batch, batch_idx):
+        """
+        Training step for the model
+        """
+        loss = self._get_loss_terms(batch)
+        avg_loss = torch.mean(loss)
+        return avg_loss
+
+    def validation_step(self, batch, batch_idx):
+        loss_terms = self._get_loss_terms(batch)
+        avg_loss = torch.mean(loss_terms)
+        self.log("val_loss", avg_loss)
+
+    def configure_optimizers(self):
+        return torch.optim.AdamW(
+            self.parameters(), lr=self.learning_rate, weight_decay=1e-5,
+        )
+
+
+class BertDenoiserSeq2SeqModel(BertDenoiserEncoderModel):
+    """
+    Use a seq2seq model instead of a encoder only transformer
+    """
+
+    def get_transformer(self) -> nn.Module:
+        nn.Transformer(
+            d_model=self.d_model,
+            nhead=8,
+            num_encoder_layers=6,
+            num_decoder_layers=6,
+            dim_feedforward=2048,
+            dropout=0.1,
+            activation="gelu",
+            norm_first=False,
+            batch_first=True,
+        )
+        raise NotImplementedError
+
+    def get_causal_tgt_mask(
+        self, tgt_seq_len: Optional[int] = None
+    ) -> torch.BoolTensor:
+        """
+        Get a causal mask for target sequence where each row allows only
+        the next token to be seen. This is important because otherwise
+        the decoder can simply pass through the known target sequence.
+        Example output:
+        # [F, T, T, T]
+        # [F, F, T, T]
+        # [F, F, F, T]
+        # [F, F, F, F]
+        """
+        # Lower triangular matrix
+        if tgt_seq_len is None:
+            tgt_seq_len = self.max_seq_len
+        mask = ~torch.tril(torch.ones(tgt_seq_len, tgt_seq_len) == 1).bool()
+        # If a BoolTensor is provided, positions with True are not allowed to attend
+        # while False values will be unchanged (i.e., True => masked)
+        # If a FloatTensor is provided, it will be added to the attention weight
+        return mask
+
+
 def main():
     """on the fly testing"""
     import datasets
-    from torch.utils.data.dataloader import default_collate
+    from torch.utils.data import default_collate
 
     clean_dset = datasets.CathConsecutiveAnglesDataset(toy=True)
-    noised_dset = datasets.NoisedAnglesDataset(clean_dset)
-    torch.utils.data.dataloader.default_collate
-    x = default_collate([noised_dset[i] for i in range(128)])
+    noised_dset = datasets.NoisedAnglesDataset(clean_dset, "angles")
+    for k, v in noised_dset[0].items():
+        print(k, v.shape)
+    x = default_collate([noised_dset[i] for i in range(8)])
 
     # # Create model
     # device = torch.device("cuda")
-    model = BertForDiffusion(
-        BertConfig(hidden_size=144, position_embedding_type="relative_key_query")
-    )
+    model = BertDenoiserEncoderModel()
     # print(model)
     y = model.forward(x["corrupted"], x["t"].squeeze())
     print(y.shape)
