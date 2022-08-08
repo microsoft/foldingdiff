@@ -87,6 +87,8 @@ def modulo_with_wrapped_range(
     3.5
     >>> modulo_with_wrapped_range(-1, 0, 4)
     3
+    >>> np.round(modulo_with_wrapped_range(15.6578, -3.1416, 3.1416), 4)
+    3.0914
     >>> modulo_with_wrapped_range(np.array([-2, 2]), -2, 2)
     array([-2, -2])
     >>> modulo_with_wrapped_range(np.array([-1, -3.5]), -2, 2)
@@ -102,7 +104,17 @@ def modulo_with_wrapped_range(
     # Perform modulo
     vals_shifted_mod = vals_shifted % top_end
     # Shift back down
-    return vals_shifted_mod + range_min
+    retval = vals_shifted_mod + range_min
+
+    # Checks
+    # print("Mod return", vals, " --> ", retval)
+    if isinstance(retval, torch.Tensor):
+        assert torch.all(retval >= range_min)
+        assert torch.all(retval < range_max)
+    else:
+        assert np.all(retval >= range_min)
+        assert np.all(retval <= range_max)
+    return retval
 
 
 def update_dict_nonnull(d: Dict[str, Any], vals: Dict[str, Any]) -> Dict[str, Any]:
