@@ -486,7 +486,11 @@ class BertDenoiserEncoderModel(pl.LightningModule):
         self,
         n_inputs: int = 4,
         d_model: int = 256,
+        num_layers: int = 6,
+        intermediate_size: int = 512,
         max_seq_len: int = 512,
+        num_heads: int = 6,
+        dropout: float = 0.1,
         time_encoding: Literal["gaussian_fourier", "sinusoidal"] = "gaussian_fourier",
         loss: Union[
             Callable, Literal["huber", "radian_l1", "radian_l1_smooth"]
@@ -512,7 +516,11 @@ class BertDenoiserEncoderModel(pl.LightningModule):
         else:
             raise ValueError(f"Unknown time encoding {time_encoding}")
 
+        self.num_layers = num_layers
         self.d_model = d_model
+        self.dropout = dropout
+        self.intermediate_size = intermediate_size
+        self.num_heads = num_heads
         self.src_proj = nn.Linear(n_inputs, d_model)
         self.tgt_out = nn.Linear(d_model, n_inputs)
 
@@ -525,8 +533,17 @@ class BertDenoiserEncoderModel(pl.LightningModule):
         Return the transformer model. Allows for easy overriding of the
         transformer aspect of the model
         """
-        enc_layer = nn.TransformerEncoderLayer(d_model=self.d_model, nhead=8)
-        encoder = nn.TransformerEncoder(enc_layer, num_layers=6,)
+        enc_layer = nn.TransformerEncoderLayer(
+            d_model=self.d_model,
+            nhead=self.num_heads,
+            dim_feedforward=self.intermediate_size,
+            dropout=self.dropout,
+            activation="gelu",
+            layer_norm_eps=1e-5,
+            batch_first=True,
+            norm_first=True,
+        )
+        encoder = nn.TransformerEncoder(enc_layer, num_layers=self.num_layers)
         return encoder
 
     def forward(
@@ -554,7 +571,7 @@ class BertDenoiserEncoderModel(pl.LightningModule):
         assert out.shape == x.shape
         return out
 
-    def ensure_mask_fmt(self, mask: torch.Tensor) -> torch.Tensor:
+    def ensure_mask_fmt(self, mask: torch.Tensor) -> torch.BoolTensor:
         """
         Ensure that the mask is given in the correct format (i.e., a True
         value indicates masked and a False indicates not masked). This is
@@ -562,8 +579,14 @@ class BertDenoiserEncoderModel(pl.LightningModule):
         a 1/True value indicates a position to be attended and 0/False
         indicates a position that is masked
         """
-        first_item = mask.flatten()[0].item()
-        print(first_item)
+        assert torch.all(mask >= 0) and torch.all(mask <= 1)
+        first_item = mask.flatten()[0]
+        # if the first item is a 1.0 then we know that we have received
+        # huggingface standard where 1 = attended. Flip to be 0 = attended
+        if torch.isclose(first_item, torch.ones_like(first_item)):
+            mask = 1.0 - mask
+            return mask.bool()
+        return mask.bool()
 
     def _get_loss_terms(self, batch, write_preds: Optional[str] = None) -> torch.Tensor:
         """
