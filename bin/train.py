@@ -287,6 +287,7 @@ def train(
     )
 
     if implementation == "pytorch_encoder":
+        logging.info("Using PyTorch encoder implementation")
         model = modelling.BertDenoiserEncoderModel(
             n_inputs=model_n_inputs,
             time_encoding=time_encoding,
@@ -302,6 +303,7 @@ def train(
             circle_reg=circle_reg,
         )
     elif implementation == "huggingface_encoder":
+        logging.info("Using HuggingFace encoder implementation")
         cfg = BertConfig(
             num_attention_heads=num_heads,
             hidden_size=hidden_size,
