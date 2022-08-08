@@ -533,6 +533,7 @@ class BertDenoiserEncoderModel(pl.LightningModule):
         Return the transformer model. Allows for easy overriding of the
         transformer aspect of the model
         """
+        # https://pytorch.org/docs/stable/generated/torch.nn.TransformerEncoderLayer.html#torch.nn.TransformerEncoderLayer
         enc_layer = nn.TransformerEncoderLayer(
             d_model=self.d_model,
             nhead=self.num_heads,
@@ -543,6 +544,7 @@ class BertDenoiserEncoderModel(pl.LightningModule):
             batch_first=True,
             norm_first=True,
         )
+        # https://pytorch.org/docs/stable/generated/torch.nn.TransformerEncoder.html#torch.nn.TransformerEncoder
         encoder = nn.TransformerEncoder(enc_layer, num_layers=self.num_layers)
         return encoder
 
