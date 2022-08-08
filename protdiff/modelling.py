@@ -506,15 +506,16 @@ class BertDenoiserEncoderModel(pl.LightningModule):
 
         # Define the positional embedding. Called as self.pos_encoder(x) and
         # returns the input + the positional embedding
-        self.pos_encoder = PositionalEncoding(n_inputs, max_len=self.max_seq_len)
+        self.pos_encoder = PositionalEncoding(d_model, max_len=self.max_seq_len)
 
         # Define the time embedding
         if time_encoding == "gaussian_fourier":
-            self.time_encoder = GaussianFourierProjection(n_inputs)
+            self.time_encoder = GaussianFourierProjection(d_model)
         elif time_encoding == "sinusoidal":
-            self.time_encoder = SinusoidalPositionEmbeddings(n_inputs)
+            self.time_encoder = SinusoidalPositionEmbeddings(d_model)
         else:
             raise ValueError(f"Unknown time encoding {time_encoding}")
+        logging.info(f"Time encoding: {self.time_encoder}")
 
         self.num_layers = num_layers
         self.d_model = d_model
@@ -554,21 +555,24 @@ class BertDenoiserEncoderModel(pl.LightningModule):
         timestep: torch.Tensor,
         attn_mask: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
+        # Upscale the features
+        x_upscaled = self.src_proj(x)
+
         # Add positional embeddings
-        src_with_pos = self.pos_encoder(x)
-        # src_with_pos shape (batch, seq_len, n_features)
+        src_with_pos = self.pos_encoder(x_upscaled)
 
         # Add time embeddings
         # time_embed shape (batch, n_features) --> (batch, 1, n_features)
-        time_embed = self.time_encoder(timestep.squeeze()).unsqueeze(1)
-        assert time_embed.shape[1] == 1 and time_embed.shape[0] == x.shape[0]
+        time_embed = self.time_encoder(timestep.squeeze(1)).unsqueeze(1)
+        assert time_embed.shape == (x.shape[0], 1, self.d_model)
+        # src_with_pos shape (batch, seq_len, n_features)
         src_with_pos_time = src_with_pos + time_embed
 
-        # Upscalethe input to the transformer
-        src_upscaled = self.src_proj(src_with_pos_time)
-
+        # Feed through transformer
         # shape (batch, seq_len, d_model)
-        decoded = self.transformer(src_upscaled, src_key_padding_mask=attn_mask)
+        decoded = self.transformer(src_with_pos_time, src_key_padding_mask=attn_mask)
+
+        # Decode to targets
         out = self.tgt_out(decoded)
         assert out.shape == x.shape
         return out
@@ -626,6 +630,8 @@ class BertDenoiserEncoderModel(pl.LightningModule):
         """
         loss = self._get_loss_terms(batch)
         avg_loss = torch.mean(loss)
+
+        self.log("train_loss", avg_loss)
         return avg_loss
 
     def validation_step(self, batch, batch_idx):
