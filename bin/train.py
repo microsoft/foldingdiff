@@ -288,6 +288,9 @@ def train(
             dropout=dropout_p,
             lr=lr,
             loss=loss_fn,
+            l2=l2_norm,
+            l1=l1_norm,
+            circle_reg=circle_reg,
         )
     elif implementation == "huggingface_encoder":
         cfg = BertConfig(

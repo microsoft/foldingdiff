@@ -496,11 +496,20 @@ class BertDenoiserEncoderModel(pl.LightningModule):
             Callable, Literal["huber", "radian_l1", "radian_l1_smooth"]
         ] = "huber",
         lr: float = 1e-4,
+        l2: float = 0.0,
+        l1: float = 0.0,
+        circle_reg: float= 0.0,
     ) -> None:
         super().__init__()
         self.n_inputs = n_inputs
         self.max_seq_len = max_seq_len
         self.learning_rate = lr
+        self.l2_lambda = l2
+        self.l1_lambda = l1
+        self.circ_lambda = circle_reg
+        if self.circ_lambda > 0:
+            raise NotImplementedError
+
         self.loss_func = self.loss_fn_dict[loss] if isinstance(loss, str) else loss
         logging.info(f"Using loss: {self.loss_func}")
 
@@ -633,6 +642,12 @@ class BertDenoiserEncoderModel(pl.LightningModule):
         loss = self._get_loss_terms(batch)
         avg_loss = torch.mean(loss)
 
+        # L1 regularization
+        if self.l1_lambda > 0:
+            l1_penalty = sum(torch.linalg.norm(p, 1) for p in self.parameters())
+            self.log("l1_penalty", l1_penalty)
+            avg_loss += self.l1_lambda * l1_penalty
+
         self.log("train_loss", avg_loss)
         return avg_loss
 
@@ -643,7 +658,7 @@ class BertDenoiserEncoderModel(pl.LightningModule):
 
     def configure_optimizers(self):
         return torch.optim.AdamW(
-            self.parameters(), lr=self.learning_rate, weight_decay=1e-5,
+            self.parameters(), lr=self.learning_rate, weight_decay=self.l2_lambda,
         )
 
 
