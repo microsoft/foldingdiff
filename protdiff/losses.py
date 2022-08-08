@@ -55,6 +55,8 @@ def radian_smooth_l1_loss(
     tensor(2.5916)
     >>> radian_smooth_l1_loss(torch.tensor(0.), torch.tensor(- 2 * torch.pi), beta=0.1)
     tensor(0.)
+    >>> radian_smooth_l1_loss(torch.tensor(-17.0466), torch.tensor(-1.3888), beta=0.1)
+    tensor(3.0414)
     """
     assert beta > 0
     d = target - input
@@ -75,8 +77,8 @@ def radian_smooth_l1_loss(
 
 
 def main():
-    l = radian_l1_loss(torch.tensor(0.1), torch.tensor(2 * np.pi - 0.1))
-    # print(l)
+    l = radian_smooth_l1_loss(torch.tensor(-17.0466), torch.tensor(-1.3888), beta=0.1)
+    print(l)
 
 
 if __name__ == "__main__":
