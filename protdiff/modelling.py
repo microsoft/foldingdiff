@@ -506,7 +506,9 @@ class BertDenoiserEncoderModel(pl.LightningModule):
 
         # Define the positional embedding. Called as self.pos_encoder(x) and
         # returns the input + the positional embedding
-        self.pos_encoder = PositionalEncoding(d_model, max_len=self.max_seq_len)
+        self.pos_encoder = PositionalEncoding(
+            d_model, max_len=self.max_seq_len, dropout=dropout
+        )
 
         # Define the time embedding
         if time_encoding == "gaussian_fourier":

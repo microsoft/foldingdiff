@@ -164,7 +164,10 @@ def train(
     variance_schedule: SCHEDULES = "cosine",  # cosine better on single angle toy test
     variance_scale: float = np.pi,
     # Related to model architecture
-    time_encoding: Literal["gaussian_fourier", "sinusoidal"] = "sinusoidal",
+    implementation: Literal[
+        "pytorch_encoder", "huggingface_encoder"
+    ] = "pytorch_encoder",
+    time_encoding: Literal["gaussian_fourier", "sinusoidal"] = "gaussian_fourier",
     num_hidden_layers: int = 6,  # Default 12
     hidden_size: int = 72,  # Default 768
     intermediate_size: int = 144,  # Default 3072
@@ -258,40 +261,59 @@ def train(
 
     # https://jaketae.github.io/study/relative-positional-encoding/
     # looking at the relative distance between things is more robust
-    cfg = BertConfig(
-        num_attention_heads=num_heads,
-        hidden_size=hidden_size,
-        intermediate_size=intermediate_size,
-        num_hidden_layers=num_hidden_layers,
-        position_embedding_type=position_embedding_type,
-        hidden_dropout_prob=dropout_p,
-        attention_probs_dropout_prob=dropout_p,
-        use_cache=False,
-    )
+
     loss_fn = loss
     if single_angle_debug or single_timestep_debug or syn_noiser:
         loss_fn = functools.partial(losses.radian_smooth_l1_loss, beta=0.1 * np.pi)
     elif single_dist_debug:
         loss_fn = F.smooth_l1_loss
-    model = modelling.BertForDiffusion(
-        cfg,
-        time_encoding=time_encoding,
-        n_inputs=1
-        if (
-            single_angle_debug
-            or single_timestep_debug
-            or single_dist_debug
-            or syn_noiser
-        )
-        else 4,
-        lr=lr,
-        loss=loss_fn,
-        l2=l2_norm,
-        l1=l1_norm,
-        circle_reg=circle_reg,
-        write_preds_to_dir=results_folder / "valid_preds",
+
+    model_n_inputs = (
+        1
+        if single_angle_debug
+        or single_timestep_debug
+        or single_dist_debug
+        or syn_noiser
+        else 4
     )
-    cfg.save_pretrained(results_folder)
+
+    if implementation == "pytorch_encoder":
+        model = modelling.BertDenoiserEncoderModel(
+            n_inputs=model_n_inputs,
+            time_encoding=time_encoding,
+            num_layers=num_hidden_layers,
+            d_model=hidden_size,
+            intermediate_size=intermediate_size,
+            num_heads=num_heads,
+            dropout=dropout_p,
+            lr=lr,
+            loss=loss_fn,
+        )
+    elif implementation == "huggingface_encoder":
+        cfg = BertConfig(
+            num_attention_heads=num_heads,
+            hidden_size=hidden_size,
+            intermediate_size=intermediate_size,
+            num_hidden_layers=num_hidden_layers,
+            position_embedding_type=position_embedding_type,
+            hidden_dropout_prob=dropout_p,
+            attention_probs_dropout_prob=dropout_p,
+            use_cache=False,
+        )
+        model = modelling.BertForDiffusion(
+            cfg,
+            time_encoding=time_encoding,
+            n_inputs=model_n_inputs,
+            lr=lr,
+            loss=loss_fn,
+            l2=l2_norm,
+            l1=l1_norm,
+            circle_reg=circle_reg,
+            write_preds_to_dir=results_folder / "valid_preds",
+        )
+        cfg.save_pretrained(results_folder)
+    else:
+        raise ValueError(f"Unknown implementation: {implementation}")
 
     callbacks = build_callbacks(early_stop_patience=early_stop_patience, swa=use_swa)
     trainer = pl.Trainer(
