@@ -12,8 +12,8 @@ import argparse
 import functools
 from typing import *
 
+import git
 import numpy as np
-
 from matplotlib import pyplot as plt
 
 import torch
@@ -213,6 +213,12 @@ def train(
         json.dump(func_args, sink, indent=4)
         for k, v in func_args.items():
             logging.info(f"Training argument: {k}={v}")
+
+    # Record current Git version
+    repo = git.Repo(search_parent_directories=True)
+    sha = repo.head.object.hexsha
+    with open(results_folder / "git_sha.txt", "w") as sink:
+        sink.write(sha + "\n")
 
     # Get datasets and wrap them in dataloaders
     dsets = get_train_valid_test_sets(
