@@ -3,6 +3,7 @@ Training script
 """
 
 import os, sys
+from posixpath import abspath
 import shutil
 import json
 import logging
@@ -215,7 +216,9 @@ def train(
             logging.info(f"Training argument: {k}={v}")
 
     # Record current Git version
-    repo = git.Repo(search_parent_directories=True)
+    repo = git.Repo(
+        path=os.path.dirname(os.path.abspath(__file__)), search_parent_directories=True
+    )
     sha = repo.head.object.hexsha
     with open(results_folder / "git_sha.txt", "w") as sink:
         sink.write(sha + "\n")
