@@ -544,7 +544,7 @@ class BertDenoiserEncoderModel(pl.LightningModule):
         self.src_proj = nn.Linear(n_inputs, d_model)
         self.tgt_out = nn.Linear(d_model, n_inputs)
 
-        # Define the seq2seq model itself
+        # Define the transformer model itself
         # https://pytorch.org/docs/stable/generated/torch.nn.Transformer.html#torch.nn.Transformer
         self.transformer = self.get_transformer()
 
@@ -555,7 +555,7 @@ class BertDenoiserEncoderModel(pl.LightningModule):
     def get_transformer(self) -> nn.Module:
         """
         Return the transformer model. Allows for easy overriding of the
-        transformer aspect of the model
+        transformer aspect of the model for alternative architectures
         """
         # https://pytorch.org/docs/stable/generated/torch.nn.TransformerEncoderLayer.html#torch.nn.TransformerEncoderLayer
         enc_layer = nn.TransformerEncoderLayer(
@@ -706,7 +706,7 @@ class BertDenoiserEncoderModel(pl.LightningModule):
             self.parameters(), lr=self.learning_rate, weight_decay=self.l2_lambda,
         )
         retval = {"optimizer": optim}
-        if self.lr_scheduler is not None:
+        if self.lr_scheduler:
             if self.lr_scheduler == "OneCycleLR":
                 retval["lr_scheduler"] = {
                     "scheduler": torch.optim.lr_scheduler.OneCycleLR(
