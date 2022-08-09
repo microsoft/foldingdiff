@@ -87,6 +87,8 @@ def modulo_with_wrapped_range(
     3.5
     >>> modulo_with_wrapped_range(-1, 0, 4)
     3
+    >>> np.round(modulo_with_wrapped_range(-3.9 - 32, -4, 4), 4)
+    -3.9
     >>> np.round(modulo_with_wrapped_range(15.6578, -3.1416, 3.1416), 4)
     3.0914
     >>> modulo_with_wrapped_range(np.array([-2, 2]), -2, 2)
