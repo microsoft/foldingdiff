@@ -305,6 +305,7 @@ def train(
             min_epochs=min_epochs,
             steps_per_epoch=len(train_dataloader),
             lr_scheduler=lr_scheduler,
+            write_preds_to_dir=results_folder / "valid_preds",
         )
     elif implementation == "huggingface_encoder":
         logging.info("Using HuggingFace encoder implementation")

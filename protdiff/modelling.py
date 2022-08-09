@@ -503,6 +503,7 @@ class BertDenoiserEncoderModel(pl.LightningModule):
         min_epochs: int = 500,
         steps_per_epoch: int = 100,  # Dummy value
         lr_scheduler: Optional[Literal["OneCycleLR"]] = None,
+        write_preds_to_dir: Optional[str] = None,
     ) -> None:
         super().__init__()
         self.n_inputs = n_inputs
@@ -546,6 +547,10 @@ class BertDenoiserEncoderModel(pl.LightningModule):
         # Define the seq2seq model itself
         # https://pytorch.org/docs/stable/generated/torch.nn.Transformer.html#torch.nn.Transformer
         self.transformer = self.get_transformer()
+
+        self.write_preds_to_dir = write_preds_to_dir
+        self.write_preds_counter = 0
+        os.makedirs(self.write_preds_to_dir, exist_ok=True)
 
     def get_transformer(self) -> nn.Module:
         """
@@ -642,6 +647,17 @@ class BertDenoiserEncoderModel(pl.LightningModule):
                 known_noise[unmask_idx[0], unmask_idx[1], i],
             )
             loss_terms.append(l)
+
+        if write_preds is not None:
+            with open(write_preds, "w") as f:
+                d_to_write = {
+                    "known_noise": known_noise.cpu().numpy().tolist(),
+                    "predicted_noise": predicted_noise.cpu().numpy().tolist(),
+                    "attn_mask": attn_mask.cpu().numpy().tolist(),
+                    "losses": [l.item() for l in loss_terms],
+                }
+                json.dump(d_to_write, f)
+
         return torch.stack(loss_terms)
 
     def training_step(self, batch, batch_idx):
@@ -663,7 +679,15 @@ class BertDenoiserEncoderModel(pl.LightningModule):
         return avg_loss
 
     def validation_step(self, batch, batch_idx):
-        loss_terms = self._get_loss_terms(batch)
+        with torch.no_grad():
+            loss_terms = self._get_loss_terms(
+                batch,
+                write_preds=os.path.join(
+                    self.write_preds_to_dir, f"{self.write_preds_counter}_preds.json"
+                ),
+            )
+            self.write_preds_counter += 1
+
         avg_loss = torch.mean(loss_terms)
 
         for loss_name, loss_val in zip(
