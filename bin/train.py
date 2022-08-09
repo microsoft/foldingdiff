@@ -188,6 +188,7 @@ def train(
     min_epochs: int = 500,
     max_epochs: int = 2000,
     early_stop_patience: int = 10,  # Set to 0 to disable early stopping
+    lr_scheduler: Optional[Literal["OneCycleLR"]] = None,
     use_swa: bool = False,  # Stochastic weight averaging can improve training genearlization
     # Misc. and debugging
     multithread: bool = True,
@@ -301,6 +302,9 @@ def train(
             l2=l2_norm,
             l1=l1_norm,
             circle_reg=circle_reg,
+            min_epochs=min_epochs,
+            steps_per_epoch=len(train_dataloader),
+            lr_scheduler=lr_scheduler,
         )
     elif implementation == "huggingface_encoder":
         logging.info("Using HuggingFace encoder implementation")

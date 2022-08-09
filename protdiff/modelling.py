@@ -500,6 +500,9 @@ class BertDenoiserEncoderModel(pl.LightningModule):
         l2: float = 0.0,
         l1: float = 0.0,
         circle_reg: float = 0.0,
+        min_epochs: int = 500,
+        steps_per_epoch: int = 100,  # Dummy value
+        lr_scheduler: Optional[Literal["OneCycleLR"]] = None,
     ) -> None:
         super().__init__()
         self.n_inputs = n_inputs
@@ -510,6 +513,9 @@ class BertDenoiserEncoderModel(pl.LightningModule):
         self.circ_lambda = circle_reg
         if self.circ_lambda > 0:
             raise NotImplementedError
+        self.min_epochs = min_epochs
+        self.steps_per_epoch = steps_per_epoch
+        self.lr_scheduler = lr_scheduler
 
         self.loss_func = self.loss_fn_dict[loss] if isinstance(loss, str) else loss
         logging.info(f"Using loss: {self.loss_func}")
@@ -666,10 +672,32 @@ class BertDenoiserEncoderModel(pl.LightningModule):
             self.log(f"val_{loss_name}", loss_val)
         self.log("val_loss", avg_loss)
 
-    def configure_optimizers(self):
-        return torch.optim.AdamW(
+    def configure_optimizers(self) -> Dict[str, Any]:
+        """
+        References:
+        * https://pytorch-lightning.readthedocs.io/en/stable/api/pytorch_lightning.core.LightningModule.html
+        * https://pytorch.org/docs/stable/optim.html
+        """
+        optim = torch.optim.AdamW(
             self.parameters(), lr=self.learning_rate, weight_decay=self.l2_lambda,
         )
+        retval = {"optimizer": optim}
+        if self.lr_scheduler is not None:
+            if self.lr_scheduler == "OneCycleLR":
+                retval["lr_scheduler"] = {
+                    "scheduler": torch.optim.lr_scheduler.OneCycleLR(
+                        optim,
+                        max_lr=1e-2,
+                        epochs=self.min_epochs,
+                        steps_per_epoch=self.steps_per_epoch,
+                    ),
+                    "monitor": "val_loss",
+                    "frequency": 1,
+                }
+            else:
+                raise ValueError(f"Unknown lr scheduler {self.lr_scheduler}")
+        logging.info(f"Using optimizer {retval}")
+        return retval
 
 
 class BertDenoiserSeq2SeqModel(BertDenoiserEncoderModel):
