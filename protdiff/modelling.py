@@ -23,6 +23,7 @@ from transformers.models.bert.modeling_bert import (
 )
 
 import losses
+import utils
 
 
 class GaussianFourierProjection(nn.Module):
@@ -498,7 +499,7 @@ class BertDenoiserEncoderModel(pl.LightningModule):
         lr: float = 1e-4,
         l2: float = 0.0,
         l1: float = 0.0,
-        circle_reg: float= 0.0,
+        circle_reg: float = 0.0,
     ) -> None:
         super().__init__()
         self.n_inputs = n_inputs
@@ -553,7 +554,7 @@ class BertDenoiserEncoderModel(pl.LightningModule):
             dropout=self.dropout,
             activation="gelu",
             layer_norm_eps=1e-5,
-            batch_first=True,
+            batch_first=True,  # Very important!
             norm_first=True,
         )
         # https://pytorch.org/docs/stable/generated/torch.nn.TransformerEncoder.html#torch.nn.TransformerEncoder
@@ -611,13 +612,15 @@ class BertDenoiserEncoderModel(pl.LightningModule):
         """
         known_noise = batch["known_noise"]
         corrupted = batch["corrupted"]
+        # Make sure the attention mask is False for unmasked
         attn_mask = self.ensure_mask_fmt(batch["attn_mask"])
 
         predicted_noise = self.forward(
             corrupted, timestep=batch["t"], attn_mask=attn_mask
         )
 
-        unmask_idx = torch.where(batch["attn_mask"])
+        # Under pytorch convention, 0 = not masked
+        unmask_idx = torch.where(attn_mask == 0)
         assert len(unmask_idx) == 2
         loss_terms = []
         for i in range(known_noise.shape[-1]):
