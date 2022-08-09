@@ -651,12 +651,19 @@ class BertDenoiserEncoderModel(pl.LightningModule):
             self.log("l1_penalty", l1_penalty)
             avg_loss += self.l1_lambda * l1_penalty
 
+        for loss_name, loss_val in zip(["bond_dist", "omega", "theta", "phi"], loss):
+            self.log(f"train_{loss_name}", loss_val)
         self.log("train_loss", avg_loss)
         return avg_loss
 
     def validation_step(self, batch, batch_idx):
         loss_terms = self._get_loss_terms(batch)
         avg_loss = torch.mean(loss_terms)
+
+        for loss_name, loss_val in zip(
+            ["bond_dist", "omega", "theta", "phi"], loss_terms
+        ):
+            self.log(f"val_{loss_name}", loss_val)
         self.log("val_loss", avg_loss)
 
     def configure_optimizers(self):
