@@ -63,6 +63,28 @@ class TestBertDenoiserEncoderModel(unittest.TestCase):
         )
         self.assertTrue(torch.allclose(x, y))
 
+    def test_batch_order_consistency(self):
+        """
+        Test that the model is invariant to the order of inputs in a batch
+        """
+        # Run the inputs through as a "baseline" set of values
+        x = self.inputs
+        with torch.no_grad():
+            out = self.model(x=x, timestep=self.timesteps, attn_mask=self.attn_masks)
+
+        # Reverse the order of the inputs and run them through the model again, expect same output
+        idx = torch.randperm(x.shape[0])
+        with torch.no_grad():
+            shuffled_out = self.model(
+                x=x[idx], timestep=self.timesteps[idx], attn_mask=self.attn_masks[idx]
+            )
+        # Shuffle the known outputs to match
+        out_reordered = out[idx]
+        self.assertTrue(
+            torch.allclose(out_reordered, shuffled_out),
+            msg=f"Got different outputs: {out.flatten()[:5]} {shuffled_out.flatten()[:5]}",
+        )
+
     def test_attn_mask_reformat(self):
         """
         Test that the mask format is detected and converted to correct
