@@ -10,6 +10,13 @@ As the maintainer of this project, please make a few updates:
 - Understanding the security reporting process in SECURITY.MD
 - Remove this section from the README
 
+## Tests
+Tests are implemented through a mixture of doctests and unittests. To run unittests, run:
+
+```bash
+python -m unittest -v
+```
+
 ## Contributing
 
 This project welcomes contributions and suggestions.  Most contributions require you to agree to a
