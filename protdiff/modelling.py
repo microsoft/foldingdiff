@@ -490,7 +490,7 @@ class BertDenoiserEncoderModel(pl.LightningModule):
         num_layers: int = 6,
         intermediate_size: int = 512,
         max_seq_len: int = 512,
-        num_heads: int = 6,
+        num_heads: int = 8,
         dropout: float = 0.1,
         time_encoding: Literal["gaussian_fourier", "sinusoidal"] = "gaussian_fourier",
         loss: Union[
@@ -550,7 +550,8 @@ class BertDenoiserEncoderModel(pl.LightningModule):
 
         self.write_preds_to_dir = write_preds_to_dir
         self.write_preds_counter = 0
-        os.makedirs(self.write_preds_to_dir, exist_ok=True)
+        if self.write_preds_to_dir:
+            os.makedirs(self.write_preds_to_dir, exist_ok=True)
 
     def get_transformer(self) -> nn.Module:
         """
