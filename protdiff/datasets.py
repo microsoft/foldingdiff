@@ -672,6 +672,53 @@ class SynNoisedByPositionDataset(Dataset):
         raise NotImplementedError
 
 
+class SynNoisedMaskedOnlyDataset(Dataset):
+    """
+    Synthetic dataset that noises only masked positions. 
+
+    Primarily for testing that models correctly ignore masked positions
+    and NOT for training purposes. Namely, with this dataset, we should
+    be able to test that model f(x) obeys
+    f(angles) = f(corrupted) = f(angles + noise)
+    Since the noise is only applied to masked positions by construction
+    """
+
+    def __init__(self, dset: Dataset, dset_key: str = "angles", **kwargs) -> None:
+        super().__init__()
+        self.dset = dset
+        self.dset_key = dset_key
+
+        logging.warning("NOT FOR TRAINING")
+        logging.warning(f"Ignoring noiser class kwargs: {kwargs}")
+
+    def __len__(self) -> int:
+        return len(self.dset)
+
+    def __getitem__(self, index: int) -> Dict[str, torch.Tensor]:
+        """
+        Add noise to masked positions only
+        """
+        item = self.dset.__getitem__(index)
+        vals = item[self.dset_key]
+        attn_mask = item["attn_mask"]
+
+        masked_idx = torch.where(attn_mask == 0)[0]
+        assert torch.all(vals[masked_idx] == 0.0)
+
+        noise = torch.randn_like(vals)
+        noise[attn_mask == 1] = 0.0  # Zero out noise in non-masked positions
+
+        corrupted = vals + noise
+        retval = {
+            "corrupted": corrupted,
+            "t": torch.randint(0, 250, (1,)).long(),
+            "known_noise": noise,
+        }
+        assert item.keys().isdisjoint(retval.keys())
+        item.update(retval)
+        return item
+
+
 class ScoreMatchingNoisedAnglesDataset(Dataset):
     """
     Add noise to perform score matching
@@ -788,7 +835,7 @@ def main():
     # dset = AlphafoldConsecutiveAnglesDataset(force_recompute_angles=False, toy=False)
     # print(dset)
     dset = CathConsecutiveAnglesDataset(toy=10, split="train")
-    noised_dset = SynNoisedByPositionDataset(dset, dset_key="angles",)
+    noised_dset = SynNoisedMaskedOnlyDataset(dset, dset_key="angles",)
     print(len(noised_dset))
     print(noised_dset[0])
     # x = noised_dset[0]
