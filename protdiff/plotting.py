@@ -68,7 +68,7 @@ def plot_losses(log_fname: str, out_fname: Optional[str] = None):
             continue
         vals = df.loc[:, ["epoch", colname]]
         vals.dropna(axis="index", how="any", inplace=True)
-        ax.plot(vals["epoch"], vals[colname], label=colname)
+        ax.plot(vals["epoch"], vals[colname], label=colname, alpha=0.5)
     ax.legend(loc="upper right")
     ax.set(xlabel="Epoch", ylabel="Loss", title="Loss over epochs")
 
