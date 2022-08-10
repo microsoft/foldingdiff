@@ -136,6 +136,34 @@ class TestHuggingFaceBertModel(unittest.TestCase):
             msg=f"Got different outputs: {out.flatten()[:5]} {noised_out.flatten()[:5]}",
         )
 
+    def test_batch_order_agnostic(self):
+        """
+        Reversing the batch order of inputs does not change output values
+        """
+        x = self.inputs
+        with torch.no_grad():
+            out = self.model(
+                inputs=x,
+                timestep=self.timesteps,
+                attention_mask=self.attn_masks,
+                position_ids=self.position_ids,
+            )
+
+        with torch.no_grad():
+            rev_out = self.model(
+                inputs=torch.flip(x, dims=(0,)),
+                timestep=torch.flip(self.timesteps, dims=(0,)),
+                attention_mask=torch.flip(self.attn_masks, dims=(0,)),
+                position_ids=torch.flip(self.position_ids, dims=(0,)),
+            )
+
+        self.assertEqual(self.bs, out.shape[0])
+        self.assertEqual(self.bs, rev_out.shape[0])
+        self.assertTrue(
+            torch.allclose(torch.flip(out, dims=(0,)), rev_out, atol=ATOL, rtol=RTOL),
+            msg=f"Mismatch on reversal: {out[-2]} != {rev_out[1]}",
+        )
+
 
 class TestBertDenoiserEncoderModel(unittest.TestCase):
     def setUp(self) -> None:
