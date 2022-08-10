@@ -192,6 +192,8 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         """
         super().__init__(config)
         self.config = config
+        if self.config.is_decoder:
+            raise NotImplementedError
         self.n_inputs = n_inputs
 
         # Store information about leraning rates and loss
@@ -209,7 +211,6 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         )
         self.embeddings = BertEmbeddings(config)
         self.encoder = BertEncoder(config)
-        self.pooler = BertPooler(config) if add_pooling_layer else None
 
         # Set up the network to project token representation to our four outputs
         self.token_decoder = nn.Linear(config.hidden_size, n_inputs)
@@ -245,9 +246,7 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         attention_mask: torch.Tensor,
         position_ids: Optional[torch.Tensor] = None,
         head_mask: Optional[torch.Tensor] = None,
-        inputs_embeds: Optional[torch.Tensor] = None,
         encoder_hidden_states: Optional[torch.Tensor] = None,
-        encoder_attention_mask: Optional[torch.Tensor] = None,
         past_key_values: Optional[List[torch.FloatTensor]] = None,
         use_cache: Optional[bool] = None,
         output_attentions: Optional[bool] = None,
@@ -286,25 +285,10 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
             return_dict if return_dict is not None else self.config.use_return_dict
         )
 
-        if self.config.is_decoder:
-            use_cache = use_cache if use_cache is not None else self.config.use_cache
-        else:
-            use_cache = False
-
-        if inputs is not None and inputs_embeds is not None:
-            raise ValueError(
-                "You cannot specify both input_ids and inputs_embeds at the same time"
-            )
-        elif inputs is not None:
-            input_shape = inputs.size()
-        elif inputs_embeds is not None:
-            input_shape = inputs_embeds.size()[:-1]
-        else:
-            raise ValueError("You have to specify either input_ids or inputs_embeds")
-
+        input_shape = inputs.size()
         batch_size, seq_length, *_ = input_shape
         logging.debug(f"Detected batch {batch_size} and seq length {seq_length}")
-        device = inputs.device if inputs is not None else inputs_embeds.device
+        device = inputs.device
 
         assert attention_mask is not None
 
@@ -355,10 +339,6 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         )
 
         sequence_output = encoder_outputs[0]
-        pooled_output = (
-            self.pooler(sequence_output) if self.pooler is not None else None
-        )
-
         per_token_decoded = self.token_decoder(sequence_output)
         return per_token_decoded
 
