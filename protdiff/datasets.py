@@ -57,6 +57,19 @@ class CathConsecutiveAnglesDataset(Dataset):
     - https://userguide.mdanalysis.org/1.1.1/examples/analysis/structure/dihedrals.html
     """
 
+    feature_names = {
+        "angles": ["bond_dist", "omega", "theta", "phi"],
+        "angles_sin_cos": [
+            "bond_dist",
+            "omega_sin",
+            "theta_sin",
+            "phi_sin",
+            "omega_cos",
+            "theta_cos",
+            "phi_cos",
+        ],
+    }
+
     def __init__(
         self,
         split: Optional[Literal["train", "test", "validation"]] = None,
@@ -188,13 +201,17 @@ class CathConsecutiveAnglesDataset(Dataset):
 
         position_ids = torch.arange(start=0, end=self.pad, step=1, dtype=torch.long)
 
-        retval = torch.from_numpy(angles).float()
-        return {
-            "angles": retval,
+        angles = torch.from_numpy(angles).float()
+
+        retval = {
+            "angles": angles,
             "angles_sin_cos": angles_sin_cos,
             "attn_mask": attn_mask,
             "position_ids": position_ids,
         }
+        for k, v in self.feature_names():
+            assert retval[k].shape[1] == len(v)
+        return retval
 
 
 def read_and_extract_angles_from_pdb(
