@@ -19,10 +19,11 @@ class TestPositionalEmbedding(unittest.TestCase):
     def setUp(self) -> None:
         self.bs = 32  # Batch size
         self.d_model = 4
-        self.input_shape = (self.bs, 512, self.d_model)
+        self.seq_len = 512
+        self.input_shape = (self.bs, self.seq_len, self.d_model)
         self.input = torch.randn(self.input_shape)
 
-        self.pe = modelling.PositionalEncoding(self.d_model, max_len=512)
+        self.pe = modelling.PositionalEncoding(self.d_model, max_len=self.seq_len)
         self.pe.eval()  # Needed because positional encoding uses dropout
 
     def test_reproducibility(self):
@@ -41,11 +42,14 @@ class TestPositionalEmbedding(unittest.TestCase):
 
         pe = self.pe(zeros)
         for i in range(1, self.bs):
-            self.assertEqual(pe[i].shape, pe[0].shape)
+            # Check that across the batch, every example gets the same embedding
             self.assertTrue(
-                torch.all(torch.isclose(pe[i], pe[0], atol=1e-5)),
+                torch.all(torch.isclose(pe[i], pe[0])),
                 msg=f"{pe[i]} != {pe[0]}",
             )
+            # Check that across the sequences, each position gets the same embedding
+            for j in range(self.seq_len):
+                self.assertTrue(torch.all(torch.isclose(pe[i][j], pe[0][j])))
 
 
 if __name__ == "__main__":
