@@ -152,6 +152,7 @@ class CathConsecutiveAnglesDataset(Dataset):
         l = min(self.pad, angles.shape[0])
         attn_mask = torch.zeros(size=(self.pad,))
         attn_mask[:l] = 1.0
+        assert sum(attn_mask) == l
 
         # Perform padding
         if angles.shape[0] < self.pad:
@@ -173,10 +174,27 @@ class CathConsecutiveAnglesDataset(Dataset):
             assert angles[:, 1:].min() >= 0
             assert angles[:, 1:].max() < 2 * np.pi
 
+        # Calculate the sin/cos of angles
+        angles_sin = np.sin(angles[:, 1:])  # (pad, 3)
+        angles_cos = np.cos(angles[:, 1:])  # (pad, 3)
+        assert np.all(angles_sin >= -1.0) and np.all(angles_sin <= 1.0)
+        assert np.all(angles_cos >= -1.0) and np.all(angles_cos <= 1.0)
+        angles_sin_cos = np.hstack(((angles[:, np.newaxis, 0]), angles_sin, angles_cos))
+        assert angles_sin_cos.shape == (
+            self.pad,
+            7,
+        ), f"Mismatched shape: {angles_sin_cos.shape} != {(self.pad, 7)}"
+        angles_sin_cos = torch.from_numpy(angles_sin_cos).float()
+
         position_ids = torch.arange(start=0, end=self.pad, step=1, dtype=torch.long)
 
         retval = torch.from_numpy(angles).float()
-        return {"angles": retval, "attn_mask": attn_mask, "position_ids": position_ids}
+        return {
+            "angles": retval,
+            "angles_sin_cos": angles_sin_cos,
+            "attn_mask": attn_mask,
+            "position_ids": position_ids,
+        }
 
 
 def read_and_extract_angles_from_pdb(
