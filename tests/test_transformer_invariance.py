@@ -51,6 +51,11 @@ class TestBertDenoiserEncoderModel(unittest.TestCase):
                 torch.isclose(self.inputs_with_noise_on_mask[i][:l], self.inputs[i][:l])
             )
 
+        assert (
+            self.inputs.shape[0] == self.timesteps.shape[0] == self.attn_masks.shape[0]
+        )
+        assert self.inputs.shape[1] == self.attn_masks.shape[1]
+
     def test_consistency(self):
         """
         Test that given the same input the model gives the same output
@@ -72,8 +77,10 @@ class TestBertDenoiserEncoderModel(unittest.TestCase):
         with torch.no_grad():
             out = self.model(x=x, timestep=self.timesteps, attn_mask=self.attn_masks)
 
-        # Reverse the order of the inputs and run them through the model again, expect same output
+        # Shuffle the order of the inputs and run them through the model again, expect same output
+        # https://pytorch.org/docs/stable/generated/torch.randperm.html
         idx = torch.randperm(x.shape[0])
+        assert idx.shape[0] == x.shape[0]
         with torch.no_grad():
             shuffled_out = self.model(
                 x=x[idx], timestep=self.timesteps[idx], attn_mask=self.attn_masks[idx]
