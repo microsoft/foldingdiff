@@ -16,7 +16,7 @@ class TestBertDenoiserEncoderModel(unittest.TestCase):
         self.model = modelling.BertDenoiserEncoderModel()
         self.model.eval()
 
-        bs = 32
+        self.bs = 32
         rng = np.random.default_rng(6489)
         torch.random.manual_seed(6489)
 
@@ -27,17 +27,21 @@ class TestBertDenoiserEncoderModel(unittest.TestCase):
         self.always_masked_residues = 5
         lengths = [
             rng.integers(100, self.model.max_seq_len - self.always_masked_residues)
-            for _ in range(bs)
+            for _ in range(self.bs)
         ]
-        self.attn_masks = torch.zeros((bs, self.model.max_seq_len))
+        self.attn_masks = torch.zeros((self.bs, self.model.max_seq_len))
         for i, l in enumerate(lengths):
             self.attn_masks[i][:l] = 1.0
 
         # Generate random timesteps
-        self.timesteps = torch.from_numpy(rng.integers(0, 250, size=(bs, 1))).long()
+        self.timesteps = torch.from_numpy(
+            rng.integers(0, 250, size=(self.bs, 1))
+        ).long()
 
         # Generate random inputs
-        self.inputs = torch.randn((bs, self.model.max_seq_len, self.model.n_inputs))
+        self.inputs = torch.randn(
+            (self.bs, self.model.max_seq_len, self.model.n_inputs)
+        )
 
         # Generate noise vectors that correspond to masked positions
         unmask_positions = torch.where(self.attn_masks == 1.0)
@@ -61,7 +65,7 @@ class TestBertDenoiserEncoderModel(unittest.TestCase):
             self.inputs.shape[0]
             == self.timesteps.shape[0]
             == self.attn_masks.shape[0]
-            == bs
+            == self.bs
         )
         assert self.inputs.shape[1] == self.attn_masks.shape[1]
 
@@ -97,8 +101,31 @@ class TestBertDenoiserEncoderModel(unittest.TestCase):
         # Shuffle the known outputs to match
         out_reordered = out[idx]
         self.assertTrue(
-            torch.allclose(out_reordered, shuffled_out),
+            torch.allclose(out_reordered, shuffled_out, atol=1e-6, rtol=1e-4),
             msg=f"Got different outputs: {out.flatten()[:5]} {shuffled_out.flatten()[:5]}",
+        )
+
+    def test_batch_order_consistency_reversed(self):
+        """
+        Test that reversing the batch order of inputs does not change output
+        """
+        x = self.inputs
+        with torch.no_grad():
+            out = self.model(x=x, timestep=self.timesteps, attn_mask=self.attn_masks)
+
+        with torch.no_grad():
+            print(x)
+            rev_out = self.model(
+                x=torch.flip(x, dims=(0,)),
+                timestep=torch.flip(self.timesteps, dims=(0,)),
+                attn_mask=torch.flip(self.attn_masks, dims=(0,)),
+            )
+
+        self.assertEqual(self.bs, out.shape[0])
+        self.assertEqual(self.bs, rev_out.shape[0])
+        self.assertTrue(
+            torch.allclose(torch.flip(out, dims=(0,)), rev_out, atol=1e-6, rtol=1e-4),
+            msg=f"Mismatch on reversal: {out[-2]} != {rev_out[1]}",
         )
 
     def test_attn_mask_reformat(self):

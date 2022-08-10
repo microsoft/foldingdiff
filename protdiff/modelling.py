@@ -634,6 +634,7 @@ class BertDenoiserEncoderModel(pl.LightningModule):
         corrupted = batch["corrupted"]
         # Make sure the attention mask is False for unmasked
         attn_mask = self.ensure_mask_fmt(batch["attn_mask"])
+        assert isinstance(attn_mask, torch.BoolTensor)
 
         predicted_noise = self.forward(
             corrupted, timestep=batch["t"], attn_mask=attn_mask
@@ -726,6 +727,7 @@ class BertDenoiserEncoderModel(pl.LightningModule):
                     ),
                     "monitor": "val_loss",
                     "frequency": 1,
+                    "interval": "step",
                 }
             else:
                 raise ValueError(f"Unknown lr scheduler {self.lr_scheduler}")
