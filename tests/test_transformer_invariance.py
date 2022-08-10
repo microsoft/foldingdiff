@@ -22,7 +22,6 @@ class TestHuggingFaceBertModel(unittest.TestCase):
     def setUp(self) -> None:
         self.max_seq_len = 512
         self.cfg = BertConfig(max_position_embeddings=self.max_seq_len, use_cache=False)
-        print(self.cfg)
         self.model = modelling.BertForDiffusion(self.cfg)
         self.model.eval()
 
@@ -140,7 +139,9 @@ class TestHuggingFaceBertModel(unittest.TestCase):
 
 class TestBertDenoiserEncoderModel(unittest.TestCase):
     def setUp(self) -> None:
-        self.model = modelling.BertDenoiserEncoderModel()
+        self.model = modelling.BertDenoiserEncoderModel(
+            d_model=32, num_heads=4, num_layers=6
+        )
         self.model.eval()
 
         self.bs = 32
@@ -159,6 +160,7 @@ class TestBertDenoiserEncoderModel(unittest.TestCase):
         self.attn_masks = torch.zeros((self.bs, self.model.max_seq_len))
         for i, l in enumerate(lengths):
             self.attn_masks[i][:l] = 1.0
+            assert sum(self.attn_masks[i]) == l
 
         # Generate random timesteps
         self.timesteps = torch.from_numpy(
@@ -305,15 +307,21 @@ class TestBertDenoiserEncoderModel(unittest.TestCase):
 
         # Noise the inputs and run them through the model again, expect same output
         noised_x = x + self.noise_on_masked
+        unmasked_idx = torch.where(self.attn_masks == 1.0)
+        # Check that the x and noised x agree at unmasked indices
+        assert torch.allclose(x[unmasked_idx], noised_x[unmasked_idx])
+
         with torch.no_grad():
             noised_out = self.model(
                 x=noised_x, timestep=self.timesteps, attn_mask=self.attn_masks,
             )
-        
+
         unmasked_idx = torch.where(self.attn_masks == 1.0)
         self.assertTrue(
-            torch.allclose(out[unmasked_idx], noised_out[unmasked_idx]),
-            msg=f"Got different outputs: {out.flatten()[:5]} {noised_out.flatten()[:5]}",
+            torch.allclose(
+                out[unmasked_idx], noised_out[unmasked_idx], atol=ATOL, rtol=RTOL
+            ),
+            msg=f"Got different outputs: {out[unmasked_idx].flatten()[:5]} {noised_out[unmasked_idx].flatten()[:5]}",
         )
 
 
