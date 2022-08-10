@@ -22,7 +22,13 @@ class TestBertDenoiserEncoderModel(unittest.TestCase):
 
         # Generate attention masks by huggingface convention
         # These should be auto-converted to the pytorch convention
-        lengths = [rng.integers(100, self.model.max_seq_len) for _ in range(bs)]
+        # Do not generate sequences in the last 5 so we never have attention there
+        # This helps create an easy test for attention masking
+        self.always_masked_residues = 5
+        lengths = [
+            rng.integers(100, self.model.max_seq_len - self.always_masked_residues)
+            for _ in range(bs)
+        ]
         self.attn_masks = torch.zeros((bs, self.model.max_seq_len))
         for i, l in enumerate(lengths):
             self.attn_masks[i][:l] = 1.0
@@ -52,7 +58,10 @@ class TestBertDenoiserEncoderModel(unittest.TestCase):
             )
 
         assert (
-            self.inputs.shape[0] == self.timesteps.shape[0] == self.attn_masks.shape[0]
+            self.inputs.shape[0]
+            == self.timesteps.shape[0]
+            == self.attn_masks.shape[0]
+            == bs
         )
         assert self.inputs.shape[1] == self.attn_masks.shape[1]
 
@@ -104,6 +113,30 @@ class TestBertDenoiserEncoderModel(unittest.TestCase):
         conv_masked_indices = torch.where(converted_mask)
         for i, j in zip(orig_masked_indices, conv_masked_indices):
             self.assertTrue(torch.all(i == j))
+
+    def test_noise_invariance_easy(self):
+        """
+        Easy test for noise invariance that focuses on the last few
+        residues that should never be attended to
+        """
+        x = self.inputs
+        with torch.no_grad():
+            out = self.model(x=x, timestep=self.timesteps, attn_mask=self.attn_masks)
+
+        noise = torch.randn_like(x)
+        noise[:, : -self.always_masked_residues] = 0.0
+        # Check that there is no noise in the leading residues
+        assert torch.all(noise[:, : -self.always_masked_residues] == 0.0)
+        noised_x = x + noise
+
+        with torch.no_grad():
+            noised_out = self.model(
+                x=noised_x, timestep=self.timesteps, attn_mask=self.attn_masks,
+            )
+        self.assertTrue(
+            torch.allclose(out, noised_out),
+            msg=f"Got different outputs: {out.flatten()[:5]} {noised_out.flatten()[:5]}",
+        )
 
     def test_noise_invariance(self):
         """
