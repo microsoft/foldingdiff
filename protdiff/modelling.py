@@ -556,6 +556,8 @@ class BertDenoiserEncoderModel(pl.LightningModule):
         # https://pytorch.org/docs/stable/generated/torch.nn.Transformer.html#torch.nn.Transformer
         self.transformer = self.get_transformer()
 
+        self._init_weights()
+
         self.write_preds_to_dir = write_preds_to_dir
         self.write_preds_counter = 0
         if self.write_preds_to_dir:
@@ -580,6 +582,12 @@ class BertDenoiserEncoderModel(pl.LightningModule):
         # https://pytorch.org/docs/stable/generated/torch.nn.TransformerEncoder.html#torch.nn.TransformerEncoder
         encoder = nn.TransformerEncoder(enc_layer, num_layers=self.num_layers)
         return encoder
+
+    def _init_weights(self) -> None:
+        # Initialize transformer with xavier uniform
+        for p in self.transformer.parameters():
+            if p.dim() > 1:
+                nn.init.xavier_uniform_(p)
 
     def forward(
         self,
