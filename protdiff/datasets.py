@@ -209,8 +209,8 @@ class CathConsecutiveAnglesDataset(Dataset):
             "attn_mask": attn_mask,
             "position_ids": position_ids,
         }
-        for k, v in self.feature_names():
-            assert retval[k].shape[1] == len(v)
+        for k, v in self.feature_names.items():
+            assert retval[k].shape == (self.pad, len(v))
         return retval
 
 
