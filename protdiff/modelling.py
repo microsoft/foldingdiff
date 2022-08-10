@@ -97,9 +97,17 @@ class PositionalEncoding(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Args:
-            x: Tensor, shape [seq_len, batch_size, embedding_dim]
+            x: Tensor, shape [batch_size, seq_len, embedding_dim]
         """
-        x = x + self.pe[: x.size(0)]
+        assert len(x.shape) == 3
+        orig_shape = x.shape
+        # x is a tensor of shape (batch_size, seq_len, embedding_dim)
+        # permute to be (seq_len, batch_size, embedding_dim)
+        x = x.permute(1, 0, 2)
+        x += self.pe[: x.size(0)]
+        # permute back to (batch_size, seq_len, embedding_dim)
+        x = x.permute(1, 0, 2)
+        assert x.shape == orig_shape, f"{x.shape} != {orig_shape}"
         return self.dropout(x)
 
 
@@ -579,7 +587,7 @@ class BertDenoiserEncoderModel(pl.LightningModule):
         timestep: torch.Tensor,
         attn_mask: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
-        # Upscale the features
+        # Upscale the features to (N, S, E) = (batch, seq_len, emb_size)
         x_upscaled = self.src_proj(x)
 
         # Add positional embeddings
