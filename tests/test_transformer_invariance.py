@@ -10,6 +10,8 @@ sys.path.append(SRC_DIR)
 
 import modelling
 
+ATOL, RTOL = 1e-6, 1e-3
+
 
 class TestBertDenoiserEncoderModel(unittest.TestCase):
     def setUp(self) -> None:
@@ -101,7 +103,7 @@ class TestBertDenoiserEncoderModel(unittest.TestCase):
         # Shuffle the known outputs to match
         out_reordered = out[idx]
         self.assertTrue(
-            torch.allclose(out_reordered, shuffled_out, atol=1e-6, rtol=1e-4),
+            torch.allclose(out_reordered, shuffled_out, atol=ATOL, rtol=RTOL),
             msg=f"Got different outputs: {out.flatten()[:5]} {shuffled_out.flatten()[:5]}",
         )
 
@@ -114,7 +116,6 @@ class TestBertDenoiserEncoderModel(unittest.TestCase):
             out = self.model(x=x, timestep=self.timesteps, attn_mask=self.attn_masks)
 
         with torch.no_grad():
-            print(x)
             rev_out = self.model(
                 x=torch.flip(x, dims=(0,)),
                 timestep=torch.flip(self.timesteps, dims=(0,)),
@@ -124,7 +125,7 @@ class TestBertDenoiserEncoderModel(unittest.TestCase):
         self.assertEqual(self.bs, out.shape[0])
         self.assertEqual(self.bs, rev_out.shape[0])
         self.assertTrue(
-            torch.allclose(torch.flip(out, dims=(0,)), rev_out, atol=1e-6, rtol=1e-4),
+            torch.allclose(torch.flip(out, dims=(0,)), rev_out, atol=ATOL, rtol=RTOL),
             msg=f"Mismatch on reversal: {out[-2]} != {rev_out[1]}",
         )
 
@@ -137,6 +138,7 @@ class TestBertDenoiserEncoderModel(unittest.TestCase):
         converted_mask = self.model.ensure_mask_fmt(self.attn_masks)
         # huggingface masked indices are indicated by 0.
         orig_masked_indices = torch.where(self.attn_masks == 0.0)
+        # pytorch masked indicies are indicated by True
         conv_masked_indices = torch.where(converted_mask)
         for i, j in zip(orig_masked_indices, conv_masked_indices):
             self.assertTrue(torch.all(i == j))
