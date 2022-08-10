@@ -287,8 +287,10 @@ class TestBertDenoiserEncoderModel(unittest.TestCase):
             noised_out = self.model(
                 x=noised_x, timestep=self.timesteps, attn_mask=self.attn_masks,
             )
+
+        unmasked_idx = torch.where(self.attn_masks == 1.0)
         self.assertTrue(
-            torch.allclose(out, noised_out),
+            torch.allclose(out[unmasked_idx], noised_out[unmasked_idx]),
             msg=f"Got different outputs: {out.flatten()[:5]} {noised_out.flatten()[:5]}",
         )
 
@@ -307,8 +309,10 @@ class TestBertDenoiserEncoderModel(unittest.TestCase):
             noised_out = self.model(
                 x=noised_x, timestep=self.timesteps, attn_mask=self.attn_masks,
             )
+        
+        unmasked_idx = torch.where(self.attn_masks == 1.0)
         self.assertTrue(
-            torch.allclose(out, noised_out),
+            torch.allclose(out[unmasked_idx], noised_out[unmasked_idx]),
             msg=f"Got different outputs: {out.flatten()[:5]} {noised_out.flatten()[:5]}",
         )
 
