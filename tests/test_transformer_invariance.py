@@ -102,6 +102,41 @@ class TestHuggingFaceBertModel(unittest.TestCase):
         )
         self.assertTrue(torch.allclose(x, y))
 
+    def test_noise_invariance_easy(self):
+        """
+        Easy test for noise invariance that focuses on the last few
+        residues that should never be attended to
+        """
+        x = self.inputs
+        with torch.no_grad():
+            out = self.model(
+                inputs=x,
+                timestep=self.timesteps,
+                attention_mask=self.attn_masks,
+                position_ids=self.position_ids,
+            )
+
+        noise = torch.randn_like(x)
+        noise[:, : -self.always_masked_residues] = 0.0
+        # Check that there is no noise in the leading residues
+        assert torch.all(noise[:, : -self.always_masked_residues] == 0.0)
+        noised_x = x + noise
+
+        with torch.no_grad():
+            noised_out = self.model(
+                inputs=noised_x,
+                timestep=self.timesteps,
+                attention_mask=self.attn_masks,
+                position_ids=self.position_ids,
+            )
+        unmasked_idx = torch.where(self.attn_masks == 1.0)
+        self.assertTrue(
+            torch.allclose(
+                out[unmasked_idx], noised_out[unmasked_idx], rtol=RTOL, atol=ATOL
+            ),
+            msg=f"Got different outputs: {out.flatten()[:5]} {noised_out.flatten()[:5]}",
+        )
+
 
 class TestBertDenoiserEncoderModel(unittest.TestCase):
     def setUp(self) -> None:
