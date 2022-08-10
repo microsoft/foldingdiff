@@ -574,7 +574,7 @@ class BertDenoiserEncoderModel(pl.LightningModule):
             dropout=self.dropout,
             activation="gelu",
             layer_norm_eps=1e-5,
-            batch_first=True,  # Very important!
+            batch_first=False,  # Must do a permute to get batch first
             norm_first=True,
         )
         # https://pytorch.org/docs/stable/generated/torch.nn.TransformerEncoder.html#torch.nn.TransformerEncoder
@@ -600,9 +600,22 @@ class BertDenoiserEncoderModel(pl.LightningModule):
         # src_with_pos shape (batch, seq_len, n_features)
         src_with_pos_time = src_with_pos + time_embed
 
+        # Generate the src mask, follows https://pytorch.org/tutorials/beginner/translation_transformer.html
+        # True --> NOT allowed to attend
+        # False --> allowed to attend
+        # Generate a vector of False
+        src_mask = (
+            torch.zeros((self.max_seq_len, self.max_seq_len))
+            .type(torch.bool)
+            .to(x.device)
+        )
         # Feed through transformer
-        # shape (batch, seq_len, d_model)
-        decoded = self.transformer(src_with_pos_time, src_key_padding_mask=attn_mask)
+        # shape (batch, seq_len, d_model) --> (seq_len, batch, d_model) --> (batch, seq_len, d_model)
+        decoded = self.transformer(
+            src_with_pos_time.permute(1, 0, 2),
+            mask=src_mask,
+            src_key_padding_mask=attn_mask,
+        ).permute(1, 0, 2)
 
         # Decode to targets
         out = self.tgt_out(decoded)
@@ -634,7 +647,9 @@ class BertDenoiserEncoderModel(pl.LightningModule):
         corrupted = batch["corrupted"]
         # Make sure the attention mask is False for unmasked
         attn_mask = self.ensure_mask_fmt(batch["attn_mask"])
-        assert isinstance(attn_mask, torch.BoolTensor)
+        assert (
+            attn_mask.dtype == torch.bool
+        ), f"{attn_mask} is not boolean - {attn_mask.dtype}"
 
         predicted_noise = self.forward(
             corrupted, timestep=batch["t"], attn_mask=attn_mask
