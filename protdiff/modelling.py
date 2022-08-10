@@ -192,6 +192,7 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         """
         super().__init__(config)
         self.config = config
+        self.n_inputs = n_inputs
 
         # Store information about leraning rates and loss
         self.learning_rate = lr
@@ -228,7 +229,8 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         # Set up the output directory for writing predictions
         self.write_preds_to_dir = write_preds_to_dir
         self.write_preds_counter = 0
-        os.makedirs(self.write_preds_to_dir, exist_ok=True)
+        if self.write_preds_to_dir:
+            os.makedirs(self.write_preds_to_dir, exist_ok=True)
 
     def get_input_embeddings(self) -> nn.Module:
         raise NotImplementedError
