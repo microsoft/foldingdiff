@@ -645,8 +645,12 @@ class BertDenoiserEncoderModel(pl.LightningModule):
         # if the first item is a 1.0 then we know that we have received
         # huggingface standard where 1 = attended. Flip to be 0 = attended
         if torch.isclose(first_item, torch.ones_like(first_item)):
-            mask = 1.0 - mask
-            return mask.bool()
+            flipped_mask = ~(mask.bool())
+            assert torch.all(
+                torch.sum(mask) == torch.numel(flipped_mask) - torch.sum(flipped_mask)
+            )
+            assert torch.all(flipped_mask[torch.where(mask)] == False)
+            return flipped_mask.bool()
         return mask.bool()
 
     def _get_loss_terms(self, batch, write_preds: Optional[str] = None) -> torch.Tensor:
