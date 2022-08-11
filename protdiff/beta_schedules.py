@@ -86,10 +86,11 @@ def plot_variance_schedule(
     logging.info(
         f"Plotting {keyword} variance schedule with {timesteps} timesteps, ranging from {np.min(variance_vals)}-{np.max(variance_vals)}"
     )
-
+    alpha_beta_vals = compute_alphas(variance_vals)
     fig, ax = plt.subplots(dpi=300)
-    ax.plot(np.arange(timesteps), variance_vals)
-    fig.savefig(fname)
+    for k, v in alpha_beta_vals.items():
+        ax.plot(np.arange(timesteps), v.numpy(), label=k, alpha=0.7)
+    fig.savefig(fname + "_alpha_beta.pdf")
 
 
 if __name__ == "__main__":
