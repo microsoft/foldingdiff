@@ -55,7 +55,7 @@ def plot_val_dists_at_t(
     return fig
 
 
-def plot_losses(log_fname: str, out_fname: Optional[str] = None):
+def plot_losses(log_fname: str, out_fname: Optional[str] = None, simple: bool = False):
     """
     Plot the validation loss values from a log file. Spuports multiple
     validation losses if present in log file.
@@ -65,6 +65,8 @@ def plot_losses(log_fname: str, out_fname: Optional[str] = None):
     df = pd.read_csv(log_fname)
     for colname in df.columns:
         if "loss" not in colname:
+            continue
+        if simple and colname not in ["train_loss", "val_loss"]:
             continue
         vals = df.loc[:, ["epoch", colname]]
         vals.dropna(axis="index", how="any", inplace=True)
