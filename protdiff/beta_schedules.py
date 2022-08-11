@@ -82,9 +82,9 @@ def plot_variance_schedule(
     """
     variance_vals = get_variance_schedule(
         keyword=keyword, timesteps=timesteps, **kwargs
-    ).numpy()
+    )
     logging.info(
-        f"Plotting {keyword} variance schedule with {timesteps} timesteps, ranging from {np.min(variance_vals)}-{np.max(variance_vals)}"
+        f"Plotting {keyword} variance schedule with {timesteps} timesteps, ranging from {torch.min(variance_vals)}-{torch.max(variance_vals)}"
     )
     alpha_beta_vals = compute_alphas(variance_vals)
     fig, ax = plt.subplots(dpi=300)
