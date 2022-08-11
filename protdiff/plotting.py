@@ -1,7 +1,7 @@
 """
 Utility functions for plotting
 """
-import os
+import os, sys
 from typing import Optional
 
 from tqdm.auto import tqdm
@@ -77,3 +77,7 @@ def plot_losses(log_fname: str, out_fname: Optional[str] = None, simple: bool = 
     if out_fname is not None:
         fig.savefig(out_fname, bbox_inches="tight")
     return fig
+
+
+if __name__ == "__main__":
+    plot_losses(sys.argv[1], out_fname=sys.argv[2], simple=True)
