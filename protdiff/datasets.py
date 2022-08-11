@@ -633,7 +633,7 @@ class SynNoisedByPositionDataset(Dataset):
         var_val: float = 1.0,
         timesteps: int = 250,
         use_timesteps: bool = False,
-        beta_schedule: beta_schedules.SCHEDULES = 'linear',
+        beta_schedule: beta_schedules.SCHEDULES = "linear",
         ft_subset: Optional[int] = 1,
         **kwargs,  # Allow passthrough since this is a debugging dataset
     ) -> None:
@@ -651,7 +651,8 @@ class SynNoisedByPositionDataset(Dataset):
         self.sqrt_alphas_cumprod = torch.sqrt(self.alphas_cumprod)
         self.sqrt_one_minus_alphas_cumprod = torch.sqrt(1.0 - self.alphas_cumprod)
 
-        self.use_timesteps = use_timesteps  # If true, use timesteps to scale noise/original ratio
+        # If true, use timesteps to scale noise/original ratio
+        self.use_timesteps = use_timesteps
         self.var_val = var_val
         logging.warning(f"Ignoring noiser class kwargs: {kwargs}")
 
@@ -659,7 +660,7 @@ class SynNoisedByPositionDataset(Dataset):
         return len(self.dset)
 
     def __str__(self):
-        return f"{self.__name__} wrapping {self.dset} with var_val {self.var_val} selecting ft {self.ft_subset}"
+        return f"{self.__name__} wrapping {self.dset} with var_val {self.var_val} selecting ft {self.ft_subset} {'WITH' if self.use_timesteps else 'WITHOUT'} timesteps"
 
     def sample_noise(self, vals, attn_mask) -> torch.Tensor:
         """
@@ -715,11 +716,13 @@ class SynNoisedByPositionDataset(Dataset):
 
         # Get the corrupted example
         noise = self.sample_noise(vals, item["attn_mask"])
-        
+
         # Based on whether or not we are using timesteps to scale orig/noise, build
         # corrupted exapmle
         if self.use_timesteps:
-            sqrt_alphas_cumprod_t = utils.extract(self.sqrt_alphas_cumprod, t, vals.shape)
+            sqrt_alphas_cumprod_t = utils.extract(
+                self.sqrt_alphas_cumprod, t, vals.shape
+            )
             sqrt_one_minus_alphas_cumprod_t = utils.extract(
                 self.sqrt_one_minus_alphas_cumprod, t, vals.shape
             )
