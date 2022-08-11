@@ -3,7 +3,7 @@ Describe beta schedules
 """
 import os
 import logging
-from typing import Literal, get_args
+from typing import Dict, Literal, get_args
 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -11,6 +11,9 @@ from matplotlib import pyplot as plt
 import torch
 
 SCHEDULES = Literal["linear", "cosine", "quadratic"]
+
+
+# each of these returns the series of beta_t
 
 
 def cosine_beta_schedule(timesteps: int, s: float = 8e-3) -> torch.Tensor:
@@ -38,6 +41,23 @@ def quadratic_beta_schedule(
     return torch.sigmoid(betas) * (beta_end - beta_start) + beta_start
 
 
+def compute_alphas(betas: torch.Tensor) -> Dict[str, torch.Tensor]:
+    """
+    Compute the alphas from the betas
+    """
+    alphas = 1.0 - betas
+    alphas_cumprod = torch.cumprod(alphas, dim=0)
+    sqrt_alphas_cumprod = torch.sqrt(alphas_cumprod)
+    sqrt_one_minus_alphas_cumprod = torch.sqrt(1.0 - alphas_cumprod)
+    return {
+        "betas": betas,
+        "alphas": alphas,
+        "alphas_cumprod": alphas_cumprod,
+        "sqrt_alphas_cumprod": sqrt_alphas_cumprod,
+        "sqrt_one_minus_alphas_cumprod": sqrt_one_minus_alphas_cumprod,
+    }
+
+
 def get_variance_schedule(keyword: SCHEDULES, timesteps: int, **kwargs) -> torch.Tensor:
     """
     Easy interface for getting a variance schedule based on keyword and
@@ -63,6 +83,9 @@ def plot_variance_schedule(
     variance_vals = get_variance_schedule(
         keyword=keyword, timesteps=timesteps, **kwargs
     ).numpy()
+    logging.info(
+        f"Plotting {keyword} variance schedule with {timesteps} timesteps, ranging from {np.min(variance_vals)}-{np.max(variance_vals)}"
+    )
 
     fig, ax = plt.subplots(dpi=300)
     ax.plot(np.arange(timesteps), variance_vals)
@@ -70,6 +93,7 @@ def plot_variance_schedule(
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
     from plotting import PLOT_DIR
 
     var_plot_dir = os.path.join(PLOT_DIR, "variance_schedules")

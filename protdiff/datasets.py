@@ -632,7 +632,7 @@ class SynNoisedByPositionDataset(Dataset):
         dset_key: Optional[str] = None,
         var_val: float = 1.0,
         timesteps: int = 250,
-        use_timesteps: bool = False,
+        use_timesteps: bool = True,
         beta_schedule: beta_schedules.SCHEDULES = "linear",
         ft_subset: Optional[int] = 1,
         **kwargs,  # Allow passthrough since this is a debugging dataset
@@ -644,12 +644,10 @@ class SynNoisedByPositionDataset(Dataset):
 
         self.schedule = beta_schedule
         self.timesteps = timesteps
+
         # Compute beta and alpha values
-        self.betas = beta_schedules.get_variance_schedule(beta_schedule, timesteps)
-        self.alphas = 1.0 - self.betas
-        self.alphas_cumprod = torch.cumprod(self.alphas, axis=0)
-        self.sqrt_alphas_cumprod = torch.sqrt(self.alphas_cumprod)
-        self.sqrt_one_minus_alphas_cumprod = torch.sqrt(1.0 - self.alphas_cumprod)
+        betas = beta_schedules.get_variance_schedule(beta_schedule, timesteps)
+        self.alpha_beta_terms = beta_schedules.compute_alphas(betas)
 
         # If true, use timesteps to scale noise/original ratio
         self.use_timesteps = use_timesteps
@@ -720,12 +718,11 @@ class SynNoisedByPositionDataset(Dataset):
         # Based on whether or not we are using timesteps to scale orig/noise, build
         # corrupted exapmle
         if self.use_timesteps:
-            sqrt_alphas_cumprod_t = utils.extract(
-                self.sqrt_alphas_cumprod, t, vals.shape
-            )
-            sqrt_one_minus_alphas_cumprod_t = utils.extract(
-                self.sqrt_one_minus_alphas_cumprod, t, vals.shape
-            )
+            t_idx = t.item()
+            sqrt_alphas_cumprod_t = self.alpha_beta_terms["sqrt_alphas_cumprod"][t_idx]
+            sqrt_one_minus_alphas_cumprod_t = self.alpha_beta_terms[
+                "sqrt_one_minus_alphas_cumprod"
+            ][t_idx]
             noised_vals = (
                 sqrt_alphas_cumprod_t * vals + sqrt_one_minus_alphas_cumprod_t * noise
             )
