@@ -632,6 +632,8 @@ class SynNoisedByPositionDataset(Dataset):
         dset_key: Optional[str] = None,
         var_val: float = 1.0,
         timesteps: int = 250,
+        use_timesteps: bool = False,
+        beta_schedule: beta_schedules.SCHEDULES = 'linear',
         ft_subset: Optional[int] = 1,
         **kwargs,  # Allow passthrough since this is a debugging dataset
     ) -> None:
@@ -640,7 +642,16 @@ class SynNoisedByPositionDataset(Dataset):
         self.dset_key = dset_key
         self.ft_subset = ft_subset
 
+        self.schedule = beta_schedule
         self.timesteps = timesteps
+        # Compute beta and alpha values
+        self.betas = beta_schedules.get_variance_schedule(beta_schedule, timesteps)
+        self.alphas = 1.0 - self.betas
+        self.alphas_cumprod = torch.cumprod(self.alphas, axis=0)
+        self.sqrt_alphas_cumprod = torch.sqrt(self.alphas_cumprod)
+        self.sqrt_one_minus_alphas_cumprod = torch.sqrt(1.0 - self.alphas_cumprod)
+
+        self.use_timesteps = use_timesteps  # If true, use timesteps to scale noise/original ratio
         self.var_val = var_val
         logging.warning(f"Ignoring noiser class kwargs: {kwargs}")
 
@@ -699,19 +710,29 @@ class SynNoisedByPositionDataset(Dataset):
             assert len(vals.shape) == 2
             assert vals.shape[-1] == 1
 
-        # Find the positions that are seq
-        # seq_pos = torch.where(vals[''])
-        # Attention mask is 1 in non-null positions -- sum of attention
-        # mask is sequence length
+        # Sample a random timestep
+        t = torch.randint(0, self.timesteps, (1,)).long()
 
         # Get the corrupted example
         noise = self.sample_noise(vals, item["attn_mask"])
-        noised_vals = vals + noise
-        # Build output. Note that timestep is random as there is no correlation
-        # between time and noise.
+        
+        # Based on whether or not we are using timesteps to scale orig/noise, build
+        # corrupted exapmle
+        if self.use_timesteps:
+            sqrt_alphas_cumprod_t = utils.extract(self.sqrt_alphas_cumprod, t, vals.shape)
+            sqrt_one_minus_alphas_cumprod_t = utils.extract(
+                self.sqrt_one_minus_alphas_cumprod, t, vals.shape
+            )
+            noised_vals = (
+                sqrt_alphas_cumprod_t * vals + sqrt_one_minus_alphas_cumprod_t * noise
+            )
+        else:
+            noised_vals = vals + noise
+
+        # Build output dictionary
         retval = {
             "corrupted": noised_vals,
-            "t": torch.randint(0, self.timesteps, (1,)).long(),
+            "t": t,
             "known_noise": noise,
         }
         if isinstance(item, dict):
