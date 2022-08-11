@@ -90,6 +90,7 @@ def plot_variance_schedule(
     fig, ax = plt.subplots(dpi=300)
     for k, v in alpha_beta_vals.items():
         ax.plot(np.arange(timesteps), v.numpy(), label=k, alpha=0.7)
+    ax.legend()
     fig.savefig(fname)
 
 
