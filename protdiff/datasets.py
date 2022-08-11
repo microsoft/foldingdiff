@@ -553,6 +553,7 @@ class SingleNoisedBondDistanceDataset(SingleNoisedAngleDataset):
     """
 
     __name__ = "SingleNoisedBondDistanceDataset"
+
     def __init__(self, use_fixed_noise: bool = False, *args, **kwargs) -> None:
         super().__init__(use_fixed_noise, *args, ft_idx=0, **kwargs)
 
@@ -649,25 +650,14 @@ class SynNoisedByPositionDataset(Dataset):
     def __str__(self):
         return f"{self.__name__} wrapping {self.dset} with var_val {self.var_val} selecting ft {self.ft_subset}"
 
-    def __getitem__(self, index) -> Dict[str, torch.Tensor]:
-        item = self.dset.__getitem__(index)
-        if self.dset_key is not None:
-            assert isinstance(item, dict)
-            vals = item[self.dset_key]
-        else:
-            vals = item
-
-        if self.ft_subset is not None:
-            item[self.dset_key] = vals[:, self.ft_subset].unsqueeze(1)
-            vals = vals[:, self.ft_subset].unsqueeze(1)
-            assert len(vals.shape) == 2
-            assert vals.shape[-1] == 1
-
-        # Find the positions that are seq
-        # seq_pos = torch.where(vals[''])
-        # Attention mask is 1 in non-null positions -- sum of attention
-        # mask is sequence length
-        seq_len = torch.sum(item["attn_mask"])
+    def sample_noise(self, vals, attn_mask) -> torch.Tensor:
+        """
+        Sample noise given the values to noise and attention mask
+        Values ot noise are used only for their shape
+        """
+        # attention mask should be given in huggingface convention where
+        # 1 = unmasked and 0 = masked
+        seq_len = torch.sum(attn_mask)
         assert (
             seq_len <= vals.shape[0]
         ), f"Expected seq_len <= {vals.shape[0]} but got {seq_len}"
@@ -693,8 +683,29 @@ class SynNoisedByPositionDataset(Dataset):
             torch.arange(vals.shape[0]).unsqueeze(1).broadcast_to(vals.shape)
         )
         noise = torch.where(broadcasted_indices < seq_len / 2, pos_dist, neg_dist)
+        return noise
+
+    def __getitem__(self, index) -> Dict[str, torch.Tensor]:
+        item = self.dset.__getitem__(index)
+        if self.dset_key is not None:
+            assert isinstance(item, dict)
+            vals = item[self.dset_key]
+        else:
+            vals = item
+
+        if self.ft_subset is not None:
+            item[self.dset_key] = vals[:, self.ft_subset].unsqueeze(1)
+            vals = vals[:, self.ft_subset].unsqueeze(1)
+            assert len(vals.shape) == 2
+            assert vals.shape[-1] == 1
+
+        # Find the positions that are seq
+        # seq_pos = torch.where(vals[''])
+        # Attention mask is 1 in non-null positions -- sum of attention
+        # mask is sequence length
 
         # Get the corrupted example
+        noise = self.sample_noise(vals, item["attn_mask"])
         noised_vals = vals + noise
         # Build output. Note that timestep is random as there is no correlation
         # between time and noise.
