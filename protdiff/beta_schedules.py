@@ -91,6 +91,10 @@ def plot_variance_schedule(
     for k, v in alpha_beta_vals.items():
         ax.plot(np.arange(timesteps), v.numpy(), label=k, alpha=0.7)
     ax.legend()
+    ax.set(
+        title=f"{keyword} schedule across {timesteps} timesteps",
+        xlabel="Timestep",
+    )
     fig.savefig(fname)
 
 
