@@ -62,7 +62,7 @@ def get_train_valid_test_sets(
     exhaustive_t: bool = False,
     syn_noiser: str = "",
     single_dist_debug: bool = False,
-    single_angle_debug: int = -1,  # Noise and return a single angle. -1 to disable, 1-3 to select
+    single_angle_debug: int = -1,  # Noise and return a single angle. -1 to disable, 1-3 for omega/theta/phi
     single_time_debug: bool = False,  # Noise and return a single time
 ) -> Tuple[Dataset, Dataset, Dataset]:
     """
@@ -364,7 +364,9 @@ def train(
     )
     assert os.path.isfile(metrics_csv)
     # Plot the losses
-    plotting.plot_losses(metrics_csv, out_fname=plots_folder / "losses.pdf", simple=True)
+    plotting.plot_losses(
+        metrics_csv, out_fname=plots_folder / "losses.pdf", simple=True
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:
