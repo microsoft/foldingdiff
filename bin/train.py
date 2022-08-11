@@ -62,7 +62,7 @@ def get_train_valid_test_sets(
     exhaustive_t: bool = False,
     syn_noiser: str = "",
     single_dist_debug: bool = False,
-    single_angle_debug: bool = False,  # Noise and return a single angle
+    single_angle_debug: int = -1,  # Noise and return a single angle. -1 to disable, 1-3 to select
     single_time_debug: bool = False,  # Noise and return a single time
 ) -> Tuple[Dataset, Dataset, Dataset]:
     """
@@ -70,6 +70,9 @@ def get_train_valid_test_sets(
 
     Note, these need to be wrapped in data loaders later
     """
+    assert (
+        single_angle_debug != 0
+    ), f"Invalid value for single_angle_debug: {single_angle_debug}"
     clean_dsets = [
         datasets.CathConsecutiveAnglesDataset(
             split=s, shift_to_zero_twopi=shift_to_zero_twopi, toy=toy
@@ -87,9 +90,11 @@ def get_train_valid_test_sets(
         if single_dist_debug:
             logging.warning("Using single dist debug")
             dset_noiser_class = datasets.SingleNoisedBondDistanceDataset
-        elif single_angle_debug:
+        elif single_angle_debug > 0:
             logging.warning("Using single angle noise!")
-            dset_noiser_class = datasets.SingleNoisedAngleDataset
+            dset_noiser_class = functools.partial(
+                datasets.SingleNoisedAngleDataset, ft_idx=single_angle_debug
+            )
         elif single_time_debug:
             logging.warning("Using single angle and single time noise!")
             dset_noiser_class = datasets.SingleNoisedAngleAndTimeDataset
@@ -196,7 +201,7 @@ def train(
     exhaustive_validation_t: bool = False,  # Exhaustively enumerate t for validation/test
     syn_noiser: str = "",  # If specified, use a synthetic noiser
     single_dist_debug: bool = False,  # Debug on distance (no periodicity)
-    single_angle_debug: bool = False,  # Noise and return a single angle
+    single_angle_debug: int = -1,  # Noise and return a single angle, choose [1, 2, 3] or -1 to disable
     single_timestep_debug: bool = False,  # Noise and return a single timestep
 ):
     """Main training loop"""
@@ -253,7 +258,7 @@ def train(
     os.makedirs(plots_folder, exist_ok=True)
     # Skip this for debug runs
     if (
-        not single_angle_debug
+        single_angle_debug < 0
         and not single_timestep_debug
         and not single_dist_debug
         and not syn_noiser
@@ -273,14 +278,14 @@ def train(
     # looking at the relative distance between things is more robust
 
     loss_fn = loss
-    if single_angle_debug or single_timestep_debug or syn_noiser:
+    if single_angle_debug > 0 or single_timestep_debug or syn_noiser:
         loss_fn = functools.partial(losses.radian_smooth_l1_loss, beta=0.1 * np.pi)
     elif single_dist_debug:
         loss_fn = F.smooth_l1_loss
 
     model_n_inputs = (
         1
-        if single_angle_debug
+        if single_angle_debug > 0
         or single_timestep_debug
         or single_dist_debug
         or syn_noiser
@@ -359,7 +364,7 @@ def train(
     )
     assert os.path.isfile(metrics_csv)
     # Plot the losses
-    plotting.plot_losses(metrics_csv, out_fname=plots_folder / "losses.pdf")
+    plotting.plot_losses(metrics_csv, out_fname=plots_folder / "losses.pdf", simple=True)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -396,9 +401,6 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--debug_dist", action="store_true", help="Debug distances")
     parser.add_argument(
-        "--debug_single", action="store_true", help="Debug single angle"
-    )
-    parser.add_argument(
         "--debug_single_time",
         action="store_true",
         help="Debug single angle and timestep",
@@ -423,7 +425,6 @@ def main():
             "implementation": args.implementation,
             "subset": args.toy,
             "single_dist_debug": args.debug_dist,
-            "single_angle_debug": args.debug_single,
             "single_timestep_debug": args.debug_single_time,
         },
     )

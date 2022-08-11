@@ -507,14 +507,16 @@ class SingleNoisedAngleDataset(NoisedAnglesDataset):
     Dataset that adds noise to the angles in the dataset.
     """
 
-    selected_index = 1
     __name__ = "SingleNoisedAngleDataset"
 
-    def __init__(self, use_fixed_noise: bool = False, *args, **kwargs) -> None:
+    def __init__(
+        self, use_fixed_noise: bool = False, ft_idx: int = 1, *args, **kwargs
+    ) -> None:
         super().__init__(*args, **kwargs)
         # Generate a new set of noise for each instance
         # This means validation/train/test haver differnet noise
         # losses should diverge
+        self.selected_index = ft_idx
         self.fixed_noise = None
         if use_fixed_noise:
             logging.warning("Using fixed noise!")
@@ -551,7 +553,8 @@ class SingleNoisedBondDistanceDataset(SingleNoisedAngleDataset):
     """
 
     __name__ = "SingleNoisedBondDistanceDataset"
-    selected_index = 0
+    def __init__(self, use_fixed_noise: bool = False, *args, **kwargs) -> None:
+        super().__init__(use_fixed_noise, *args, ft_idx=0, **kwargs)
 
 
 class SingleNoisedAngleAndTimeDataset(SingleNoisedAngleDataset):
