@@ -334,6 +334,9 @@ def train(
             l2=l2_norm,
             l1=l1_norm,
             circle_reg=circle_reg,
+            min_epochs=min_epochs,
+            steps_per_epoch=len(train_dataloader),
+            lr_scheduler=lr_scheduler,
             write_preds_to_dir=results_folder / "valid_preds",
         )
         cfg.save_pretrained(results_folder)

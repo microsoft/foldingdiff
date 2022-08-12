@@ -184,7 +184,9 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         l2: float = 0.0,
         l1: float = 0.0,
         circle_reg: float = 0.0,
-        add_pooling_layer: bool = False,
+        min_epochs: int = 1,
+        steps_per_epoch: int = 250,  # Dummy value
+        lr_scheduler: Optional[Literal["OneCycleLR"]] = None,
         write_preds_to_dir: Optional[str] = None,
     ) -> None:
         """
@@ -204,6 +206,9 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         self.l1_lambda = l1
         self.l2_lambda = l2
         self.circle_lambda = circle_reg
+        self.min_epochs = min_epochs
+        self.steps_per_epoch = steps_per_epoch
+        self.lr_scheduler = lr_scheduler
 
         # Needed to project the low dimensional input to hidden dim
         self.inputs_to_hidden_dim = nn.Linear(
@@ -232,12 +237,6 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         self.write_preds_counter = 0
         if self.write_preds_to_dir:
             os.makedirs(self.write_preds_to_dir, exist_ok=True)
-
-    def get_input_embeddings(self) -> nn.Module:
-        raise NotImplementedError
-
-    def set_input_embeddings(self, value: nn.Module):
-        raise NotImplementedError()
 
     def forward(
         self,
@@ -428,13 +427,31 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         avg_loss = torch.mean(torch.stack(loss_terms))
         self.log("val_loss", avg_loss)
 
-    def configure_optimizers(self):
+    def configure_optimizers(self) -> Dict[str, Any]:
         """
-        Return optimizer
+        Return optimizer. Limited support for some optimizers
         """
-        return torch.optim.AdamW(
-            self.parameters(), lr=self.learning_rate, weight_decay=self.l2_lambda
+        optim = torch.optim.AdamW(
+            self.parameters(), lr=self.learning_rate, weight_decay=self.l2_lambda,
         )
+        retval = {"optimizer": optim}
+        if self.lr_scheduler:
+            if self.lr_scheduler == "OneCycleLR":
+                retval["lr_scheduler"] = {
+                    "scheduler": torch.optim.lr_scheduler.OneCycleLR(
+                        optim,
+                        max_lr=1e-2,
+                        epochs=self.min_epochs,
+                        steps_per_epoch=self.steps_per_epoch,
+                    ),
+                    "monitor": "val_loss",
+                    "frequency": 1,
+                    "interval": "step",
+                }
+            else:
+                raise ValueError(f"Unknown lr scheduler {self.lr_scheduler}")
+        logging.info(f"Using optimizer {retval}")
+        return retval
 
 
 class BertDenoiserEncoderModel(pl.LightningModule):
