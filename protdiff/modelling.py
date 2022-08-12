@@ -533,6 +533,7 @@ class BertDenoiserEncoderModel(pl.LightningModule):
         num_heads: int = 8,
         dropout: float = 0.1,
         time_encoding: Literal["gaussian_fourier", "sinusoidal"] = "gaussian_fourier",
+        decoder: Literal['mlp', 'linear'] = 'linear',
         loss: Union[
             Callable, Literal["huber", "radian_l1", "radian_l1_smooth"]
         ] = "huber",
@@ -582,7 +583,14 @@ class BertDenoiserEncoderModel(pl.LightningModule):
         self.intermediate_size = intermediate_size
         self.num_heads = num_heads
         self.src_proj = nn.Linear(n_inputs, d_model)
-        self.tgt_out = nn.Linear(d_model, n_inputs)
+
+        # Set up the network to project token representation to our four outputs
+        if decoder == "linear":
+            self.tgt_out = nn.Linear(d_model, n_inputs)
+        elif decoder == "mlp":
+            self.tgt_out = AnglesPredictor(d_model, n_inputs)
+        else:
+            raise ValueError(f"Unrecognized decoder: {decoder}")
 
         # Define the transformer model itself
         # https://pytorch.org/docs/stable/generated/torch.nn.Transformer.html#torch.nn.Transformer

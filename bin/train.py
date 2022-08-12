@@ -182,6 +182,7 @@ def train(
         "absolute", "relative_key", "relative_key_query"
     ] = "relative_key_query",
     dropout_p: float = 0.1,  # Default 0.1, can disable for debugging
+    decoder: Literal["mlp", "linear"] = "linear",
     # Related to training strategy
     gradient_clip: float = 1.0,  # From BERT trainer
     batch_size: int = 64,
@@ -303,6 +304,7 @@ def train(
             intermediate_size=intermediate_size,
             num_heads=num_heads,
             dropout=dropout_p,
+            decoder=decoder,
             lr=lr,
             loss=loss_fn,
             l2=l2_norm,
@@ -328,6 +330,7 @@ def train(
         model = modelling.BertForDiffusion(
             cfg,
             time_encoding=time_encoding,
+            decoder=decoder,
             n_inputs=model_n_inputs,
             lr=lr,
             loss=loss_fn,
