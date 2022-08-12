@@ -203,6 +203,7 @@ def train(
     single_dist_debug: bool = False,  # Debug on distance (no periodicity)
     single_angle_debug: int = -1,  # Noise and return a single angle, choose [1, 2, 3] or -1 to disable
     single_timestep_debug: bool = False,  # Noise and return a single timestep
+    cpu_only: bool = False,
 ):
     """Main training loop"""
     # Record the args given to the function before we create more vars
@@ -349,7 +350,7 @@ def train(
         callbacks=callbacks,
         logger=pl.loggers.CSVLogger(save_dir=results_folder / "logs"),
         log_every_n_steps=min(50, len(train_dataloader)),  # Log at least once per epoch
-        accelerator="gpu" if torch.cuda.is_available() else "cpu",
+        accelerator="gpu" if torch.cuda.is_available() and not cpu_only else "cpu",
         devices=1,
     )
     trainer.fit(
@@ -392,7 +393,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--implementation",
         type=str,
         choices=["pytorch_encoder", "huggingface_encoder"],
-        default="pytorch_encoder",
+        default="huggingface_encoder",
         help="Which implementation to use",
     )
     parser.add_argument(
@@ -407,6 +408,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Debug single angle and timestep",
     )
+    parser.add_argument("--cpu", action="store_true", help="Force use CPU")
     return parser
 
 
@@ -424,10 +426,10 @@ def main():
         config_args,
         {
             "results_dir": args.outdir,
-            "implementation": args.implementation,
             "subset": args.toy,
             "single_dist_debug": args.debug_dist,
             "single_timestep_debug": args.debug_single_time,
+            "cpu_only": args.cpu,
         },
     )
     train(**config_args)
