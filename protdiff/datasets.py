@@ -369,11 +369,8 @@ class NoisedAnglesDataset(Dataset):
         if self.exhaustive_timesteps:
             logging.info(f"Exhuastive timesteps for {dset}")
 
-        self.betas = beta_schedules.get_variance_schedule(beta_schedule, timesteps)
-        self.alphas = 1.0 - self.betas
-        self.alphas_cumprod = torch.cumprod(self.alphas, axis=0)
-        self.sqrt_alphas_cumprod = torch.sqrt(self.alphas_cumprod)
-        self.sqrt_one_minus_alphas_cumprod = torch.sqrt(1.0 - self.alphas_cumprod)
+        betas = beta_schedules.get_variance_schedule(beta_schedule, timesteps)
+        self.alpha_beta_terms = beta_schedules.compute_alphas(betas)
 
     def __str__(self) -> str:
         return f"NoisedAnglesDataset wrapping {self.dset} with {len(self)} examples with {self.schedule}-{self.timesteps} with variance scale {self.variances}"
@@ -464,10 +461,10 @@ class NoisedAnglesDataset(Dataset):
             t = torch.randint(0, self.timesteps, (1,)).long()
 
         # Get the values for alpha and beta
-        sqrt_alphas_cumprod_t = utils.extract(self.sqrt_alphas_cumprod, t, vals.shape)
-        sqrt_one_minus_alphas_cumprod_t = utils.extract(
-            self.sqrt_one_minus_alphas_cumprod, t, vals.shape
-        )
+        sqrt_alphas_cumprod_t = self.alpha_beta_terms["sqrt_alphas_cumprod"][t.item()]
+        sqrt_one_minus_alphas_cumprod_t = self.alpha_beta_terms[
+            "sqrt_one_minus_alphas_cumprod"
+        ][t.item()]
         # Noise is sampled within range of [-pi, pi], and optionally
         # shifted to [0, 2pi] by adding pi
         noise = self.sample_noise(vals)  # Vals passed in only for shape
@@ -484,6 +481,7 @@ class NoisedAnglesDataset(Dataset):
                 noised_vals[:, 1:], 0, 2 * np.pi
             )
         else:
+            # Wrap around the correct range
             noised_vals[:, 1:] = utils.modulo_with_wrapped_range(
                 noised_vals[:, 1:], -np.pi, np.pi
             )
@@ -632,7 +630,7 @@ class SynNoisedByPositionDataset(Dataset):
         dset_key: Optional[str] = None,
         var_val: float = 1.0,
         timesteps: int = 250,
-        use_timesteps: bool = True,
+        use_timesteps: bool = False,
         beta_schedule: beta_schedules.SCHEDULES = "linear",
         ft_subset: Optional[int] = 1,
         **kwargs,  # Allow passthrough since this is a debugging dataset
@@ -728,6 +726,8 @@ class SynNoisedByPositionDataset(Dataset):
             )
         else:
             noised_vals = vals + noise
+
+        # DIFFERENCE NO MODULO
 
         # Build output dictionary
         retval = {
