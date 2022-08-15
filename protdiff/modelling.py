@@ -47,7 +47,8 @@ class GaussianFourierProjection(nn.Module):
         time (x): (batch_size, )
         output  : (batch_size, embed_dim) 
         """
-        x = x.squeeze()
+        if x.ndim > 1:
+            x = x.squeeze()
         x_proj = x[:, None] * self.W[None, :] * 2 * torch.pi
         embed = torch.cat([torch.sin(x_proj), torch.cos(x_proj)], dim=-1)
         return embed
@@ -533,7 +534,7 @@ class BertDenoiserEncoderModel(pl.LightningModule):
         num_heads: int = 8,
         dropout: float = 0.1,
         time_encoding: Literal["gaussian_fourier", "sinusoidal"] = "gaussian_fourier",
-        decoder: Literal['mlp', 'linear'] = 'linear',
+        decoder: Literal["mlp", "linear"] = "linear",
         loss: Union[
             Callable, Literal["huber", "radian_l1", "radian_l1_smooth"]
         ] = "huber",
