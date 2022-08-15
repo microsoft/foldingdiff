@@ -166,23 +166,23 @@ def train(
     # Controls data loading and noising process
     shift_angles_zero_twopi: bool = False,
     noise_prior: Literal["gaussian", "uniform"] = "gaussian",  # Uniform not tested
-    timesteps: int = 1000,
-    variance_schedule: SCHEDULES = "cosine",  # cosine better on single angle toy test
-    variance_scale: float = np.pi,
+    timesteps: int = 250,
+    variance_schedule: SCHEDULES = "linear",  # cosine better on single angle toy test
+    variance_scale: float = 1.0,
     # Related to model architecture
     implementation: Literal[
         "pytorch_encoder", "huggingface_encoder"
-    ] = "pytorch_encoder",
+    ] = "huggingface_encoder",
     time_encoding: Literal["gaussian_fourier", "sinusoidal"] = "gaussian_fourier",
-    num_hidden_layers: int = 6,  # Default 12
-    hidden_size: int = 72,  # Default 768
-    intermediate_size: int = 144,  # Default 3072
-    num_heads: int = 8,  # Default 12
+    num_hidden_layers: int = 12,  # Default 12
+    hidden_size: int = 384,  # Default 768
+    intermediate_size: int = 768,  # Default 3072
+    num_heads: int = 12,  # Default 12
     position_embedding_type: Literal[
         "absolute", "relative_key", "relative_key_query"
-    ] = "relative_key_query",
+    ] = "absolute",
     dropout_p: float = 0.1,  # Default 0.1, can disable for debugging
-    decoder: Literal["mlp", "linear"] = "linear",
+    decoder: Literal["mlp", "linear"] = "mlp",
     # Related to training strategy
     gradient_clip: float = 1.0,  # From BERT trainer
     batch_size: int = 64,
@@ -191,9 +191,9 @@ def train(
     l2_norm: float = 0.0,  # AdamW default has 0.01 L2 regularization, but BERT trainer uses 0.0
     l1_norm: float = 0.0,
     circle_reg: float = 0.0,
-    min_epochs: int = 500,
-    max_epochs: int = 2000,
-    early_stop_patience: int = 10,  # Set to 0 to disable early stopping
+    min_epochs: int = 5000,
+    max_epochs: int = 10000,
+    early_stop_patience: int = 0,  # Set to 0 to disable early stopping
     lr_scheduler: Optional[Literal["OneCycleLR"]] = None,
     use_swa: bool = False,  # Stochastic weight averaging can improve training genearlization
     # Misc. and debugging
