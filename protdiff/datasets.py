@@ -8,6 +8,7 @@ import functools
 import multiprocessing
 import os, sys
 import glob
+import gzip
 import tarfile
 import logging
 import json
@@ -91,10 +92,10 @@ class CathConsecutiveAnglesDataset(Dataset):
         self.pad = pad
         self.shift_to_zero_twopi = shift_to_zero_twopi
         # json list file -- each line is a json
-        data_file = os.path.join(CATH_DIR, "chain_set.jsonl")
+        data_file = os.path.join(CATH_DIR, "chain_set.jsonl.gz")
         assert os.path.isfile(data_file)
         self.structures = []
-        with open(data_file) as source:
+        with gzip.open(data_file) as source:
             for i, line in enumerate(source):
                 structure = json.loads(line.strip())
                 self.structures.append(structure)
