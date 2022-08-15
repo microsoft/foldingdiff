@@ -82,7 +82,9 @@ class CathConsecutiveAnglesDataset(Dataset):
 
         # Determine limit on reading based on toy argument
         item_limit = None
-        if isinstance(toy, bool) and toy:
+        if toy is None:
+            pass
+        elif isinstance(toy, bool) and toy:
             item_limit = 150
         elif isinstance(toy, int):
             item_limit = toy
