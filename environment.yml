@@ -6,37 +6,37 @@ channels:
   - conda-forge
   - huggingface
 dependencies:
-  - python=3.8.5
-  - pytorch
-  - ca-certificates
-  - pillow==6.2.1
-  - py-xgboost==1.3.3
-  - sqlite=3.33.0
-  - openssl
-  - pandas~=1.1.5
-  - joblib==0.14.1
-  - numpy==1.19
-  - cloudpickle==1.6.0
-  - wheel=0.35.1
-  - cudatoolkit=11.3
-  - setuptools-git[version='>=1.2']
-  - certifi
-  - torchvision
-  - pip==20.1.1
-  - python_abi=3.8
-  - scikit-image
-  - wget
-  - jupyter
-  - gcc_linux-64==7.3.0
   - jupyter_client
-  - nodejs
+  - python_abi=3.8
   - jupyterlab
-  - jupyterlab-git
+  - numpy==1.19
+  - setuptools-git[version='>=1.2']
+  - cudatoolkit=11.3
+  - pip==20.1.1
+  - python=3.8.5
+  - openssl
+  - wget
+  - pytorch=1.12
+  - jupyter
   - torchaudio
+  - ca-certificates
+  - cloudpickle==1.6.0
+  - pandas~=1.1.5
+  - nodejs
+  - torchvision
+  - jupyterlab-git
+  - certifi
+  - sqlite=3.33.0
+  - scikit-image
+  - joblib==0.14.1
+  - py-xgboost==1.3.3
+  - wheel=0.35.1
+  - pillow==6.2.1
+  - gcc_linux-64==7.3.0
+  - black
   - tqdm
-  - transformers=4.11
+  - transformers=4.11.3
+  - gpustat
   - matplotlib
-  - seaborn
   - pytorch-lightning=1.6.4
-  - pip:
-      - sequence-models
+  - seaborn
