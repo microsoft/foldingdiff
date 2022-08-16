@@ -25,4 +25,4 @@ jobs:
   priority: high
   sla_tier: premium
   command:
-  - python bin/train.py -o $AMLT_OUTPUT_DIR/results
+  - python bin/train.py -o $$AMLT_OUTPUT_DIR/results
