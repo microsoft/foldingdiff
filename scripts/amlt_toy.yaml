@@ -1,0 +1,28 @@
+description: Short n' sweet run of CATH dataset
+# Build takes about 30 minutes
+
+target:
+  service: sing  # Target service platform
+  name: msrresrchvc  # reference to cluster and its corresponding fields
+  workspace_name: msrresrchws  # AML workspace name to use
+
+environment: # https://singularitydocs.azurewebsites.net/docs/container_images/
+  # image: amlt-sing/pytorch-1.10.0-a100 # run amlt cache base-images
+  image: amlt-sing/pytorch-1.11.0
+  # https://hub.docker.com/layers/pytorch/pytorch/pytorch/1.12.0-cuda11.3-cudnn8-runtime/images/sha256-1ef1f61b13738de8086ae7e1ce57c89f154e075dae0b165f7590b9405efeb6fe?context=explore
+  # image: pytorch/pytorch:1.12.0-cuda11.3-cudnn8-runtime # Local debugging
+  conda_yaml_file: $CONFIG_DIR/../environment.yml
+  skip_conda_packages_on_sing: ['python', 'torch', 'tensorflow', 'cudatoolkit', 'deepspeed', 'pip', 'jupyter', 'black', 'gpustat']
+  setup:
+    - pip install sequence-models
+
+code:
+  local_dir: $CONFIG_DIR/..  # elative to config file directory
+
+jobs:
+- name: training_cath_toy  # Unique name for each job
+  sku:  16G1-V100 # 16G4-P100 = 16GB memory (these may be more free), 4 GPU P100 (16GB VRAM); G1 = any 1 GPU, 8C1 = 8 GB ram, 1 core; 80G1-A100 = A100 GPU, run amlt target list singularity -v
+  priority: high
+  sla_tier: premium
+  command:
+  - python bin/train.py config_jsons/short_and_sweet.json -o $$AMLT_OUTPUT_DIR/results
