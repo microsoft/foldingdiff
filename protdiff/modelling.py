@@ -332,14 +332,13 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         input_shape = inputs.size()
         batch_size, seq_length, *_ = input_shape
         logging.debug(f"Detected batch {batch_size} and seq length {seq_length}")
-        device = inputs.device
 
         assert attention_mask is not None
 
         # We can provide a self-attention mask of dimensions [batch_size, from_seq_length, to_seq_length]
         # ourselves in which case we just need to make it broadcastable to all heads.
         extended_attention_mask: torch.Tensor = self.get_extended_attention_mask(
-            attention_mask, input_shape, device=device
+            attention_mask, input_shape, device=self.device,
         )
 
         # Prepare head mask if needed
@@ -347,10 +346,9 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         # attention_probs has shape bsz x n_heads x N x N
         # input head_mask has shape [num_heads] or [num_hidden_layers x num_heads]
         # and head_mask is converted to shape [num_hidden_layers x batch x num_heads x seq_length x seq_length]
-        head_mask = self.get_head_mask(
-            torch.ones(size=(self.config.num_attention_heads,)).to(device),
-            self.config.num_hidden_layers,
-        )
+        msk = torch.ones(size=(self.config.num_attention_heads,))
+        msk = msk.type_as(inputs)
+        head_mask = self.get_head_mask(msk, self.config.num_hidden_layers)
 
         assert len(inputs.shape) == 3  # batch_size, seq_length, features
         inputs_upscaled = self.inputs_to_hidden_dim(inputs)  # Batch * seq_len * dim
@@ -452,7 +450,7 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
             l1_penalty = sum(torch.linalg.norm(p, 1) for p in self.parameters())
             avg_loss += self.l1_lambda * l1_penalty
 
-        for val_name, val in zip(['bond_dist', 'omega', 'theta', 'phi'], loss_terms):
+        for val_name, val in zip(["bond_dist", "omega", "theta", "phi"], loss_terms):
             self.log(f"train_loss_{val_name}", val)
 
         self.log("train_loss", avg_loss)
@@ -656,11 +654,7 @@ class BertDenoiserEncoderModel(pl.LightningModule):
         # True --> NOT allowed to attend
         # False --> allowed to attend
         # Generate a vector of False
-        src_mask = (
-            torch.zeros((self.max_seq_len, self.max_seq_len))
-            .type(torch.bool)
-            .to(x.device)
-        )
+        src_mask = torch.zeros((self.max_seq_len, self.max_seq_len)).type(torch.bool)
         # Feed through transformer
         # shape (batch, seq_len, d_model) --> (seq_len, batch, d_model) --> (batch, seq_len, d_model)
         decoded = self.transformer(
