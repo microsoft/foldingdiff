@@ -2,6 +2,7 @@
 Modelling
 """
 import os
+import glob
 import json
 import inspect
 import logging
@@ -285,6 +286,48 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         self.write_preds_counter = 0
         if self.write_preds_to_dir:
             os.makedirs(self.write_preds_to_dir, exist_ok=True)
+
+    @classmethod
+    def from_dir(
+        cls, dirname: str, load_weights: bool = True, **kwargs
+    ) -> "BertForDiffusion":
+        """Builds this model out from directory"""
+        train_args_fname = os.path.join(dirname, "training_args.json")
+        with open(train_args_fname, "r") as source:
+            train_args = json.load(source)
+        config = BertConfig.from_json_file(os.path.join(dirname, "config.json"))
+
+        model_args = dict(
+            config=config,
+            time_encoding=train_args["time_encoding"],
+            decoder=train_args["decoder"],
+            lr=train_args["lr"],
+            loss=train_args["loss"],
+            l2=train_args["l2_norm"],
+            l1=train_args["l1_norm"],
+            circle_reg=train_args["circle_reg"],
+            min_epochs=train_args["min_epochs"],
+            lr_scheduler=train_args["lr_scheduler"],
+            **kwargs,
+        )
+
+        if load_weights:
+            ckpt_names = glob.glob(
+                os.path.join(
+                    dirname, "logs/lightning_logs/version_*/checkpoints/*.ckpt"
+                )
+            )
+            logging.info(f"Found {len(ckpt_names)} checkpoints")
+            if len(ckpt_names) > 1:
+                raise NotImplementedError("Multiple checkpoints found")
+            ckpt_name = ckpt_names[-1]
+            logging.info(f"Loading weights from {ckpt_name}")
+            retval = cls.load_from_checkpoint(checkpoint_path=ckpt_name, **model_args)
+        else:
+            retval = cls(**model_args)
+            logging.info(f"Loaded unitialized model from {dirname}")
+
+        return retval
 
     def forward(
         self,
@@ -855,7 +898,8 @@ def main():
 
     # # Create model
     # device = torch.device("cuda")
-    model = BertDenoiserEncoderModel()
+    cfg = BertConfig()
+    model = BertForDiffusion(cfg)
     # print(model)
     y = model.forward(x["corrupted"], x["t"].squeeze())
     print(y.shape)
@@ -863,4 +907,9 @@ def main():
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    main()
+    # main()
+    BertForDiffusion.from_dir(
+        "/home/t-kevinwu/projects/protein_diffusion/models_overfitted/overfit_omega_mlp_decoder",
+        n_inputs=1,
+    )
+
