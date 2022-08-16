@@ -408,7 +408,6 @@ class NoisedAnglesDataset(Dataset):
         """
         # Noise is always 0 centered
         noise = torch.randn_like(vals)
-        assert noise.shape[1] == 4
 
         # Scale by provided variance
         if self.variances is not None:
