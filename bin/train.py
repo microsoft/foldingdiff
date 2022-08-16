@@ -205,6 +205,7 @@ def train(
     single_angle_debug: int = -1,  # Noise and return a single angle, choose [1, 2, 3] or -1 to disable
     single_timestep_debug: bool = False,  # Noise and return a single timestep
     cpu_only: bool = False,
+    ngpu: int = -1,  # -1 for all GPUs
 ):
     """Main training loop"""
     # Record the args given to the function before we create more vars
@@ -357,7 +358,7 @@ def train(
         logger=pl.loggers.CSVLogger(save_dir=results_folder / "logs"),
         log_every_n_steps=min(50, len(train_dataloader)),  # Log at least once per epoch
         accelerator="gpu" if torch.cuda.is_available() and not cpu_only else "cpu",
-        devices=1,
+        gpus=ngpu,
     )
     trainer.fit(
         model=model,
@@ -415,6 +416,9 @@ def build_parser() -> argparse.ArgumentParser:
         help="Debug single angle and timestep",
     )
     parser.add_argument("--cpu", action="store_true", help="Force use CPU")
+    parser.add_argument(
+        "--ngpu", type=int, default=-1, help="Number of GPUs to use (-1 for all)"
+    )
     return parser
 
 
@@ -436,6 +440,7 @@ def main():
             "single_dist_debug": args.debug_dist,
             "single_timestep_debug": args.debug_single_time,
             "cpu_only": args.cpu,
+            "ngpu": args.ngpu,
         },
     )
     train(**config_args)
