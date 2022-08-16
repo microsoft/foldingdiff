@@ -135,7 +135,7 @@ def build_callbacks(early_stop_patience: Optional[int] = None, swa: bool = False
     """
     callbacks = [
         pl.callbacks.ModelCheckpoint(
-            monitor="val_loss", save_top_k=1, save_weights_only=True,
+            monitor="val_loss", save_top_k=5, save_weights_only=True,
         ),
         pl.callbacks.LearningRateMonitor(logging_interval="epoch", log_momentum=True),
     ]
