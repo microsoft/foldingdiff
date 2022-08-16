@@ -58,7 +58,8 @@ def plot_val_dists_at_t(
 def plot_losses(log_fname: str, out_fname: Optional[str] = None, simple: bool = False):
     """
     Plot the validation loss values from a log file. Spuports multiple
-    validation losses if present in log file.
+    validation losses if present in log file. Plots per epoch, and if multiple
+    values are record for an epoch, plot the median.
     """
     fig, ax = plt.subplots(dpi=300)
 
@@ -70,7 +71,7 @@ def plot_losses(log_fname: str, out_fname: Optional[str] = None, simple: bool = 
             continue
         vals = df.loc[:, ["epoch", colname]]
         vals.dropna(axis="index", how="any", inplace=True)
-        ax.plot(vals["epoch"], vals[colname], label=colname, alpha=0.5)
+        sns.lineplot(x="epoch", y=colname, data=vals, ax=ax, label=colname, alpha=0.5)
     ax.legend(loc="upper right")
     ax.set(xlabel="Epoch", ylabel="Loss", title="Loss over epochs")
 
