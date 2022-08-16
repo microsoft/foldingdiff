@@ -40,3 +40,4 @@ dependencies:
   - matplotlib
   - pytorch-lightning=1.6.4
   - seaborn
+  - conda-forge::gitpython
