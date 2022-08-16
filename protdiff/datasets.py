@@ -144,11 +144,15 @@ class CathConsecutiveAnglesDataset(Dataset):
             f"Length of angles: {np.min(self.all_lengths)}-{np.max(self.all_lengths)}, mean {np.mean(self.all_lengths)}"
         )
 
-    def sample_length(self) -> int:
+    def sample_length(self, n: int = 1) -> Union[int, List[int]]:
         """
         Sample a observed length of a sequence
         """
-        l = self._length_rng.choice(self.all_lengths)
+        assert n > 0
+        if n == 1:
+            l = self._length_rng.choice(self.all_lengths)
+        else:
+            l = self._length_rng.choice(self.all_lengths, size=n, replace=True).tolist()
         return l
 
     def __str__(self) -> str:
