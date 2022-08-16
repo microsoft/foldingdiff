@@ -1,4 +1,5 @@
 # User-added files
+.vscode/*
 *.pkl
 data/alphafold/*.pdb.gz
 

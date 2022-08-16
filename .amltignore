@@ -1,2 +1,3 @@
 data/alphafold/swissprot_pdb_v2.tar
 data/alphafold/*
+.vscode/*
