@@ -21,7 +21,7 @@ code:
 
 jobs:
 - name: training_cath  # Unique name for each job
-  sku: 16G4-V100 # 16G1-P100 = 16GB memory, 1 GPU P100; G1 = any 1 GPU, 8C1 = 8 GB ram, 1 core; 80G1-A100 = A100 GPU, run amlt target list singularity -v
+  sku: 16G2-P100 # 16G4-P100 = 16GB memory (these may be more free), 4 GPU P100 (16GB VRAM); G1 = any 1 GPU, 8C1 = 8 GB ram, 1 core; 80G1-A100 = A100 GPU, run amlt target list singularity -v
   priority: high
   command:
-  - python bin/train.py --ngpu 8 -o $$AMLT_OUTPUT_DIR/results
+  - python bin/train.py -o $$AMLT_OUTPUT_DIR/results
