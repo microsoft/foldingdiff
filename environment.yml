@@ -32,3 +32,4 @@ dependencies:
   - seaborn
   - conda-forge::gitpython
   - conda-forge::mpl-scatter-density
+  - conda-forge::astropy=5.1
