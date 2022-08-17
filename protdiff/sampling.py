@@ -1,6 +1,7 @@
 """
 Code for sampling from diffusion models
 """
+from cmath import isnan
 import logging
 from typing import *
 
@@ -9,6 +10,7 @@ from tqdm.auto import tqdm
 import torch
 from torch import nn
 
+import beta_schedules
 import utils
 
 
@@ -20,7 +22,6 @@ def p_sample(
     seq_lens: Sequence[int],
     t_index: torch.Tensor,
     betas: torch.Tensor,
-    posterior_variance: torch.Tensor,
 ) -> torch.Tensor:
     """
     Sample the given timestep. Note that this _may_ fall off the manifold if we just
@@ -28,16 +29,17 @@ def p_sample(
     (see p_sample_loop)
     """
     # Calculate alphas and betas
-    alphas = 1.0 - betas
-    sqrt_recip_alphas = torch.sqrt(1.0 / alphas)
-    alphas_cumprod = torch.cumprod(alphas, axis=0)
-    sqrt_one_minus_alphas_cumprod = torch.sqrt(1.0 - alphas_cumprod)
+    alpha_beta_values = beta_schedules.compute_alphas(betas)
+    sqrt_recip_alphas = 1.0 / torch.sqrt(alpha_beta_values["alphas"])
 
-    betas_t = utils.extract(betas, t, x.shape)
-    sqrt_one_minus_alphas_cumprod_t = utils.extract(
-        sqrt_one_minus_alphas_cumprod, t, x.shape
-    )
-    sqrt_recip_alphas_t = utils.extract(sqrt_recip_alphas, t, x.shape)
+    # Select based on time
+    assert len(torch.unique(t)) == 1
+    t_index = torch.unique(t).item()
+    sqrt_recip_alphas_t = sqrt_recip_alphas[t_index]
+    betas_t = betas[t_index]
+    sqrt_one_minus_alphas_cumprod_t = alpha_beta_values[
+        "sqrt_one_minus_alphas_cumprod"
+    ][t_index]
 
     # Create the attention mask
     attn_mask = torch.zeros(x.shape[:2], dtype=torch.bool, device=x.device)
@@ -56,7 +58,7 @@ def p_sample(
     if t_index == 0:
         return model_mean
     else:
-        posterior_variance_t = utils.extract(posterior_variance, t, x.shape)
+        posterior_variance_t = alpha_beta_values["posterior_variance"][t_index]
         noise = torch.randn_like(x)
         # Algorithm 2 line 4:
         return model_mean + torch.sqrt(posterior_variance_t) * noise
@@ -66,27 +68,19 @@ def p_sample(
 def p_sample_loop(
     model: nn.Module,
     lengths: Sequence[int],
-    shape: Tuple[int],
+    noise: torch.Tensor,
     timesteps: int,
     betas: torch.Tensor,
-    posterior_variance: torch.Tensor,
     noise_modulo: Optional[Union[float, torch.Tensor]] = None,
+    is_angle: Union[bool, List[bool]] = [False, True, True, True],
 ) -> "list[torch.Tensor]":
-    logging.info(f"Sampling of shape {shape} with modulo {noise_modulo}")
     device = next(model.parameters()).device
-
-    b = shape[0]
-    # start from pure noise (for each example in the batch)
-    assert len(shape) == 3
-    img = torch.randn(shape, device=device)
-    if noise_modulo is not None:
-        img = utils.broadcast_mod(img, noise_modulo)
-    assert img.shape == shape, f"Mismatched shapes: {img.shape} != {shape}"
-
+    b = noise.shape[0]
+    img = noise.to(device)
     # Report metrics on starting noise
     # amin and amax support reducing on multiple dimensions
     logging.info(
-        f"Starting from noise with modulo {noise_modulo} and range {torch.amin(img, dim=(0, 1))} - {torch.amax(img, dim=(0, 1))}"
+        f"Starting from noise with modulo {noise_modulo} and range {torch.amin(img, dim=(0, 1))} - {torch.amax(img, dim=(0, 1))} using {device}"
     )
 
     imgs = []
@@ -102,17 +96,23 @@ def p_sample_loop(
             seq_lens=lengths,
             t_index=i,
             betas=betas,
-            posterior_variance=posterior_variance,
         )
 
-        if noise_modulo is not None:
-            img = utils.broadcast_mod(img, noise_modulo)
-            imgs.append(img.cpu())
+        # Wrap if angular
+        if isinstance(is_angle, bool):
+            if is_angle:
+                img = utils.modulo_with_wrapped_range(
+                    img, range_min=-torch.pi, range_max=torch.pi
+                )
         else:
-            imgs.append(img.cpu())
-            # img[:, :, 1:] = torch.remainder(img[:, :, 1:], 2 * torch.pi)
+            assert len(is_angle) == img.shape[-1]
+            for j in range(img.shape[-1]):
+                if is_angle[j]:
+                    img[:, :, j] = utils.modulo_with_wrapped_range(
+                        img[:, :, j], range_min=-torch.pi, range_max=torch.pi
+                    )
         imgs.append(img.cpu())
-    return imgs
+    return torch.stack(imgs)
 
 
 @torch.no_grad()
