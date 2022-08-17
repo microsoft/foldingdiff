@@ -141,12 +141,14 @@ def build_callbacks(
             dirpath=os.path.join(outdir, "models/best_by_valid"),
             save_top_k=5,
             save_weights_only=True,
+            mode="min",
         ),
         pl.callbacks.ModelCheckpoint(
             monitor="train_loss",
             dirpath=os.path.join(outdir, "models/best_by_train"),
             save_top_k=5,
             save_weights_only=True,
+            mode="min",
         ),
         pl.callbacks.LearningRateMonitor(logging_interval="epoch", log_momentum=True),
     ]
