@@ -225,12 +225,16 @@ def train(
             logging.info(f"Training argument: {k}={v}")
 
     # Record current Git version
-    repo = git.Repo(
-        path=os.path.dirname(os.path.abspath(__file__)), search_parent_directories=True
-    )
-    sha = repo.head.object.hexsha
-    with open(results_folder / "git_sha.txt", "w") as sink:
-        sink.write(sha + "\n")
+    try:
+        repo = git.Repo(
+            path=os.path.dirname(os.path.abspath(__file__)),
+            search_parent_directories=True,
+        )
+        sha = repo.head.object.hexsha
+        with open(results_folder / "git_sha.txt", "w") as sink:
+            sink.write(sha + "\n")
+    except git.exc.InvalidGitRepositoryError:
+        logging.warning("Could not determine Git repo status")
 
     # Get datasets and wrap them in dataloaders
     dsets = get_train_valid_test_sets(
