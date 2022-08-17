@@ -502,9 +502,9 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
             avg_loss += self.l1_lambda * l1_penalty
 
         for val_name, val in zip(["bond_dist", "omega", "theta", "phi"], loss_terms):
-            self.log(f"train_loss_{val_name}", val)
+            self.log(f"train_loss_{val_name}", val, sync_dist=True)
 
-        self.log("train_loss", avg_loss)
+        self.log("train_loss", avg_loss, sync_dist=True)
         return avg_loss
 
     def training_epoch_end(self, outputs) -> None:
@@ -530,12 +530,12 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
 
         # Log each of the loss terms
         for val_name, val in zip(["bond_dist", "omega", "theta", "phi"], loss_terms):
-            self.log(f"val_loss_{val_name}", val)
+            self.log(f"val_loss_{val_name}", val, sync_dist=True)
 
         avg_loss = torch.mean(torch.stack(loss_terms))
         # For some reason this only logs once per epoch?
         logging.info(f"Valid loss: {avg_loss.item()}")
-        self.log("val_loss", avg_loss)
+        self.log("val_loss", avg_loss, sync_dist=True)
 
     def validation_epoch_end(self, outputs) -> None:
         """
@@ -817,12 +817,12 @@ class BertDenoiserEncoderModel(pl.LightningModule):
         # L1 regularization
         if self.l1_lambda > 0:
             l1_penalty = sum(torch.linalg.norm(p, 1) for p in self.parameters())
-            self.log("l1_penalty", l1_penalty)
+            self.log("l1_penalty", l1_penalty, sync_dist=True)
             avg_loss += self.l1_lambda * l1_penalty
 
         for loss_name, loss_val in zip(["bond_dist", "omega", "theta", "phi"], loss):
-            self.log(f"train_{loss_name}", loss_val)
-        self.log("train_loss", avg_loss)
+            self.log(f"train_{loss_name}", loss_val, sync_dist=True)
+        self.log("train_loss", avg_loss, sync_dist=True)
         return avg_loss
 
     def validation_step(self, batch, batch_idx):
@@ -840,8 +840,8 @@ class BertDenoiserEncoderModel(pl.LightningModule):
         for loss_name, loss_val in zip(
             ["bond_dist", "omega", "theta", "phi"], loss_terms
         ):
-            self.log(f"val_{loss_name}", loss_val)
-        self.log("val_loss", avg_loss)
+            self.log(f"val_{loss_name}", loss_val, sync_dist=True)
+        self.log("val_loss", avg_loss, sync_dist=True)
 
     def configure_optimizers(self) -> Dict[str, Any]:
         """

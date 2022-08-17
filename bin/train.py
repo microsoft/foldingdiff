@@ -372,6 +372,13 @@ def train(
     callbacks = build_callbacks(
         outdir=results_folder, early_stop_patience=early_stop_patience, swa=use_swa
     )
+    accelerator = "cpu"
+    if not cpu_only and torch.cuda.is_available():
+        if torch.cuda.device_count() > 1:
+            accelerator = "ddp"
+        else:
+            accelerator = "cuda"
+    logging.info(f"Using {accelerator}")
     trainer = pl.Trainer(
         default_root_dir=results_folder,
         gradient_clip_val=gradient_clip,
@@ -381,7 +388,7 @@ def train(
         callbacks=callbacks,
         logger=pl.loggers.CSVLogger(save_dir=results_folder / "logs"),
         log_every_n_steps=min(200, len(train_dataloader)),  # Log >= once per epoch
-        accelerator="gpu" if torch.cuda.is_available() and not cpu_only else "cpu",
+        accelerator=accelerator,
         gpus=ngpu,
         enable_progress_bar=False,
         move_metrics_to_cpu=True,  # Saves memory
