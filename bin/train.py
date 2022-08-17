@@ -206,6 +206,7 @@ def train(
     single_timestep_debug: bool = False,  # Noise and return a single timestep
     cpu_only: bool = False,
     ngpu: int = -1,  # -1 for all GPUs
+    write_valid_preds: bool = False,  # Write validation predictions to disk at each epoch
 ):
     """Main training loop"""
     # Record the args given to the function before we create more vars
@@ -318,7 +319,9 @@ def train(
             min_epochs=min_epochs,
             steps_per_epoch=len(train_dataloader),
             lr_scheduler=lr_scheduler,
-            write_preds_to_dir=results_folder / "valid_preds",
+            write_preds_to_dir=results_folder / "valid_preds"
+            if write_valid_preds
+            else None,
         )
     elif implementation == "huggingface_encoder":
         logging.info("Using HuggingFace encoder implementation")
@@ -345,7 +348,9 @@ def train(
             min_epochs=min_epochs,
             steps_per_epoch=len(train_dataloader),
             lr_scheduler=lr_scheduler,
-            write_preds_to_dir=results_folder / "valid_preds",
+            write_preds_to_dir=results_folder / "valid_preds"
+            if write_valid_preds
+            else None,
         )
         cfg.save_pretrained(results_folder)
     else:

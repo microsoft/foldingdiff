@@ -522,7 +522,9 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
                 batch,
                 write_preds=os.path.join(
                     self.write_preds_to_dir, f"{self.write_preds_counter}_preds.json"
-                ),
+                )
+                if self.write_preds_to_dir
+                else None,
             )
             self.write_preds_counter += 1
 
