@@ -19,11 +19,13 @@ environment: # https://singularitydocs.azurewebsites.net/docs/container_images/
   # tqdm - included
   # matplotlib - included
   # seaborn - installed here
+  # mpl-scatter-density - installed here
   # pytorch - included
-  # pytorch ligthing - installed here 
+  # pytorch lightning - installed here 
   # transformers - installed here
   setup:
     - pip install seaborn  # https://seaborn.pydata.org/installing.html
+    - pip install mpl-scatter-density  # https://github.com/astrofrog/mpl-scatter-density
     - pip install transformers==4.11.3  # https://huggingface.co/docs/transformers/installation
     - pip install pytorch-lightning==1.6.4  # https://www.pytorchlightning.ai/
     - pip install sequence-models  # https://github.com/microsoft/protein-sequence-models

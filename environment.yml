@@ -31,3 +31,4 @@ dependencies:
   - pytorch-lightning=1.6.4
   - seaborn
   - conda-forge::gitpython
+  - conda-forge::mpl-scatter-density
