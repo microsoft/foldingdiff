@@ -73,14 +73,17 @@ def p_sample_loop(
     betas: torch.Tensor,
     noise_modulo: Optional[Union[float, torch.Tensor]] = None,
     is_angle: Union[bool, List[bool]] = [False, True, True, True],
-) -> "list[torch.Tensor]":
+) -> torch.Tensor:
+    """
+    Returns a tensor of shape (timesteps, batch_size, seq_len, n_ft)
+    """
     device = next(model.parameters()).device
     b = noise.shape[0]
     img = noise.to(device)
     # Report metrics on starting noise
     # amin and amax support reducing on multiple dimensions
     logging.info(
-        f"Starting from noise with modulo {noise_modulo} and range {torch.amin(img, dim=(0, 1))} - {torch.amax(img, dim=(0, 1))} using {device}"
+        f"Starting from noise {noise.shape} with modulo {noise_modulo} and range {torch.amin(img, dim=(0, 1))} - {torch.amax(img, dim=(0, 1))} using {device}"
     )
 
     imgs = []
