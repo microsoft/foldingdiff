@@ -33,8 +33,9 @@ def p_sample(
     sqrt_recip_alphas = 1.0 / torch.sqrt(alpha_beta_values["alphas"])
 
     # Select based on time
-    assert len(torch.unique(t)) == 1
-    t_index = torch.unique(t).item()
+    t_unique = torch.unique(t)
+    assert len(t_unique) == 1, f"Got multiple values for t: {t_unique}"
+    t_index = t_unique.item()
     sqrt_recip_alphas_t = sqrt_recip_alphas[t_index]
     betas_t = betas[t_index]
     sqrt_one_minus_alphas_cumprod_t = alpha_beta_values[

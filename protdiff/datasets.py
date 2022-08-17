@@ -26,12 +26,10 @@ from torch.utils.data.dataloader import DataLoader
 CATH_DIR = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data/cath"
 )
-assert os.path.isdir(CATH_DIR), f"Expected cath data at {CATH_DIR}"
 
 ALPHAFOLD_DIR = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data/alphafold"
 )
-assert os.path.isdir(ALPHAFOLD_DIR), f"Expected alphafold data at {ALPHAFOLD_DIR}"
 
 from sequence_models import pdb_utils
 import beta_schedules
@@ -79,7 +77,7 @@ class CathConsecutiveAnglesDataset(Dataset):
         toy: Union[bool, int] = False,
     ) -> None:
         super().__init__()
-
+        assert os.path.isdir(CATH_DIR), f"Expected CATH dir at {CATH_DIR}"
         # Determine limit on reading based on toy argument
         item_limit = None
         if toy is None:
@@ -271,6 +269,9 @@ class AlphafoldConsecutiveAnglesDataset(Dataset):
         toy: bool = False,
     ) -> None:
         super().__init__()
+        assert os.path.isdir(
+            ALPHAFOLD_DIR
+        ), f"Expected AlphaFold data dir at {ALPHAFOLD_DIR}"
         self.pad = pad
         self.shift_to_zero_twpi = shift_to_zero_twopi
 
