@@ -2,14 +2,18 @@
 Utility functions for plotting
 """
 import os, sys
-from typing import Optional
+from typing import Optional, Sequence, Union
 
 from tqdm.auto import tqdm
 
 import numpy as np
 import pandas as pd
+import mpl_scatter_density
 import matplotlib.pyplot as plt
 import seaborn as sns
+
+from astropy.visualization import LogStretch
+from astropy.visualization.mpl_normalize import ImageNormalize
 
 import torch
 
@@ -77,6 +81,45 @@ def plot_losses(log_fname: str, out_fname: Optional[str] = None, simple: bool = 
 
     if out_fname is not None:
         fig.savefig(out_fname, bbox_inches="tight")
+    return fig
+
+
+def plot_consecutive_heatmap(
+    vals: Union[Sequence[float], Sequence[Sequence[float]]],
+    fname: Optional[str] = None,
+    logstretch_vmax: float = 2e3,
+    **kwargs,
+):
+    """
+    Plot a heatmap of consecutive values.
+    """
+    consecutive_pairs = []
+
+    get_pairs = lambda x: np.array(list(zip(x[:-1], x[1:])))
+    # Require these more complex checks because vals may not be of the same
+    # size and therefore may not be stackable
+    if isinstance(vals[0], (float, int)):
+        # 1-dimensional
+        consecutive_pairs = get_pairs(vals)
+    else:
+        # 2-dimensional
+        consecutive_pairs = np.vstack([get_pairs(vec) for vec in vals])
+    assert consecutive_pairs.ndim == 2
+    assert consecutive_pairs.shape[1] == 2
+
+    norm = ImageNormalize(vmin=0.0, vmax=logstretch_vmax, stretch=LogStretch())
+
+    fig = plt.figure(dpi=300)
+    ax = fig.add_subplot(1, 1, 1, projection="scatter_density")
+    density = ax.scatter_density(
+        consecutive_pairs[:, 0], consecutive_pairs[:, 1], norm=norm
+    )
+    fig.colorbar(density, label="Points per pixel")
+
+    ax.set(**kwargs)
+
+    if fname is not None:
+        fig.savefig(fname, bbox_inches="tight")
     return fig
 
 
