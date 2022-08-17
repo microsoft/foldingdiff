@@ -381,8 +381,10 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         # If position IDs are not given, auto-generate them
         if position_ids is None:
             # [1, seq_length]
-            pid = torch.arange(seq_length, dtype=torch.long, device=self.device).unsqueeze(0)
-            position_ids = pid.expand(batch_size, -1) # [batch_size, seq_length]
+            pid = torch.arange(
+                seq_length, dtype=torch.long, device=self.device
+            ).unsqueeze(0)
+            position_ids = pid.expand(batch_size, -1)  # [batch_size, seq_length]
 
         # We can provide a self-attention mask of dimensions [batch_size, from_seq_length, to_seq_length]
         # ourselves in which case we just need to make it broadcastable to all heads.
@@ -489,7 +491,7 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         """
-        Training step
+        Training step, runs once per batch
         """
         loss_terms = self._get_loss_terms(batch)
         avg_loss = torch.mean(torch.stack(loss_terms))
@@ -504,6 +506,12 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
 
         self.log("train_loss", avg_loss)
         return avg_loss
+
+    def training_epoch_end(self, outputs) -> None:
+        """Log the average training loss over the epoch"""
+        losses = torch.stack([o["loss"].detach().cpu() for o in outputs])
+        mean_loss = torch.mean(losses)
+        logging.info(f"Train loss: {mean_loss.item()}")
 
     def validation_step(self, batch, batch_idx):
         """
@@ -523,7 +531,20 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
             self.log(f"val_loss_{val_name}", val)
 
         avg_loss = torch.mean(torch.stack(loss_terms))
+        # For some reason this only logs once per epoch?
+        logging.info(f"Valid loss: {avg_loss.item()}")
         self.log("val_loss", avg_loss)
+
+    def validation_epoch_end(self, outputs) -> None:
+        """
+        Log the average validation loss over the epoch
+        """
+        if not outputs:
+            return
+        raise NotImplementedError
+        # losses = torch.stack([o["val_loss"].detach().cpu() for o in outputs])
+        # mean_loss = torch.mean(losses)
+        # logging.info(f"Validation loss: {mean_loss.item()}")
 
     def configure_optimizers(self) -> Dict[str, Any]:
         """
