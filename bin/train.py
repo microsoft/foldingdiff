@@ -129,13 +129,24 @@ def get_train_valid_test_sets(
     return tuple(noised_dsets)
 
 
-def build_callbacks(early_stop_patience: Optional[int] = None, swa: bool = False):
+def build_callbacks(
+    outdir: str, early_stop_patience: Optional[int] = None, swa: bool = False
+):
     """
     Build out the callbacks
     """
     callbacks = [
         pl.callbacks.ModelCheckpoint(
-            monitor="val_loss", save_top_k=5, save_weights_only=True,
+            monitor="val_loss",
+            dirpath=os.path.join(outdir, "models/best_by_valid"),
+            save_top_k=5,
+            save_weights_only=True,
+        ),
+        pl.callbacks.ModelCheckpoint(
+            monitor="train_loss",
+            dirpath=os.path.join(outdir, "models/best_by_train"),
+            save_top_k=5,
+            save_weights_only=True,
         ),
         pl.callbacks.LearningRateMonitor(logging_interval="epoch", log_momentum=True),
     ]
@@ -356,7 +367,9 @@ def train(
     else:
         raise ValueError(f"Unknown implementation: {implementation}")
 
-    callbacks = build_callbacks(early_stop_patience=early_stop_patience, swa=use_swa)
+    callbacks = build_callbacks(
+        outdir=results_folder, early_stop_patience=early_stop_patience, swa=use_swa
+    )
     trainer = pl.Trainer(
         default_root_dir=results_folder,
         gradient_clip_val=gradient_clip,
