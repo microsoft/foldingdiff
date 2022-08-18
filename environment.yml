@@ -6,30 +6,15 @@ channels:
   - conda-forge
   - huggingface
 dependencies:
-  - python_abi=3.8
-  - numpy==1.19
-  - setuptools-git[version='>=1.2']
-  - pip==20.1.1
-  - python=3.8.5
-  - openssl
-  - wget
-  - pytorch=1.12
-  - torchaudio
-  - ca-certificates
-  - cloudpickle==1.6.0
-  - pandas~=1.1.5
-  - nodejs
-  - torchvision
-  - certifi
-  - sqlite=3.33.0
-  - joblib==0.14.1
-  - wheel=0.35.1
-  - gcc_linux-64==7.3.0
-  - tqdm
-  - transformers=4.11.3
-  - matplotlib
-  - pytorch-lightning=1.6.4
-  - seaborn
-  - conda-forge::gitpython
+  - python=3.8
+  - conda-forge::numpy==1.19
+  - conda-forge::pandas~=1.1.5
+  - pytorch::pytorch=1.12
+  - huggingface::transformers=4.11.3
+  - conda-forge::pytorch-lightning=1.6.4
+  - conda-forge::tqdm
+  - conda-forge::matplotlib
+  - conda-forge::seaborn
   - conda-forge::mpl-scatter-density
-  - conda-forge::astropy=5.1
+  - conda-forge::astropy
+  - conda-forge::gitpython
