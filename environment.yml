@@ -7,7 +7,7 @@ channels:
   - huggingface
 dependencies:
   - python=3.8
-  - conda-forge::numpy==1.19
+  - anaconda::numpy=1.22.3
   - conda-forge::pandas~=1.1.5
   - pytorch::pytorch=1.12
   - huggingface::transformers=4.11.3
@@ -16,5 +16,5 @@ dependencies:
   - conda-forge::matplotlib
   - conda-forge::seaborn
   - conda-forge::mpl-scatter-density
-  - conda-forge::astropy
+  - conda-forge::astropy=5.1
   - conda-forge::gitpython
