@@ -40,7 +40,9 @@ class GaussianFourierProjection(nn.Module):
         super().__init__()
         # Randomly sample weights during initialization. These weights are fixed
         # during optimization and are not trainable.
-        self.W = nn.Parameter(torch.randn(embed_dim // 2) * scale, requires_grad=False)
+        w = torch.randn(embed_dim // 2) * scale
+        assert w.requires_grad == False
+        self.register_buffer("W", w)
 
     def forward(self, x: torch.Tensor):
         """
@@ -358,6 +360,9 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
             If set to `True`, `past_key_values` key value states are returned and can be used to speed up decoding (see
             `past_key_values`).
         """
+        print("Train status", self.training)
+        print("Inputs", inputs.device, timestep.device, attention_mask.device)
+        print("Inputs", inputs.dtype, timestep.dtype, attention_mask.dtype)
         output_attentions = (
             output_attentions
             if output_attentions is not None
@@ -381,16 +386,20 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         # If position IDs are not given, auto-generate them
         if position_ids is None:
             # [1, seq_length]
-            pid = torch.arange(
-                seq_length, dtype=torch.long, device=self.device
-            ).unsqueeze(0)
-            position_ids = pid.expand(batch_size, -1)  # [batch_size, seq_length]
+            position_ids = (
+                torch.arange(seq_length,).expand(batch_size, -1).type_as(timestep)
+            )
+
+        print("Position IDs", position_ids.device, position_ids.dtype)
 
         # We can provide a self-attention mask of dimensions [batch_size, from_seq_length, to_seq_length]
         # ourselves in which case we just need to make it broadcastable to all heads.
+        assert attention_mask.dim() == 3
+        print("Old attention mask", attention_mask)
         extended_attention_mask: torch.Tensor = self.get_extended_attention_mask(
             attention_mask, input_shape, device=self.device,
         )
+        print("New attention mask", extended_attention_mask)
 
         # Prepare head mask if needed
         # 1.0 in head_mask indicate we keep the head
@@ -487,14 +496,19 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
                 }
                 json.dump(d_to_write, f)
 
-        return loss_terms
+        print(f"Loss terms: {loss_terms}")
+        return self.all_gather(loss_terms)
 
     def training_step(self, batch, batch_idx):
         """
         Training step, runs once per batch
         """
         loss_terms = self._get_loss_terms(batch)
-        avg_loss = torch.mean(torch.stack(loss_terms))
+        print(
+            "Training stacked and gathered loss",
+            torch.stack(self.all_gather(loss_terms)),
+        )
+        avg_loss = torch.mean(torch.stack(self.all_gather(loss_terms)))
 
         # L1 loss implementation
         if self.l1_lambda > 0:
@@ -502,14 +516,15 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
             avg_loss += self.l1_lambda * l1_penalty
 
         for val_name, val in zip(["bond_dist", "omega", "theta", "phi"], loss_terms):
-            self.log(f"train_loss_{val_name}", val, sync_dist=True)
+            self.log(f"train_loss_{val_name}", val, sync_dist=True, rank_zero_only=True)
 
-        self.log("train_loss", avg_loss, sync_dist=True)
+        print("Training:", loss_terms)
+        self.log("train_loss", avg_loss, sync_dist=True, rank_zero_only=True)
         return avg_loss
 
     def training_epoch_end(self, outputs) -> None:
         """Log the average training loss over the epoch"""
-        losses = torch.stack([o["loss"].detach().cpu() for o in outputs])
+        losses = torch.stack(self.all_gather([o["loss"] for o in outputs]))
         mean_loss = torch.mean(losses)
         logging.info(f"Train loss: {mean_loss.item()}")
 
@@ -530,23 +545,13 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
 
         # Log each of the loss terms
         for val_name, val in zip(["bond_dist", "omega", "theta", "phi"], loss_terms):
-            self.log(f"val_loss_{val_name}", val, sync_dist=True)
+            self.log(f"val_loss_{val_name}", val, sync_dist=True, rank_zero_only=True)
 
-        avg_loss = torch.mean(torch.stack(loss_terms))
+        avg_loss = torch.mean(torch.stack(self.all_gather(loss_terms)))
         # For some reason this only logs once per epoch?
-        logging.info(f"Valid loss: {avg_loss.item()}")
-        self.log("val_loss", avg_loss, sync_dist=True)
-
-    def validation_epoch_end(self, outputs) -> None:
-        """
-        Log the average validation loss over the epoch
-        """
-        if not outputs:
-            return
-        raise NotImplementedError
-        # losses = torch.stack([o["val_loss"].detach().cpu() for o in outputs])
-        # mean_loss = torch.mean(losses)
-        # logging.info(f"Validation loss: {mean_loss.item()}")
+        logging.info(f"Valid loss: {avg_loss}")
+        print("Valid:", loss_terms, avg_loss)
+        self.log("val_loss", avg_loss, sync_dist=True, rank_zero_only=True)
 
     def configure_optimizers(self) -> Dict[str, Any]:
         """
@@ -812,17 +817,19 @@ class BertDenoiserEncoderModel(pl.LightningModule):
         Training step for the model
         """
         loss = self._get_loss_terms(batch)
-        avg_loss = torch.mean(loss)
+        avg_loss = torch.mean(self.all_gather(loss))
 
         # L1 regularization
         if self.l1_lambda > 0:
             l1_penalty = sum(torch.linalg.norm(p, 1) for p in self.parameters())
-            self.log("l1_penalty", l1_penalty, sync_dist=True)
+            self.log("l1_penalty", l1_penalty, sync_dist=True, rank_zero_only=True)
             avg_loss += self.l1_lambda * l1_penalty
 
         for loss_name, loss_val in zip(["bond_dist", "omega", "theta", "phi"], loss):
-            self.log(f"train_{loss_name}", loss_val, sync_dist=True)
-        self.log("train_loss", avg_loss, sync_dist=True)
+            self.log(
+                f"train_{loss_name}", loss_val, sync_dist=True, rank_zero_only=True
+            )
+        self.log("train_loss", avg_loss, sync_dist=True, rank_zero_only=True)
         return avg_loss
 
     def validation_step(self, batch, batch_idx):
@@ -835,13 +842,13 @@ class BertDenoiserEncoderModel(pl.LightningModule):
             )
             self.write_preds_counter += 1
 
-        avg_loss = torch.mean(loss_terms)
+        avg_loss = torch.mean(self.all_gather(loss_terms))
 
         for loss_name, loss_val in zip(
             ["bond_dist", "omega", "theta", "phi"], loss_terms
         ):
-            self.log(f"val_{loss_name}", loss_val, sync_dist=True)
-        self.log("val_loss", avg_loss, sync_dist=True)
+            self.log(f"val_{loss_name}", loss_val, sync_dist=True, rank_zero_only=True)
+        self.log("val_loss", avg_loss, sync_dist=True, rank_zero_only=True)
 
     def configure_optimizers(self) -> Dict[str, Any]:
         """
