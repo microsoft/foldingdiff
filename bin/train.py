@@ -3,7 +3,6 @@ Training script
 """
 
 import os, sys
-from posixpath import abspath
 import shutil
 import json
 import logging
@@ -135,6 +134,10 @@ def build_callbacks(
     """
     Build out the callbacks
     """
+    # Create the logging dir
+    os.makedirs(os.path.join(outdir, "logs/lightning_logs"), exist_ok=True)
+    os.makedirs(os.path.join(outdir, "models/best_by_valid"), exist_ok=True)
+    os.makedirs(os.path.join(outdir, "models/best_by_train"), exist_ok=True)
     callbacks = [
         pl.callbacks.ModelCheckpoint(
             monitor="val_loss",
@@ -150,7 +153,7 @@ def build_callbacks(
             save_weights_only=True,
             mode="min",
         ),
-        pl.callbacks.LearningRateMonitor(logging_interval="epoch", log_momentum=True),
+        # pl.callbacks.LearningRateMonitor(logging_interval="epoch", log_momentum=True),
     ]
     if early_stop_patience is not None and early_stop_patience > 0:
         logging.info(f"Using early stopping with patience {early_stop_patience}")
@@ -372,12 +375,14 @@ def train(
     callbacks = build_callbacks(
         outdir=results_folder, early_stop_patience=early_stop_patience, swa=use_swa
     )
-    accelerator = "cpu"
+
+    # Get accelerator and distributed strategy
+    accelerator, strategy = "cpu", None
     if not cpu_only and torch.cuda.is_available():
+        accelerator = "cuda"
         if torch.cuda.device_count() > 1:
-            accelerator = "ddp"
-        else:
-            accelerator = "cuda"
+            strategy = "ddp"
+
     logging.info(f"Using {accelerator}")
     trainer = pl.Trainer(
         default_root_dir=results_folder,
@@ -389,6 +394,7 @@ def train(
         logger=pl.loggers.CSVLogger(save_dir=results_folder / "logs"),
         log_every_n_steps=min(200, len(train_dataloader)),  # Log >= once per epoch
         accelerator=accelerator,
+        strategy=strategy,
         gpus=ngpu,
         enable_progress_bar=False,
         move_metrics_to_cpu=True,  # Saves memory
@@ -415,7 +421,8 @@ def build_parser() -> argparse.ArgumentParser:
     Build CLI parser
     """
     parser = argparse.ArgumentParser(
-        usage=__doc__, formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        usage=__doc__,
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 
     # https://stackoverflow.com/questions/4480075/argparse-optional-positional-arguments
