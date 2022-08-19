@@ -30,8 +30,8 @@ code:
   local_dir: $CONFIG_DIR/..  # elative to config file directory
 
 jobs:
-- name:   # Unique name for each job
-  sku:  16G4-V100 # 16G4-P100 = 16GB memory (these may be more free), 4 GPU P100 (16GB VRAM); G1 = any 1 GPU, 8C1 = 8 GB ram, 1 core; 80G1-A100 = A100 GPU, run amlt target list singularity -v
+- name: cath_full_run  # Unique name for each job
+  sku: 16G4-V100 # 16G4-P100 = 16GB memory (these may be more free), 4 GPU P100 (16GB VRAM); G1 = any 1 GPU, 8C1 = 8 GB ram, 1 core; 80G1-A100 = A100 GPU, run amlt target list singularity -v
   priority: high
   sla_tier: premium
   command:
