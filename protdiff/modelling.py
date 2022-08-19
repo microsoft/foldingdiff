@@ -528,7 +528,7 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
 
     def training_epoch_end(self, outputs) -> None:
         """Log the average training loss over the epoch"""
-        losses = torch.stack(self.all_gather([o["loss"] for o in outputs]))
+        losses = torch.stack([o["loss"] for o in outputs])
         mean_loss = torch.mean(losses)
         logging.info(f"Train loss: {mean_loss.item()}")
 
@@ -545,7 +545,6 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
                 if self.write_preds_to_dir
                 else None,
             )
-            loss_terms = self.all_gather(loss_terms)
             self.write_preds_counter += 1
 
         # Log each of the loss terms
@@ -824,7 +823,7 @@ class BertDenoiserEncoderModel(pl.LightningModule):
         Training step for the model
         """
         loss = self._get_loss_terms(batch)
-        avg_loss = torch.mean(self.all_gather(loss))
+        avg_loss = torch.mean(loss)
 
         # L1 regularization
         if self.l1_lambda > 0:
@@ -849,7 +848,7 @@ class BertDenoiserEncoderModel(pl.LightningModule):
             )
             self.write_preds_counter += 1
 
-        avg_loss = torch.mean(self.all_gather(loss_terms))
+        avg_loss = torch.mean(loss_terms)
 
         for loss_name, loss_val in zip(
             ["bond_dist", "omega", "theta", "phi"], loss_terms
