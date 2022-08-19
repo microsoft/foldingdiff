@@ -48,7 +48,7 @@ class GaussianFourierProjection(nn.Module):
         """
         takes as input the time vector and returns the time encoding
         time (x): (batch_size, )
-        output  : (batch_size, embed_dim) 
+        output  : (batch_size, embed_dim)
         """
         if x.ndim > 1:
             x = x.squeeze()
@@ -140,7 +140,9 @@ class BertEmbeddings(nn.Module):
         )
 
     def forward(
-        self, input_embeds: torch.Tensor, position_ids: torch.LongTensor,
+        self,
+        input_embeds: torch.Tensor,
+        position_ids: torch.LongTensor,
     ) -> torch.Tensor:
         assert position_ids is not None, "`position_ids` must be defined"
         embeddings = input_embeds
@@ -387,17 +389,28 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         if position_ids is None:
             # [1, seq_length]
             position_ids = (
-                torch.arange(seq_length,).expand(batch_size, -1).type_as(timestep)
+                torch.arange(
+                    seq_length,
+                )
+                .expand(batch_size, -1)
+                .type_as(timestep)
             )
 
         print("Position IDs", position_ids.device, position_ids.dtype)
 
         # We can provide a self-attention mask of dimensions [batch_size, from_seq_length, to_seq_length]
         # ourselves in which case we just need to make it broadcastable to all heads.
-        assert attention_mask.dim() == 3
+
+        extended_attention_mask = attention_mask[:, None, None, :]
+
+        assert (
+            attention_mask.dim() == 3
+        ), f"Attention mask has shape {attention_mask.size()}, expected 3 dims"
         print("Old attention mask", attention_mask)
         extended_attention_mask: torch.Tensor = self.get_extended_attention_mask(
-            attention_mask, input_shape, device=self.device,
+            attention_mask,
+            input_shape,
+            device=self.device,
         )
         print("New attention mask", extended_attention_mask)
 
@@ -497,18 +510,15 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
                 json.dump(d_to_write, f)
 
         print(f"Loss terms: {loss_terms}")
-        return self.all_gather(loss_terms)
+        return torch.stack(loss_terms)
 
     def training_step(self, batch, batch_idx):
         """
         Training step, runs once per batch
         """
         loss_terms = self._get_loss_terms(batch)
-        print(
-            "Training stacked and gathered loss",
-            torch.stack(self.all_gather(loss_terms)),
-        )
-        avg_loss = torch.mean(torch.stack(self.all_gather(loss_terms)))
+        print("Training stacked and gathered loss", loss_terms)
+        avg_loss = torch.mean(loss_terms)
 
         # L1 loss implementation
         if self.l1_lambda > 0:
@@ -541,13 +551,14 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
                 if self.write_preds_to_dir
                 else None,
             )
+            loss_terms = self.all_gather(loss_terms)
             self.write_preds_counter += 1
 
         # Log each of the loss terms
         for val_name, val in zip(["bond_dist", "omega", "theta", "phi"], loss_terms):
             self.log(f"val_loss_{val_name}", val, sync_dist=True, rank_zero_only=True)
 
-        avg_loss = torch.mean(torch.stack(self.all_gather(loss_terms)))
+        avg_loss = torch.mean(loss_terms)
         # For some reason this only logs once per epoch?
         logging.info(f"Valid loss: {avg_loss}")
         print("Valid:", loss_terms, avg_loss)
@@ -558,7 +569,9 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         Return optimizer. Limited support for some optimizers
         """
         optim = torch.optim.AdamW(
-            self.parameters(), lr=self.learning_rate, weight_decay=self.l2_lambda,
+            self.parameters(),
+            lr=self.learning_rate,
+            weight_decay=self.l2_lambda,
         )
         retval = {"optimizer": optim}
         if self.lr_scheduler:
@@ -857,7 +870,9 @@ class BertDenoiserEncoderModel(pl.LightningModule):
         * https://pytorch.org/docs/stable/optim.html
         """
         optim = torch.optim.AdamW(
-            self.parameters(), lr=self.learning_rate, weight_decay=self.l2_lambda,
+            self.parameters(),
+            lr=self.learning_rate,
+            weight_decay=self.l2_lambda,
         )
         retval = {"optimizer": optim}
         if self.lr_scheduler:
@@ -948,4 +963,3 @@ if __name__ == "__main__":
         "/home/t-kevinwu/projects/protein_diffusion/models_overfitted/overfit_omega_mlp_decoder",
         n_inputs=1,
     )
-
