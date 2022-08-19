@@ -200,6 +200,32 @@ def build_callbacks(
 # https://huggingface.co/docs/transformers/main/en/main_classes/trainer.html
 
 
+@pl.utilities.rank_zero_only
+def record_args_and_metadata(func_args: Dict[str, Any], results_folder: Path):
+    # Create results directory
+    if results_folder.exists():
+        logging.warning(f"Removing old results directory: {results_folder}")
+        shutil.rmtree(results_folder)
+    results_folder.mkdir(exist_ok=True)
+    with open(results_folder / "training_args.json", "w") as sink:
+        logging.info(f"Writing training args to {sink.name}")
+        json.dump(func_args, sink, indent=4)
+        for k, v in func_args.items():
+            logging.info(f"Training argument: {k}={v}")
+
+    # Record current Git version
+    try:
+        repo = git.Repo(
+            path=os.path.dirname(os.path.abspath(__file__)),
+            search_parent_directories=True,
+        )
+        sha = repo.head.object.hexsha
+        with open(results_folder / "git_sha.txt", "w") as sink:
+            sink.write(sha + "\n")
+    except git.exc.InvalidGitRepositoryError:
+        logging.warning("Could not determine Git repo status")
+
+
 def train(
     # Controls output
     results_dir: str = "./results",
@@ -253,29 +279,8 @@ def train(
     # https://stackoverflow.com/questions/10724495/getting-all-arguments-and-values-passed-to-a-function
     func_args = locals()
 
-    # Create results directory
     results_folder = Path(results_dir)
-    if results_folder.exists():
-        logging.warning(f"Removing old results directory: {results_folder}")
-        shutil.rmtree(results_folder)
-    results_folder.mkdir(exist_ok=True)
-    with open(results_folder / "training_args.json", "w") as sink:
-        logging.info(f"Writing training args to {sink.name}")
-        json.dump(func_args, sink, indent=4)
-        for k, v in func_args.items():
-            logging.info(f"Training argument: {k}={v}")
-
-    # Record current Git version
-    try:
-        repo = git.Repo(
-            path=os.path.dirname(os.path.abspath(__file__)),
-            search_parent_directories=True,
-        )
-        sha = repo.head.object.hexsha
-        with open(results_folder / "git_sha.txt", "w") as sink:
-            sink.write(sha + "\n")
-    except git.exc.InvalidGitRepositoryError:
-        logging.warning("Could not determine Git repo status")
+    record_args_and_metadata(func_args, results_folder)
 
     # Get datasets and wrap them in dataloaders
     dsets = get_train_valid_test_sets(
