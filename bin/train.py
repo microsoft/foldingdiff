@@ -51,6 +51,30 @@ def plot_epoch_losses(loss_values, fname: str):
     fig.savefig(fname)
 
 
+@pl.utilities.rank_zero_only
+def plot_timestep_distributions(
+    train_dset,
+    timesteps: int,
+    shift_angles_zero_twopi: bool,
+    plots_folder: Path,
+    n_intervals: int = 11,
+):
+    """
+    Plot the distributions across timesteps
+    """
+    logging.info(f"Plotting distributions to {plots_folder}")
+    for t in np.linspace(0, timesteps, num=n_intervals, endpoint=True).astype(int):
+        t = min(t, timesteps - 1)  # Ensure we don't exceed the number of timesteps
+        logging.info(f"Plotting distribution at time {t}")
+        plotting.plot_val_dists_at_t(
+            train_dset,
+            t=t,
+            share_axes=False,
+            zero_center_angles=not shift_angles_zero_twopi,
+            fname=plots_folder / f"train_dists_at_t_{t}.pdf",
+        )
+
+
 def get_train_valid_test_sets(
     timesteps: int,
     variance_schedule: SCHEDULES,
@@ -287,16 +311,12 @@ def train(
         and not single_dist_debug
         and not syn_noiser
     ):
-        for t in np.linspace(0, timesteps, num=11, endpoint=True).astype(int):
-            t = min(t, timesteps - 1)  # Ensure we don't exceed the number of timesteps
-            logging.info(f"Plotting distribution at time {t}")
-            plotting.plot_val_dists_at_t(
-                dsets[0],
-                t=t,
-                share_axes=False,
-                zero_center_angles=not shift_angles_zero_twopi,
-                fname=plots_folder / f"train_dists_at_t_{t}.pdf",
-            )
+        plot_timestep_distributions(
+            dsets[0],
+            timesteps=timesteps,
+            shift_angles_zero_twopi=shift_angles_zero_twopi,
+            plots_folder=plots_folder,
+        )
 
     # https://jaketae.github.io/study/relative-positional-encoding/
     # looking at the relative distance between things is more robust
