@@ -362,9 +362,14 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
             If set to `True`, `past_key_values` key value states are returned and can be used to speed up decoding (see
             `past_key_values`).
         """
-        print("Train status", self.training)
-        print("Inputs", inputs.device, timestep.device, attention_mask.device)
-        print("Inputs", inputs.dtype, timestep.dtype, attention_mask.dtype)
+        pl.utilities.rank_zero_debug("Train status", self.training)
+        pl.utilities.rank_zero_debug(
+            "Inputs", inputs.device, timestep.device, attention_mask.device
+        )
+        pl.utilities.rank_zero_debug(
+            "Inputs", inputs.dtype, timestep.dtype, attention_mask.dtype
+        )
+
         output_attentions = (
             output_attentions
             if output_attentions is not None
@@ -396,7 +401,9 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
                 .type_as(timestep)
             )
 
-        print("Position IDs", position_ids.device, position_ids.dtype)
+        pl.utilities.rank_zero_debug(
+            "Position IDs", position_ids.device, position_ids.dtype
+        )
 
         # We can provide a self-attention mask of dimensions [batch_size, from_seq_length, to_seq_length]
         # ourselves in which case we just need to make it broadcastable to all heads. This code is taken
@@ -503,7 +510,7 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
                 }
                 json.dump(d_to_write, f)
 
-        print(f"Loss terms: {loss_terms}")
+        pl.utilities.rank_zero_debug(f"Loss terms: {loss_terms}")
         return torch.stack(loss_terms)
 
     def training_step(self, batch, batch_idx):
@@ -511,7 +518,7 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         Training step, runs once per batch
         """
         loss_terms = self._get_loss_terms(batch)
-        print("Training stacked and gathered loss", loss_terms)
+        pl.utilities.rank_zero_debug("Training stacked and gathered loss", loss_terms)
         avg_loss = torch.mean(loss_terms)
 
         # L1 loss implementation
@@ -522,7 +529,6 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         for val_name, val in zip(["bond_dist", "omega", "theta", "phi"], loss_terms):
             self.log(f"train_loss_{val_name}", val, sync_dist=True, rank_zero_only=True)
 
-        print("Training:", loss_terms)
         self.log("train_loss", avg_loss, sync_dist=True, rank_zero_only=True)
         return avg_loss
 
