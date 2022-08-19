@@ -250,7 +250,7 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         self.learning_rate = lr
         # loss function is either a callable or a list of callables
         self.loss_func = self.loss_fn_dict[loss] if isinstance(loss, str) else loss
-        logging.info(f"Using loss: {self.loss_func}")
+        pl.utilities.rank_zero_info(f"Using loss: {self.loss_func}")
         self.l1_lambda = l1
         self.l2_lambda = l2
         self.circle_lambda = circle_reg
@@ -280,7 +280,7 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
             self.time_embed = SinusoidalPositionEmbeddings(config.hidden_size)
         else:
             raise ValueError(f"Unknown time encoding: {time_encoding}")
-        logging.info(f"Using time embedding: {self.time_embed}")
+        pl.utilities.rank_zero_info(f"Using time embedding: {self.time_embed}")
 
         # Initialize weights and apply final processing
         self.init_weights()
@@ -530,7 +530,7 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         """Log the average training loss over the epoch"""
         losses = torch.stack([o["loss"] for o in outputs])
         mean_loss = torch.mean(losses)
-        logging.info(f"Train loss: {mean_loss.item()}")
+        pl.utilities.rank_zero_info(f"Train loss: {mean_loss.item()}")
 
     def validation_step(self, batch, batch_idx):
         """
@@ -553,8 +553,7 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
 
         avg_loss = torch.mean(loss_terms)
         # For some reason this only logs once per epoch?
-        logging.info(f"Valid loss: {avg_loss}")
-        print("Valid:", loss_terms, avg_loss)
+        pl.utilities.rank_zero_info(f"Valid loss: {loss_terms} {avg_loss}")
         self.log("val_loss", avg_loss, sync_dist=True, rank_zero_only=True)
 
     def configure_optimizers(self) -> Dict[str, Any]:
@@ -582,7 +581,7 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
                 }
             else:
                 raise ValueError(f"Unknown lr scheduler {self.lr_scheduler}")
-        logging.info(f"Using optimizer {retval}")
+        pl.utilities.rank_zero_info(f"Using optimizer {retval}")
         return retval
 
 
@@ -645,7 +644,7 @@ class BertDenoiserEncoderModel(pl.LightningModule):
         self.lr_scheduler = lr_scheduler
 
         self.loss_func = self.loss_fn_dict[loss] if isinstance(loss, str) else loss
-        logging.info(f"Using loss: {self.loss_func}")
+        pl.utilities.rank_zero_info(f"Using loss: {self.loss_func}")
 
         # Define the positional embedding. Called as self.pos_encoder(x) and
         # returns the input + the positional embedding
@@ -660,7 +659,7 @@ class BertDenoiserEncoderModel(pl.LightningModule):
             self.time_encoder = SinusoidalPositionEmbeddings(d_model)
         else:
             raise ValueError(f"Unknown time encoding {time_encoding}")
-        logging.info(f"Time encoding: {self.time_encoder}")
+        pl.utilities.rank_zero_info(f"Time encoding: {self.time_encoder}")
 
         self.num_layers = num_layers
         self.d_model = d_model
@@ -883,7 +882,7 @@ class BertDenoiserEncoderModel(pl.LightningModule):
                 }
             else:
                 raise ValueError(f"Unknown lr scheduler {self.lr_scheduler}")
-        logging.info(f"Using optimizer {retval}")
+        pl.utilities.rank_zero_info(f"Using optimizer {retval}")
         return retval
 
 

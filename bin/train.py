@@ -383,7 +383,7 @@ def train(
         if torch.cuda.device_count() > 1:
             strategy = "ddp"
 
-    logging.info(f"Using {accelerator}")
+    logging.info(f"Using {accelerator} with strategy {strategy}")
     trainer = pl.Trainer(
         default_root_dir=results_folder,
         gradient_clip_val=gradient_clip,
