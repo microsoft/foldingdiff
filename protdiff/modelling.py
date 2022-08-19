@@ -399,29 +399,23 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         print("Position IDs", position_ids.device, position_ids.dtype)
 
         # We can provide a self-attention mask of dimensions [batch_size, from_seq_length, to_seq_length]
-        # ourselves in which case we just need to make it broadcastable to all heads.
-
-        extended_attention_mask = attention_mask[:, None, None, :]
-
+        # ourselves in which case we just need to make it broadcastable to all heads. This code is taken
+        # from hugggingface modeling_utils
         assert (
-            attention_mask.dim() == 3
-        ), f"Attention mask has shape {attention_mask.size()}, expected 3 dims"
-        print("Old attention mask", attention_mask)
-        extended_attention_mask: torch.Tensor = self.get_extended_attention_mask(
-            attention_mask,
-            input_shape,
-            device=self.device,
-        )
-        print("New attention mask", extended_attention_mask)
+            attention_mask.dim() == 2
+        ), f"Attention mask expected in shape (batch_size, seq_length), got {attention_mask.shape}"
+        extended_attention_mask = attention_mask[:, None, None, :]
+        extended_attention_mask = extended_attention_mask.type_as(attention_mask)
+        extended_attention_mask = (1.0 - extended_attention_mask) * -10000.0
 
         # Prepare head mask if needed
         # 1.0 in head_mask indicate we keep the head
         # attention_probs has shape bsz x n_heads x N x N
         # input head_mask has shape [num_heads] or [num_hidden_layers x num_heads]
         # and head_mask is converted to shape [num_hidden_layers x batch x num_heads x seq_length x seq_length]
-        msk = torch.ones(size=(self.config.num_attention_heads,))
-        msk = msk.type_as(inputs)
-        head_mask = self.get_head_mask(msk, self.config.num_hidden_layers)
+        # msk = torch.ones(size=(self.config.num_attention_heads,))
+        # msk = msk.type_as(inputs)
+        # head_mask = self.get_head_mask(msk, self.config.num_hidden_layers)
 
         assert len(inputs.shape) == 3  # batch_size, seq_length, features
         inputs_upscaled = self.inputs_to_hidden_dim(inputs)  # Batch * seq_len * dim
@@ -436,7 +430,7 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         encoder_outputs = self.encoder(
             inputs_with_time,
             attention_mask=extended_attention_mask,
-            head_mask=head_mask,
+            # head_mask=head_mask,
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
