@@ -291,12 +291,24 @@ def train(
         single_angle_debug=single_angle_debug,
         single_time_debug=single_timestep_debug,
     )
+
+    # Calculate effective batch size
+    # https://pytorch-lightning.readthedocs.io/en/1.4.0/advanced/multi_gpu.html#batch-size
+    # Under DDP, effective batch size is batch_size * num_gpus * num_nodes
+    effective_batch_size = batch_size
+    if torch.cuda.is_available():
+        effective_batch_size = int(batch_size / torch.cuda.device_count())
+    pl.utilities.rank_zero_info(
+        f"Given batch size: {batch_size} --> effective batch size: {effective_batch_size}"
+    )
+
     train_dataloader, valid_dataloader, test_dataloader = [
         DataLoader(
             dataset=ds,
-            batch_size=batch_size,
+            batch_size=effective_batch_size,
             shuffle=False,  # Shuffle only train loader
             num_workers=multiprocessing.cpu_count() if multithread else 1,
+            pin_memory=True,
         )
         for i, ds in enumerate(dsets)
     ]
