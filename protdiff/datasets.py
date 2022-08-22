@@ -17,6 +17,9 @@ import torch
 
 from tqdm.auto import tqdm
 
+from Bio import PDB
+from Bio.PDB import ic_rebuild
+
 from matplotlib import pyplot as plt
 import numpy as np
 from torch import nn
@@ -264,6 +267,156 @@ def read_and_extract_angles_from_pdb(
             logging.debug(f"Dumping cached values from {fname} to {cached_fname}")
             pickle.dump(retval, f)
 
+    return retval
+
+
+class CathCanonicalAnglesDataset(Dataset):
+    """
+    Load in the dataset.
+
+    All angles should be given between [-pi, pi]
+    """
+
+    def __init__(self, pad: int = 512, toy: int = 0,) -> None:
+        super().__init__()
+        self.pad = pad
+
+        # gather files
+        fnames = glob.glob(os.path.join(CATH_DIR, "dompdb", "*"))
+        if toy:
+            fnames = fnames[:toy]
+
+        # Generate dihedral angles
+        # https://biopython.org/docs/1.76/api/Bio.PDB.PDBParser.html
+        pool = multiprocessing.Pool(processes=multiprocessing.cpu_count())
+        struct_arrays = pool.map(canonical_angles_from_fname, fnames, chunksize=250)
+        pool.close()
+        pool.join()
+
+        # Contains only non-null structures
+        self.structures = []
+        for fname, s in zip(fnames, struct_arrays):
+            if s is None:
+                continue
+            self.structures.append(
+                {"angles": s, "fname": fname,}
+            )
+
+        # Aggregate lengths
+        self.all_lengths = [s["angles"].shape[0] for s in self.structures]
+        self._length_rng = np.random.default_rng(seed=6489)
+        logging.info(
+            f"Length of angles: {np.min(self.all_lengths)}-{np.max(self.all_lengths)}, mean {np.mean(self.all_lengths)}"
+        )
+
+    def sample_length(self, n: int = 1) -> Union[int, List[int]]:
+        """
+        Sample a observed length of a sequence
+        """
+        assert n > 0
+        if n == 1:
+            l = self._length_rng.choice(self.all_lengths)
+        else:
+            l = self._length_rng.choice(self.all_lengths, size=n, replace=True).tolist()
+        return l
+
+    def __len__(self) -> int:
+        return len(self.structures)
+
+    def __getitem__(self, index) -> Dict[str, torch.Tensor]:
+        if not 0 <= index < len(self):
+            raise IndexError("Index out of range")
+
+        angles = self.structures[index]["angles"]
+        assert angles is not None
+
+        # Pad/trim and create attention mask
+        l = min(self.pad, angles.shape[0])
+        attn_mask = torch.zeros(size=(self.pad,))
+        attn_mask[:l] = 1.0
+        assert sum(attn_mask) == l
+
+        if angles.shape[0] < self.pad:
+            angles = np.pad(
+                angles,
+                ((0, self.pad - angles.shape[0]), (0, 0)),
+                mode="constant",
+                constant_values=0,
+            )
+        elif angles.shape[0] > self.pad:
+            angles = angles[: self.pad]
+        assert angles.shape == (self.pad, 4)
+
+        position_ids = torch.arange(start=0, end=self.pad, step=1, dtype=torch.long)
+        angles = torch.from_numpy(angles).float()
+
+        retval = {
+            "angles": angles,
+            "attn_mask": attn_mask,
+            "position_ids": position_ids,
+        }
+        return retval
+
+
+def canonical_angles_from_fname(
+    fname: str,
+    angles=["phi", "psi", "omega"],
+    distances=["0C:1N"],
+    use_radians: bool = True,
+) -> Optional[np.ndarray]:
+    """
+    Parse PDB from fname. Returns an array of distance and angles
+    https://foldit.fandom.com/wiki/Backbone_angle - There are 
+
+    https://biopython.org/wiki/Reading_large_PDB_files
+    """
+    parser = PDB.PDBParser(QUIET=True)
+
+    s = parser.get_structure("", fname)
+    # s.atom_to_internal_coordinates()
+    # s.internal_to_atom_coordinates()
+
+    # If there are multiple chains then skip and return None
+    chains = [c for c in s.get_chains()]
+    if len(chains) > 1:
+        logging.warning(f"{fname} has multiple chains, returning None")
+        return None
+    chain = chains[0]
+    chain.atom_to_internal_coordinates()
+
+    residues = [r for r in chain.get_residues()]
+
+    values = []
+    # https://biopython.org/docs/dev/api/Bio.PDB.internal_coords.html#Bio.PDB.internal_coords.IC_Chain
+    ic = chain.internal_coord  # Type IC_Chain
+    if not ic_rebuild.structure_rebuild_test(chain)["pass"]:
+        logging.warning(f"{fname} failed rebuild test, returning None")
+        return None
+
+    # Attributes
+    # - dAtoms: homogeneous atom coordinates (4x4) of dihedra, second atom at origin
+    # - hAtoms: homogeneous atom coordinates (3x4) of hedra, central atom at origin
+    # - dihedra: Dihedra forming residues in this chain; indexed by 4-tuples of AtomKeys.
+    # - ordered_aa_ic_list: IC_Residue objects in order of appearance in the chain.
+    # https://biopython.org/docs/dev/api/Bio.PDB.internal_coords.html#Bio.PDB.internal_coords.IC_Residue
+    for ric in ic.ordered_aa_ic_list:
+        # https://biopython.org/docs/dev/api/Bio.PDB.internal_coords.html#Bio.PDB.internal_coords.IC_Residue.pick_angle
+        this_dists = np.array([ric.get_length(d) for d in distances], dtype=np.float)
+        this_angles = np.array([ric.get_angle(a) for a in angles], dtype=np.float)
+        this_angles_nonnan = ~np.isnan(this_angles)
+        if use_radians:
+            this_angles = this_angles / 180 * np.pi
+            assert np.all(this_angles[this_angles_nonnan] >= -np.pi) and np.all(
+                this_angles[this_angles_nonnan] <= np.pi
+            )
+        else:
+            assert np.all(this_angles[this_angles_nonnan] >= -180) and np.all(
+                this_angles[this_angles_nonnan] <= 180
+            )
+        values.append(np.concatenate((this_dists, this_angles)))
+
+    retval = np.array(values, dtype=np.float)
+    assert retval.shape == (len(residues), len(distances) + len(angles))
     return retval
 
 
@@ -871,8 +1024,7 @@ def coords_to_angles(
     Sanitize the coordinates to not have NaN and convert them into
     arrays of angles. If sanitization fails, return None
 
-    if shift_angles_positive, take the angles given in [-pi, pi] range and
-    shift them to [0, 2pi] range
+    Returned angles given in [-pi, pi] range
     """
     if isinstance(coords, dict):
         first_valid_idx, last_valid_idx = 0, len(coords["N"])
@@ -922,10 +1074,14 @@ def coords_to_angles(
 def main():
     # dset = AlphafoldConsecutiveAnglesDataset(force_recompute_angles=False, toy=False)
     # print(dset)
-    dset = CathConsecutiveAnglesDataset(toy=10, split="train")
-    noised_dset = SynNoisedMaskedOnlyDataset(dset, dset_key="angles",)
-    print(len(noised_dset))
-    print(noised_dset[0])
+    # dset = CathConsecutiveAnglesDataset(toy=10, split="train")
+    # noised_dset = SynNoisedMaskedOnlyDataset(dset, dset_key="angles",)
+    # print(len(noised_dset))
+    # print(noised_dset[0])
+
+    dset = CathCanonicalAnglesDataset(toy=50)
+    print(dset[0])
+
     # x = noised_dset[0]
     # for k, v in x.items():
     #     print(k)
