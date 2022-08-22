@@ -72,15 +72,19 @@ class CathConsecutiveAnglesDataset(Dataset):
 
     feature_names = {
         "angles": ["bond_dist", "omega", "theta", "phi"],
-        "angles_sin_cos": [
-            "bond_dist",
-            "omega_sin",
-            "theta_sin",
-            "phi_sin",
-            "omega_cos",
-            "theta_cos",
-            "phi_cos",
-        ],
+        # "angles_sin_cos": [
+        #     "bond_dist",
+        #     "omega_sin",
+        #     "theta_sin",
+        #     "phi_sin",
+        #     "omega_cos",
+        #     "theta_cos",
+        #     "phi_cos",
+        # ],
+    }
+    feature_is_angular = {
+        "angles": [False, True, True, True],
+        # "angles_sin_cos": [False, True, True, True, True, True, True, True],
     }
 
     def __init__(
@@ -278,6 +282,7 @@ class CathCanonicalAnglesDataset(Dataset):
     """
 
     feature_names = {"angles": ["bond_dist", "phi", "psi", "omega", "tau"]}
+    feature_is_angular = {"angles": [False, True, True, True, True]}
 
     def __init__(self, pad: int = 512, toy: int = 0,) -> None:
         super().__init__()
@@ -511,7 +516,7 @@ class NoisedAnglesDataset(Dataset):
         self,
         dset: Dataset,
         dset_key: Optional[str] = None,
-        timesteps: int = 1000,
+        timesteps: int = 250,
         exhaustive_t: bool = False,
         beta_schedule: beta_schedules.SCHEDULES = "linear",
         variances: Optional[Tuple[float, float, float, float]] = (
@@ -1083,7 +1088,9 @@ def main():
     # print(noised_dset[0])
 
     dset = CathCanonicalAnglesDataset()
-    print(dset[0])
+    noised_dset = NoisedAnglesDataset(dset, dset_key="angles")
+    print(len(noised_dset))
+    print(noised_dset[0])
 
     # x = noised_dset[0]
     # for k, v in x.items():
