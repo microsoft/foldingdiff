@@ -345,7 +345,6 @@ class CathCanonicalAnglesDataset(Dataset):
             )
         elif angles.shape[0] > self.pad:
             angles = angles[: self.pad]
-        assert angles.shape == (self.pad, 4)
 
         position_ids = torch.arange(start=0, end=self.pad, step=1, dtype=torch.long)
         angles = torch.from_numpy(angles).float()
@@ -360,7 +359,7 @@ class CathCanonicalAnglesDataset(Dataset):
 
 def canonical_angles_from_fname(
     fname: str,
-    angles=["phi", "psi", "omega"],
+    angles=["phi", "psi", "omega", "tau"],
     distances=["0C:1N"],
     use_radians: bool = True,
 ) -> Optional[np.ndarray]:
@@ -390,6 +389,7 @@ def canonical_angles_from_fname(
     # https://biopython.org/docs/dev/api/Bio.PDB.internal_coords.html#Bio.PDB.internal_coords.IC_Chain
     ic = chain.internal_coord  # Type IC_Chain
     if not ic_rebuild.structure_rebuild_test(chain)["pass"]:
+        # https://biopython.org/docs/dev/api/Bio.PDB.ic_rebuild.html#Bio.PDB.ic_rebuild.structure_rebuild_test
         logging.warning(f"{fname} failed rebuild test, returning None")
         return None
 
