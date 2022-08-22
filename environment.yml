@@ -7,6 +7,7 @@ channels:
   - huggingface
 dependencies:
   - python=3.8
+  - pip
   - anaconda::numpy=1.22.3
   - conda-forge::pandas~=1.1.5
   - pytorch::pytorch=1.12
@@ -18,3 +19,5 @@ dependencies:
   - conda-forge::mpl-scatter-density
   - conda-forge::astropy=5.1
   - conda-forge::gitpython
+  - pip
+    - sequence-models
