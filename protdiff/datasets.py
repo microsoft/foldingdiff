@@ -54,6 +54,17 @@ class CathConsecutiveAnglesDataset(Dataset):
     - https://swissmodel.expasy.org/course/text/chapter1.htm
     - https://www.nature.com/articles/s41598-020-76317-6
     - https://userguide.mdanalysis.org/1.1.1/examples/analysis/structure/dihedrals.html
+    
+    Source for data splits:
+    - https://www.mit.edu/~vgarg/GenerativeModelsForProteinDesign.pdf
+
+    For all domains in the CATH 4.2 40% non-redundant set of proteins, we obtained full chains up to length
+    500 and then randomly assigned their CATH topology classifications (CAT codes) to train, validation
+    and test sets at a targeted 80/10/10 split. Since each chain can contain multiple CAT codes, we first
+    removed any redundant entries from train and then from validation. Finally, we removed any chains
+    from the test set that had CAT overlap with train and removed chains from the validation set with
+    CAT overlap to train or test. This resulted in a dataset of 18024 chains in the training set, 608 chains
+    in the validation set, and 1120 chains in the test set. 
     """
 
     feature_names = {
