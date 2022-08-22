@@ -65,9 +65,25 @@ def plot_losses(log_fname: str, out_fname: Optional[str] = None, simple: bool = 
     validation losses if present in log file. Plots per epoch, and if multiple
     values are record for an epoch, plot the median.
     """
+
+    def keyfunc(x: str) -> tuple:
+        """
+        Validation first, then train
+        """
+        ordering = ["test", "val", "train"]
+        if "_" in x:
+            x_split, x_val = x.split("_", maxsplit=1)
+            x_retval = tuple([ordering.index(x_split), x_val])
+        else:
+            x_retval = (len(ordering), x)
+        assert len(x_retval) == 2
+        return x_retval
+
     fig, ax = plt.subplots(dpi=300)
 
     df = pd.read_csv(log_fname)
+    cols = df.columns.to_list()
+    cols = sorted(cols, key=keyfunc)
     for colname in df.columns:
         if "loss" not in colname:
             continue
