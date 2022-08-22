@@ -1,6 +1,7 @@
 # User-added files
 .vscode/*
 *.pkl
+data/cath/*
 data/alphafold/*.pdb.gz
 
 # Byte-compiled / optimized / DLL files
