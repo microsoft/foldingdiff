@@ -277,6 +277,8 @@ class CathCanonicalAnglesDataset(Dataset):
     All angles should be given between [-pi, pi]
     """
 
+    feature_names = {"angles": ["bond_dist", "phi", "psi", "omega", "tau"]}
+
     def __init__(self, pad: int = 512, toy: int = 0,) -> None:
         super().__init__()
         self.pad = pad
@@ -345,6 +347,7 @@ class CathCanonicalAnglesDataset(Dataset):
             )
         elif angles.shape[0] > self.pad:
             angles = angles[: self.pad]
+        assert angles.shape == (self.pad, len(self.feature_names["angles"]))
 
         position_ids = torch.arange(start=0, end=self.pad, step=1, dtype=torch.long)
         angles = torch.from_numpy(angles).float()
@@ -1079,7 +1082,7 @@ def main():
     # print(len(noised_dset))
     # print(noised_dset[0])
 
-    dset = CathCanonicalAnglesDataset(toy=50)
+    dset = CathCanonicalAnglesDataset()
     print(dset[0])
 
     # x = noised_dset[0]
