@@ -22,6 +22,7 @@ from torch.utils.data.dataloader import DataLoader
 import torch.nn.functional as F
 
 import pytorch_lightning as pl
+from pytorch_lightning.strategies.ddp import DDPStrategy
 
 from transformers import BertConfig
 
@@ -423,7 +424,7 @@ def train(
     if not cpu_only and torch.cuda.is_available():
         accelerator = "cuda"
         if torch.cuda.device_count() > 1:
-            strategy = "ddp"
+            strategy = DDPStrategy(find_unused_parameters=False)
 
     logging.info(f"Using {accelerator} with strategy {strategy}")
     trainer = pl.Trainer(
