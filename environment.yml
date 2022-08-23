@@ -19,5 +19,6 @@ dependencies:
   - conda-forge::mpl-scatter-density
   - conda-forge::astropy=5.1
   - conda-forge::gitpython
+  - conda-forge::biopython=1.79
   - pip
     - sequence-models

@@ -31,6 +31,7 @@ environment: # https://singularitydocs.azurewebsites.net/docs/container_images/
     - pip install transformers==4.11.3  # https://huggingface.co/docs/transformers/installation
     - pip install pytorch-lightning==1.6.4  # https://www.pytorchlightning.ai/
     - pip install sequence-models  # https://github.com/microsoft/protein-sequence-models
+    - pip install biopython
 
 code:
   local_dir: $CONFIG_DIR/..  # elative to config file directory
