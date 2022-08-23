@@ -49,7 +49,7 @@ def radian_smooth_l1_loss(
 
     abs_d = torch.abs(d)
     retval = torch.where(abs_d < beta, 0.5 * (d ** 2) / beta, abs_d - 0.5 * beta)
-    assert torch.all(retval >= 0)
+    assert torch.all(retval >= 0), f"Got negative loss terms: {torch.min(retval)}"
     retval = torch.mean(retval)
 
     # Regularize on "turns" around the circle
