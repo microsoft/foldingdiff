@@ -368,11 +368,14 @@ class CathCanonicalAnglesDataset(Dataset):
         angles = self.structures[index]["angles"]
         assert angles is not None
 
-        # Pad/trim and create attention mask
+        # Pad/trim and create attention mask. 0 indicates masked
         l = min(self.pad, angles.shape[0])
         attn_mask = torch.zeros(size=(self.pad,))
         attn_mask[:l] = 1.0
-        assert sum(attn_mask) == l
+
+        # Additionally, mask out positions that are nan
+        # is_nan = np.where(np.any(np.isnan(angles), axis=1))[0]
+        # attn_mask[is_nan] = 0.0  # Mask out the nan positions
 
         if angles.shape[0] < self.pad:
             angles = np.pad(
@@ -455,6 +458,7 @@ def canonical_angles_from_fname(
         values.append(np.concatenate((this_dists, this_angles)))
 
     retval = np.array(values, dtype=np.float)
+    np.nan_to_num(retval, copy=False)  # Replace nan with 0 and info with large num
     assert retval.shape == (len(residues), len(distances) + len(angles))
     return retval
 
