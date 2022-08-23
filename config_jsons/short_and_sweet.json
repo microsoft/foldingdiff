@@ -7,10 +7,10 @@
     "time_encoding": "gaussian_fourier",
     "implementation": "huggingface_encoder",
     "position_embedding_type": "absolute",
-    "num_hidden_layers": 12,
-    "hidden_size": 384,
-    "intermediate_size": 768,
-    "num_heads": 12,
+    "num_hidden_layers": 4,
+    "hidden_size": 96,
+    "intermediate_size": 192,
+    "num_heads": 4,
     "dropout_p": 0.1,
     "decoder": "mlp",
     "gradient_clip": 1.0,
@@ -25,5 +25,6 @@
     "early_stop_patience": 0,
     "use_swa": false,
     "batch_size": 16,
-    "multithread": true
+    "multithread": true,
+    "subset": 500
 }
