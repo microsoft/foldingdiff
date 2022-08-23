@@ -51,6 +51,19 @@ def plot_epoch_losses(loss_values, fname: str):
     fig.savefig(fname)
 
 
+def _plot_timestep_distributions_helper(
+    t: int, train_dset, shift_angles_zero_twopi: bool, plots_folder: Path
+):
+    logging.info(f"Plotting distribution at time {t}")
+    plotting.plot_val_dists_at_t(
+        train_dset,
+        t=t,
+        share_axes=False,
+        zero_center_angles=not shift_angles_zero_twopi,
+        fname=plots_folder / f"train_dists_at_t_{t}.pdf",
+    )
+
+
 @pl.utilities.rank_zero_only
 def plot_timestep_distributions(
     train_dset,
@@ -62,17 +75,20 @@ def plot_timestep_distributions(
     """
     Plot the distributions across timesteps
     """
-    logging.info(f"Plotting distributions to {plots_folder}")
-    for t in np.linspace(0, timesteps, num=n_intervals, endpoint=True).astype(int):
-        t = min(t, timesteps - 1)  # Ensure we don't exceed the number of timesteps
-        logging.info(f"Plotting distribution at time {t}")
-        plotting.plot_val_dists_at_t(
-            train_dset,
-            t=t,
-            share_axes=False,
-            zero_center_angles=not shift_angles_zero_twopi,
-            fname=plots_folder / f"train_dists_at_t_{t}.pdf",
-        )
+    pfunc = functools.partial(
+        _plot_timestep_distributions_helper,
+        train_dset=train_dset,
+        shift_angles_zero_twopi=shift_angles_zero_twopi,
+        plots_folder=plots_folder,
+    )
+    ts = np.linspace(0, timesteps, num=n_intervals, endpoint=True).astype(int)
+    ts = np.minimum(ts, timesteps - 1).tolist()
+    logging.info(f"Plotting distributions at {ts} to {plots_folder}")
+
+    pool = multiprocessing.Pool(processes=min(multiprocessing.cpu_count(), len(ts)))
+    pool.map(pfunc, ts)
+    pool.close()
+    pool.join()
 
 
 def get_train_valid_test_sets(
@@ -446,7 +462,8 @@ def build_parser() -> argparse.ArgumentParser:
     Build CLI parser
     """
     parser = argparse.ArgumentParser(
-        usage=__doc__, formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        usage=__doc__,
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 
     # https://stackoverflow.com/questions/4480075/argparse-optional-positional-arguments
