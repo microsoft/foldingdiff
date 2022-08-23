@@ -140,7 +140,9 @@ class BertEmbeddings(nn.Module):
         )
 
     def forward(
-        self, input_embeds: torch.Tensor, position_ids: torch.LongTensor,
+        self,
+        input_embeds: torch.Tensor,
+        position_ids: torch.LongTensor,
     ) -> torch.Tensor:
         assert position_ids is not None, "`position_ids` must be defined"
         embeddings = input_embeds
@@ -406,7 +408,11 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         if position_ids is None:
             # [1, seq_length]
             position_ids = (
-                torch.arange(seq_length,).expand(batch_size, -1).type_as(timestep)
+                torch.arange(
+                    seq_length,
+                )
+                .expand(batch_size, -1)
+                .type_as(timestep)
             )
 
         # pl.utilities.rank_zero_debug(
@@ -535,16 +541,16 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
             avg_loss += self.l1_lambda * l1_penalty
 
         for val_name, val in zip(["bond_dist", "omega", "theta", "phi"], loss_terms):
-            self.log(f"train_loss_{val_name}", val, sync_dist=True, rank_zero_only=True)
+            self.log(f"train_loss_{val_name}", val)
 
-        self.log("train_loss", avg_loss, sync_dist=True, rank_zero_only=True)
+        self.log("train_loss", avg_loss)
         return avg_loss
 
     def training_epoch_end(self, outputs) -> None:
         """Log the average training loss over the epoch"""
         losses = torch.stack([o["loss"] for o in outputs])
         mean_loss = torch.mean(losses)
-        pl.utilities.rank_zero_info(f"Train loss: {mean_loss.item()}")
+        pl.utilities.rank_zero_info(f"Train loss at epoch end: {mean_loss}")
 
     def validation_step(self, batch, batch_idx):
         """
@@ -563,19 +569,21 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
 
         # Log each of the loss terms
         for val_name, val in zip(["bond_dist", "omega", "theta", "phi"], loss_terms):
-            self.log(f"val_loss_{val_name}", val, sync_dist=True, rank_zero_only=True)
+            self.log(f"val_loss_{val_name}", val)
 
         avg_loss = torch.mean(loss_terms)
         # For some reason this only logs once per epoch?
         pl.utilities.rank_zero_info(f"Valid loss: {loss_terms} {avg_loss}")
-        self.log("val_loss", avg_loss, sync_dist=True, rank_zero_only=True)
+        self.log("val_loss", avg_loss)
 
     def configure_optimizers(self) -> Dict[str, Any]:
         """
         Return optimizer. Limited support for some optimizers
         """
         optim = torch.optim.AdamW(
-            self.parameters(), lr=self.learning_rate, weight_decay=self.l2_lambda,
+            self.parameters(),
+            lr=self.learning_rate,
+            weight_decay=self.l2_lambda,
         )
         retval = {"optimizer": optim}
         if self.lr_scheduler:
@@ -874,7 +882,9 @@ class BertDenoiserEncoderModel(pl.LightningModule):
         * https://pytorch.org/docs/stable/optim.html
         """
         optim = torch.optim.AdamW(
-            self.parameters(), lr=self.learning_rate, weight_decay=self.l2_lambda,
+            self.parameters(),
+            lr=self.learning_rate,
+            weight_decay=self.l2_lambda,
         )
         retval = {"optimizer": optim}
         if self.lr_scheduler:
