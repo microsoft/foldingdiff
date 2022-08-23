@@ -36,4 +36,5 @@ jobs:
   priority: high
   sla_tier: premium
   command:
-  - python bin/train.py config_jsons/full_run.json -o $$AMLT_OUTPUT_DIR/results
+  - tar -xzf data/cath/cath-dataset-nonredundant-S40.pdb.tgz -C data/cath
+  - python bin/train.py config_jsons/full_run_canonical.json -o $$AMLT_OUTPUT_DIR/results
