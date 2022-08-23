@@ -219,6 +219,7 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         self,
         config,
         ft_is_angular: List[bool] = [False, True, True, True],
+        ft_names: Optional[List[str]] = None,
         time_encoding: Literal["gaussian_fourier", "sinusoidal"] = "sinusoidal",
         decoder: Literal["linear", "mlp"] = "linear",
         lr: float = 1e-4,
@@ -243,6 +244,13 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         n_inputs = len(ft_is_angular)
         self.n_inputs = n_inputs
 
+        if ft_names is not None:
+            self.ft_names = ft_names
+        else:
+            self.ft_names = [f"ft{i}" for i in range(n_inputs)]
+        assert (
+            len(self.ft_names) == n_inputs
+        ), f"Got {len(self.ft_names)} names, expected {n_inputs}"
         # Store information about leraning rates and loss
         self.learning_rate = lr
         # loss function is either a callable or a list of callables
@@ -540,7 +548,8 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
             l1_penalty = sum(torch.linalg.norm(p, 1) for p in self.parameters())
             avg_loss += self.l1_lambda * l1_penalty
 
-        for val_name, val in zip(["bond_dist", "omega", "theta", "phi"], loss_terms):
+        assert len(loss_terms) == len(self.ft_names)
+        for val_name, val in zip(self.ft_names, loss_terms):
             self.log(f"train_loss_{val_name}", val)
 
         self.log("train_loss", avg_loss)
@@ -568,13 +577,14 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
             self.write_preds_counter += 1
 
         # Log each of the loss terms
-        for val_name, val in zip(["bond_dist", "omega", "theta", "phi"], loss_terms):
-            self.log(f"val_loss_{val_name}", val)
+        assert len(loss_terms) == len(self.ft_names)
+        for val_name, val in zip(self.ft_names, loss_terms):
+            self.log(f"val_loss_{val_name}", val, sync_dist=True, rank_zero_only=True)
 
         avg_loss = torch.mean(loss_terms)
         # For some reason this only logs once per epoch?
         pl.utilities.rank_zero_info(f"Valid loss: {loss_terms} {avg_loss}")
-        self.log("val_loss", avg_loss)
+        self.log("val_loss", avg_loss, sync_dist=True, rank_zero_only=True)
 
     def configure_optimizers(self) -> Dict[str, Any]:
         """

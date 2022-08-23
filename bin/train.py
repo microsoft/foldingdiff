@@ -330,7 +330,7 @@ def train(
     if torch.cuda.is_available():
         effective_batch_size = int(batch_size / torch.cuda.device_count())
     pl.utilities.rank_zero_info(
-        f"Given batch size: {batch_size} --> effective batch size: {effective_batch_size}"
+        f"Given batch size: {batch_size} --> effective batch size with {torch.cuda.device_count()} GPUs: {effective_batch_size}"
     )
 
     train_dataloader, valid_dataloader, test_dataloader = [
@@ -397,6 +397,7 @@ def train(
             time_encoding=time_encoding,
             decoder=decoder,
             ft_is_angular=dsets[0].dset.feature_is_angular["angles"],
+            ft_names=dsets[0].dset.feature_names["angles"],
             lr=lr,
             loss=loss_fn,
             l2=l2_norm,
