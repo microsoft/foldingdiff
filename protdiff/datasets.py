@@ -57,7 +57,7 @@ class CathConsecutiveAnglesDataset(Dataset):
     - https://swissmodel.expasy.org/course/text/chapter1.htm
     - https://www.nature.com/articles/s41598-020-76317-6
     - https://userguide.mdanalysis.org/1.1.1/examples/analysis/structure/dihedrals.html
-    
+
     Source for data splits:
     - https://www.mit.edu/~vgarg/GenerativeModelsForProteinDesign.pdf
 
@@ -67,7 +67,7 @@ class CathConsecutiveAnglesDataset(Dataset):
     removed any redundant entries from train and then from validation. Finally, we removed any chains
     from the test set that had CAT overlap with train and removed chains from the validation set with
     CAT overlap to train or test. This resulted in a dataset of 18024 chains in the training set, 608 chains
-    in the validation set, and 1120 chains in the test set. 
+    in the validation set, and 1120 chains in the test set.
     """
 
     feature_names = {
@@ -283,7 +283,9 @@ class CathCanonicalAnglesDataset(Dataset):
 
     feature_names = {"angles": ["bond_dist", "phi", "psi", "omega", "tau"]}
     feature_is_angular = {"angles": [False, True, True, True, True]}
-    cache_fname = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cache_canonical_structures.pkl")
+    cache_fname = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "cache_canonical_structures.pkl"
+    )
 
     def __init__(
         self,
@@ -298,6 +300,7 @@ class CathCanonicalAnglesDataset(Dataset):
 
         # gather files
         fnames = glob.glob(os.path.join(CATH_DIR, "dompdb", "*"))
+        assert fnames, f"No files found in {CATH_DIR}/dompdb"
         if toy:
             if isinstance(toy, bool):
                 toy = 150
@@ -310,10 +313,13 @@ class CathCanonicalAnglesDataset(Dataset):
             struct_arrays = [canonical_angles_from_fname(f) for f in fnames]
             self.structures = []
             for fname, s in zip(fnames, struct_arrays):
-                if s is None: continue
-                self.structures.append({'angles': s, 'fname': fname})
+                if s is None:
+                    continue
+                self.structures.append({"angles": s, "fname": fname})
         elif not os.path.exists(self.cache_fname):
-            logging.info(f"Computing full dataset")
+            logging.info(
+                f"Computing full dataset of {len(fnames)} with {multiprocessing.cpu_count()} threads"
+            )
             # Generate dihedral angles
             # https://biopython.org/docs/1.76/api/Bio.PDB.PDBParser.html
             pool = multiprocessing.Pool(processes=multiprocessing.cpu_count())
@@ -327,15 +333,18 @@ class CathCanonicalAnglesDataset(Dataset):
                 if s is None:
                     continue
                 self.structures.append(
-                    {"angles": s, "fname": fname,}
+                    {
+                        "angles": s,
+                        "fname": fname
+                    }
                 )
             # Write the output to a file for faster loading next time
             logging.info(f"Saving full dataset to {self.cache_fname}")
-            with open(self.cache_fname, 'wb') as sink:
+            with open(self.cache_fname, "wb") as sink:
                 pickle.dump(self.structures, sink)
         else:
             logging.info(f"Loading cached full dataset from {self.cache_fname}")
-            with open(self.cache_fname, 'rb') as source:
+            with open(self.cache_fname, "rb") as source:
                 self.structures = pickle.load(source)
 
         # Split the dataset if requested. This is implemented here to maintain
@@ -427,7 +436,7 @@ def canonical_angles_from_fname(
 ) -> Optional[np.ndarray]:
     """
     Parse PDB from fname. Returns an array of distance and angles
-    https://foldit.fandom.com/wiki/Backbone_angle - There are 
+    https://foldit.fandom.com/wiki/Backbone_angle - There are
 
     https://biopython.org/wiki/Reading_large_PDB_files
     """
@@ -463,8 +472,8 @@ def canonical_angles_from_fname(
     # https://biopython.org/docs/dev/api/Bio.PDB.internal_coords.html#Bio.PDB.internal_coords.IC_Residue
     for ric in ic.ordered_aa_ic_list:
         # https://biopython.org/docs/dev/api/Bio.PDB.internal_coords.html#Bio.PDB.internal_coords.IC_Residue.pick_angle
-        this_dists = np.array([ric.get_length(d) for d in distances], dtype=np.float)
-        this_angles = np.array([ric.get_angle(a) for a in angles], dtype=np.float)
+        this_dists = np.array([ric.get_length(d) for d in distances], dtype=np.float64)
+        this_angles = np.array([ric.get_angle(a) for a in angles], dtype=np.float64)
         this_angles_nonnan = ~np.isnan(this_angles)
         if use_radians:
             this_angles = this_angles / 180 * np.pi
@@ -477,7 +486,7 @@ def canonical_angles_from_fname(
             )
         values.append(np.concatenate((this_dists, this_angles)))
 
-    retval = np.array(values, dtype=np.float)
+    retval = np.array(values, dtype=np.float64)
     np.nan_to_num(retval, copy=False)  # Replace nan with 0 and info with large num
     assert retval.shape == (len(residues), len(distances) + len(angles))
     return retval
@@ -988,7 +997,7 @@ class SynNoisedByPositionDataset(Dataset):
 
 class SynNoisedMaskedOnlyDataset(Dataset):
     """
-    Synthetic dataset that noises only masked positions. 
+    Synthetic dataset that noises only masked positions.
 
     Primarily for testing that models correctly ignore masked positions
     and NOT for training purposes. Namely, with this dataset, we should
@@ -1139,7 +1148,10 @@ def coords_to_angles(
     assert all_values.shape == (n - 1, 4)
 
     assert np.all(
-        np.logical_and(all_values[:, 1:] <= np.pi, all_values[:, 1:] >= -np.pi,)
+        np.logical_and(
+            all_values[:, 1:] <= np.pi,
+            all_values[:, 1:] >= -np.pi,
+        )
     ), "Angle values outside of expected [-pi, pi] range"
     return all_values
 
@@ -1152,7 +1164,7 @@ def main():
     # print(len(noised_dset))
     # print(noised_dset[0])
 
-    dset = CathCanonicalAnglesDataset(toy=10)
+    dset = CathCanonicalAnglesDataset()
     noised_dset = NoisedAnglesDataset(dset, dset_key="angles")
     print(len(noised_dset))
     print(noised_dset[0])
