@@ -301,14 +301,14 @@ class CathCanonicalAnglesDataset(Dataset):
         # gather files
         fnames = glob.glob(os.path.join(CATH_DIR, "dompdb", "*"))
         assert fnames, f"No files found in {CATH_DIR}/dompdb"
+
+        # self.structures should be a list of dicts
+        # Always compoute for toy; do not save
         if toy:
             if isinstance(toy, bool):
                 toy = 150
             fnames = fnames[:toy]
 
-        # self.structures should be a list of dicts
-        # Always compoute for toy; do not save
-        if toy:
             logging.info(f"Loading toy dataset of {toy} structures")
             struct_arrays = [canonical_angles_from_fname(f) for f in fnames]
             self.structures = []
@@ -332,12 +332,7 @@ class CathCanonicalAnglesDataset(Dataset):
             for fname, s in zip(fnames, struct_arrays):
                 if s is None:
                     continue
-                self.structures.append(
-                    {
-                        "angles": s,
-                        "fname": fname
-                    }
-                )
+                self.structures.append({"angles": s, "fname": fname})
             # Write the output to a file for faster loading next time
             logging.info(f"Saving full dataset to {self.cache_fname}")
             with open(self.cache_fname, "wb") as sink:
@@ -351,6 +346,7 @@ class CathCanonicalAnglesDataset(Dataset):
         # functional parity with the original CATH dataset. Original CATH uses
         # a 80/10/10 split
         rng = np.random.default_rng(seed=6489)
+        # Shuffle the sequences so contiguous splits acts like random splits
         rng.shuffle(self.structures)
         if split is not None:
             split_idx = int(len(self.structures) * 0.8)
@@ -1148,10 +1144,7 @@ def coords_to_angles(
     assert all_values.shape == (n - 1, 4)
 
     assert np.all(
-        np.logical_and(
-            all_values[:, 1:] <= np.pi,
-            all_values[:, 1:] >= -np.pi,
-        )
+        np.logical_and(all_values[:, 1:] <= np.pi, all_values[:, 1:] >= -np.pi,)
     ), "Angle values outside of expected [-pi, pi] range"
     return all_values
 
