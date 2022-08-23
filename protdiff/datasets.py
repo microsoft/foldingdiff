@@ -283,6 +283,7 @@ class CathCanonicalAnglesDataset(Dataset):
 
     feature_names = {"angles": ["bond_dist", "phi", "psi", "omega", "tau"]}
     feature_is_angular = {"angles": [False, True, True, True, True]}
+    cache_fname = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cache_canonical_structures.pkl")
 
     def __init__(
         self,
@@ -302,21 +303,40 @@ class CathCanonicalAnglesDataset(Dataset):
                 toy = 150
             fnames = fnames[:toy]
 
-        # Generate dihedral angles
-        # https://biopython.org/docs/1.76/api/Bio.PDB.PDBParser.html
-        pool = multiprocessing.Pool(processes=multiprocessing.cpu_count())
-        struct_arrays = pool.map(canonical_angles_from_fname, fnames, chunksize=250)
-        pool.close()
-        pool.join()
+        # self.structures should be a list of dicts
+        # Always compoute for toy; do not save
+        if toy:
+            logging.info(f"Loading toy dataset of {toy} structures")
+            struct_arrays = [canonical_angles_from_fname(f) for f in fnames]
+            self.structures = []
+            for fname, s in zip(fnames, struct_arrays):
+                if s is None: continue
+                self.structures.append({'angles': s, 'fname': fname})
+        elif not os.path.exists(self.cache_fname):
+            logging.info(f"Computing full dataset")
+            # Generate dihedral angles
+            # https://biopython.org/docs/1.76/api/Bio.PDB.PDBParser.html
+            pool = multiprocessing.Pool(processes=multiprocessing.cpu_count())
+            struct_arrays = pool.map(canonical_angles_from_fname, fnames, chunksize=250)
+            pool.close()
+            pool.join()
 
-        # Contains only non-null structures
-        self.structures = []
-        for fname, s in zip(fnames, struct_arrays):
-            if s is None:
-                continue
-            self.structures.append(
-                {"angles": s, "fname": fname,}
-            )
+            # Contains only non-null structures
+            self.structures = []
+            for fname, s in zip(fnames, struct_arrays):
+                if s is None:
+                    continue
+                self.structures.append(
+                    {"angles": s, "fname": fname,}
+                )
+            # Write the output to a file for faster loading next time
+            logging.info(f"Saving full dataset to {self.cache_fname}")
+            with open(self.cache_fname, 'wb') as sink:
+                pickle.dump(self.structures, sink)
+        else:
+            logging.info(f"Loading cached full dataset from {self.cache_fname}")
+            with open(self.cache_fname, 'rb') as source:
+                self.structures = pickle.load(source)
 
         # Split the dataset if requested. This is implemented here to maintain
         # functional parity with the original CATH dataset. Original CATH uses
