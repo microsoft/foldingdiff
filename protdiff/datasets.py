@@ -515,25 +515,25 @@ class NoisedAnglesDataset(Dataset):
     def __init__(
         self,
         dset: Dataset,
-        dset_key: Optional[str] = None,
+        dset_key: str,
         timesteps: int = 250,
         exhaustive_t: bool = False,
         beta_schedule: beta_schedules.SCHEDULES = "linear",
-        variances: Optional[Tuple[float, float, float, float]] = (
-            1.0,  # For the distance
-            np.pi,
-            np.pi,
-            np.pi,
-        ),
+        nonangular_variance: float = 1.0,
+        angular_variance: float = 1.0,
         shift_to_zero_twopi: bool = False,
     ) -> None:
         super().__init__()
         self.dset = dset
+        assert hasattr(dset, "feature_is_angular")
         self.dset_key = dset_key
+        assert (
+            dset_key in dset.feature_is_angular
+        ), f"{dset_key} not in {dset.feature_is_angular}"
 
-        if variances is not None:
-            assert len(variances) == 4
-        self.variances = torch.tensor(variances)
+        self.nonangular_var_scale = nonangular_variance
+        self.angular_var_scale = angular_variance
+
         self.shift_to_zero_twopi = shift_to_zero_twopi
         if hasattr(self.dset, "shift_angles_zero_twopi"):
             assert (
@@ -582,15 +582,24 @@ class NoisedAnglesDataset(Dataset):
         # Noise is always 0 centered
         noise = torch.randn_like(vals)
 
-        # Scale by provided variance
-        if self.variances is not None:
-            noise *= self.variances
+        # Scale by provided variance scales based on angular or not
+        if self.angular_var_scale != 1.0 or self.nonangular_var_scale != 1.0:
+            for j in range(noise.shape[1]):
+                s = (
+                    self.angular_var_scale
+                    if self.dset.feature_is_angular[self.dset_key][j]
+                    else self.nonangular_var_scale
+                )
+                noise[:, j] *= s
 
         # Make sure that the noise doesn't run over the boundaries
-        noise[:, 1:] = utils.modulo_with_wrapped_range(noise[:, 1:], -np.pi, np.pi)
+        angular_idx = np.where(self.dset.feature_is_angular[self.dset_key])[0]
+        noise[:, angular_idx] = utils.modulo_with_wrapped_range(
+            noise[:, angular_idx], -np.pi, np.pi
+        )
         if self.shift_to_zero_twopi:
             # Add pi
-            noise[:, 1:] += np.pi
+            noise[:, angular_idx] += np.pi
 
         return noise
 
@@ -655,14 +664,15 @@ class NoisedAnglesDataset(Dataset):
         assert noised_vals.shape == vals.shape, f"Unexpected shape {noised_vals.shape}"
         # The underlying vals are already shifted, and noise is already shifted
         # All we need to do is ensure we stay on the corresponding manifold
+        angular_idx = np.where(self.dset.feature_is_angular[self.dset_key])[0]
         if self.shift_to_zero_twopi:
-            noised_vals[:, 1:] = utils.modulo_with_wrapped_range(
-                noised_vals[:, 1:], 0, 2 * np.pi
+            noised_vals[:, angular_idx] = utils.modulo_with_wrapped_range(
+                noised_vals[:, angular_idx], 0, 2 * np.pi
             )
         else:
             # Wrap around the correct range
-            noised_vals[:, 1:] = utils.modulo_with_wrapped_range(
-                noised_vals[:, 1:], -np.pi, np.pi
+            noised_vals[:, angular_idx] = utils.modulo_with_wrapped_range(
+                noised_vals[:, angular_idx], -np.pi, np.pi
             )
 
         retval = {
@@ -1087,7 +1097,7 @@ def main():
     # print(len(noised_dset))
     # print(noised_dset[0])
 
-    dset = CathCanonicalAnglesDataset()
+    dset = CathCanonicalAnglesDataset(toy=10)
     noised_dset = NoisedAnglesDataset(dset, dset_key="angles")
     print(len(noised_dset))
     print(noised_dset[0])
