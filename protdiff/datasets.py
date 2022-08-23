@@ -584,7 +584,7 @@ class NoisedAnglesDataset(Dataset):
         self.alpha_beta_terms = beta_schedules.compute_alphas(betas)
 
     def __str__(self) -> str:
-        return f"NoisedAnglesDataset wrapping {self.dset} with {len(self)} examples with {self.schedule}-{self.timesteps} with variance scale {self.variances}"
+        return f"NoisedAnglesDataset wrapping {self.dset} with {len(self)} examples with {self.schedule}-{self.timesteps} with variance scales {self.nonangular_var_scale} and {self.angular_var_scale}"
 
     def __len__(self) -> int:
         if not self.exhaustive_timesteps:

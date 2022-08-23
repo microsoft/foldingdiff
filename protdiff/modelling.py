@@ -140,9 +140,7 @@ class BertEmbeddings(nn.Module):
         )
 
     def forward(
-        self,
-        input_embeds: torch.Tensor,
-        position_ids: torch.LongTensor,
+        self, input_embeds: torch.Tensor, position_ids: torch.LongTensor,
     ) -> torch.Tensor:
         assert position_ids is not None, "`position_ids` must be defined"
         embeddings = input_embeds
@@ -203,26 +201,22 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
              mlp = two-layer MLP to decode per-position embeddings
     """
 
-    loss_fn_dict = {
-        "huber": F.smooth_l1_loss,
-        "radian_l1": [
-            F.smooth_l1_loss,
-            losses.radian_l1_loss,
-            losses.radian_l1_loss,
-            losses.radian_l1_loss,
-        ],
-        "radian_l1_smooth": [
-            F.smooth_l1_loss,
-            functools.partial(losses.radian_smooth_l1_loss, beta=torch.pi / 10),
-            functools.partial(losses.radian_smooth_l1_loss, beta=torch.pi / 10),
-            functools.partial(losses.radian_smooth_l1_loss, beta=torch.pi / 10),
-        ],
+    # Define loss functions and their wrapped angular versions
+    nonangular_loss_fn_dict = {
+        "l1": F.l1_loss,
+        "smooth_l1": F.smooth_l1_loss,
+    }
+    angular_loss_fn_dict = {
+        "l1": losses.radian_l1_loss,
+        "smooth_l1": functools.partial(
+            losses.radian_smooth_l1_loss, beta=torch.pi / 10
+        ),
     }
 
     def __init__(
         self,
         config,
-        n_inputs: int = 4,
+        ft_is_angular: List[bool] = [False, True, True, True],
         time_encoding: Literal["gaussian_fourier", "sinusoidal"] = "sinusoidal",
         decoder: Literal["linear", "mlp"] = "linear",
         lr: float = 1e-4,
@@ -244,13 +238,31 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         self.config = config
         if self.config.is_decoder:
             raise NotImplementedError
+        n_inputs = len(ft_is_angular)
         self.n_inputs = n_inputs
 
         # Store information about leraning rates and loss
         self.learning_rate = lr
         # loss function is either a callable or a list of callables
-        self.loss_func = self.loss_fn_dict[loss] if isinstance(loss, str) else loss
+        if isinstance(loss, str):
+            logging.info(
+                f"Mapping loss {loss} to list of losses corresponding to angular {ft_is_angular}"
+            )
+            self.loss_func = [
+                self.angular_loss_fn_dict[loss]
+                if is_angular
+                else self.nonangular_loss_fn_dict[loss]
+                for is_angular in ft_is_angular
+            ]
+        else:
+            logging.info(f"Using pre-given callable loss: {loss}")
+            self.loss_func = loss
         pl.utilities.rank_zero_info(f"Using loss: {self.loss_func}")
+        if isinstance(self.loss_func, (tuple, list)):
+            assert (
+                len(self.loss_func) == self.n_inputs
+            ), f"Got {len(self.loss_func)} loss functions, expected {self.n_inputs}"
+
         self.l1_lambda = l1
         self.l2_lambda = l2
         self.circle_lambda = circle_reg
@@ -394,11 +406,7 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         if position_ids is None:
             # [1, seq_length]
             position_ids = (
-                torch.arange(
-                    seq_length,
-                )
-                .expand(batch_size, -1)
-                .type_as(timestep)
+                torch.arange(seq_length,).expand(batch_size, -1).type_as(timestep)
             )
 
         # pl.utilities.rank_zero_debug(
@@ -567,9 +575,7 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         Return optimizer. Limited support for some optimizers
         """
         optim = torch.optim.AdamW(
-            self.parameters(),
-            lr=self.learning_rate,
-            weight_decay=self.l2_lambda,
+            self.parameters(), lr=self.learning_rate, weight_decay=self.l2_lambda,
         )
         retval = {"optimizer": optim}
         if self.lr_scheduler:
@@ -868,9 +874,7 @@ class BertDenoiserEncoderModel(pl.LightningModule):
         * https://pytorch.org/docs/stable/optim.html
         """
         optim = torch.optim.AdamW(
-            self.parameters(),
-            lr=self.learning_rate,
-            weight_decay=self.l2_lambda,
+            self.parameters(), lr=self.learning_rate, weight_decay=self.l2_lambda,
         )
         retval = {"optimizer": optim}
         if self.lr_scheduler:

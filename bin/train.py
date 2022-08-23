@@ -76,8 +76,9 @@ def plot_timestep_distributions(
 
 
 def get_train_valid_test_sets(
-    timesteps: int,
-    variance_schedule: SCHEDULES,
+    angles_definitions: Literal["rosetta", "canonical"] = "rosetta",
+    timesteps: int = 250,
+    variance_schedule: SCHEDULES = "linear",
     noise_prior: Literal["gaussian", "uniform"] = "gaussian",
     shift_to_zero_twopi: bool = False,
     var_scale: float = np.pi,
@@ -96,10 +97,16 @@ def get_train_valid_test_sets(
     assert (
         single_angle_debug != 0
     ), f"Invalid value for single_angle_debug: {single_angle_debug}"
+
+    # Get the dataset
+    if angles_definitions == "rosetta":
+        clean_dset_class = datasets.CathConsecutiveAnglesDataset
+    elif angles_definitions == "canonical":
+        clean_dset_class = datasets.CathCanonicalAnglesDataset
+    else:
+        raise NotImplementedError(f"Unknown angles_definitions: {angles_definitions}")
     clean_dsets = [
-        datasets.CathConsecutiveAnglesDataset(
-            split=s, shift_to_zero_twopi=shift_to_zero_twopi, toy=toy
-        )
+        clean_dset_class(split=s, shift_to_zero_twopi=shift_to_zero_twopi, toy=toy)
         for s in ["train", "validation", "test"]
     ]
 
@@ -231,6 +238,7 @@ def train(
     # Controls output
     results_dir: str = "./results",
     # Controls data loading and noising process
+    angles_definitions: Literal["rosetta", "canonical"] = "rosetta",
     shift_angles_zero_twopi: bool = False,
     noise_prior: Literal["gaussian", "uniform"] = "gaussian",  # Uniform not tested
     timesteps: int = 250,
@@ -254,7 +262,7 @@ def train(
     gradient_clip: float = 1.0,  # From BERT trainer
     batch_size: int = 64,
     lr: float = 5e-5,  # Default lr for huggingface BERT trainer
-    loss: Literal["huber", "radian_l1", "radian_l1_smooth"] = "radian_l1_smooth",
+    loss: Literal["l1", "smooth_l1"] = "smooth_l1",
     l2_norm: float = 0.0,  # AdamW default has 0.01 L2 regularization, but BERT trainer uses 0.0
     l1_norm: float = 0.0,
     circle_reg: float = 0.0,
@@ -285,6 +293,7 @@ def train(
 
     # Get datasets and wrap them in dataloaders
     dsets = get_train_valid_test_sets(
+        angles_definitions=angles_definitions,
         timesteps=timesteps,
         variance_schedule=variance_schedule,
         noise_prior=noise_prior,
@@ -344,39 +353,16 @@ def train(
         loss_fn = functools.partial(losses.radian_smooth_l1_loss, beta=0.1 * np.pi)
     elif single_dist_debug:
         loss_fn = F.smooth_l1_loss
+    logging.info(f"Using loss function: {loss_fn}")
 
-    model_n_inputs = (
-        1
-        if single_angle_debug > 0
-        or single_timestep_debug
-        or single_dist_debug
-        or syn_noiser
-        else 4
-    )
+    # Shape of the input is (batch_size, timesteps, features)
+    sample_input = dsets[0][0]["corrupted"]
+    model_n_inputs = sample_input.shape[-1]
+    logging.info(f"Auto detected {model_n_inputs} inputs")
 
     if implementation == "pytorch_encoder":
         logging.info("Using PyTorch encoder implementation")
-        model = modelling.BertDenoiserEncoderModel(
-            n_inputs=model_n_inputs,
-            time_encoding=time_encoding,
-            num_layers=num_hidden_layers,
-            d_model=hidden_size,
-            intermediate_size=intermediate_size,
-            num_heads=num_heads,
-            dropout=dropout_p,
-            decoder=decoder,
-            lr=lr,
-            loss=loss_fn,
-            l2=l2_norm,
-            l1=l1_norm,
-            circle_reg=circle_reg,
-            min_epochs=min_epochs,
-            steps_per_epoch=len(train_dataloader),
-            lr_scheduler=lr_scheduler,
-            write_preds_to_dir=results_folder / "valid_preds"
-            if write_valid_preds
-            else None,
-        )
+        raise NotImplementedError("PyTorch encoder not implemented")
     elif implementation == "huggingface_encoder":
         logging.info("Using HuggingFace encoder implementation")
         cfg = BertConfig(
@@ -389,11 +375,12 @@ def train(
             attention_probs_dropout_prob=dropout_p,
             use_cache=False,
         )
+        # ft_is_angular from the clean datasets angularity definition
         model = modelling.BertForDiffusion(
             cfg,
             time_encoding=time_encoding,
             decoder=decoder,
-            n_inputs=model_n_inputs,
+            ft_is_angular=dsets[0].dset.feature_is_angular["angles"],
             lr=lr,
             loss=loss_fn,
             l2=l2_norm,
