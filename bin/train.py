@@ -137,7 +137,8 @@ def get_train_valid_test_sets(
             exhaustive_t=(i != 0) and exhaustive_t,
             beta_schedule=variance_schedule,
             shift_to_zero_twopi=shift_to_zero_twopi,
-            variances=[1.0, var_scale, var_scale, var_scale],
+            nonangular_variance=1.0,
+            angular_variance=var_scale,
         )
         for i, ds in enumerate(clean_dsets)
     ]
@@ -458,8 +459,7 @@ def build_parser() -> argparse.ArgumentParser:
     Build CLI parser
     """
     parser = argparse.ArgumentParser(
-        usage=__doc__,
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        usage=__doc__, formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 
     # https://stackoverflow.com/questions/4480075/argparse-optional-positional-arguments
