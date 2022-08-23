@@ -284,13 +284,22 @@ class CathCanonicalAnglesDataset(Dataset):
     feature_names = {"angles": ["bond_dist", "phi", "psi", "omega", "tau"]}
     feature_is_angular = {"angles": [False, True, True, True, True]}
 
-    def __init__(self, pad: int = 512, toy: int = 0,) -> None:
+    def __init__(
+        self,
+        split: Optional[Literal["train", "test", "validation"]] = None,
+        pad: int = 512,
+        toy: int = 0,
+        shift_to_zero_twopi: bool = False,
+    ) -> None:
         super().__init__()
+        assert not shift_to_zero_twopi, "No reason to shift to zero twopi"
         self.pad = pad
 
         # gather files
         fnames = glob.glob(os.path.join(CATH_DIR, "dompdb", "*"))
         if toy:
+            if isinstance(toy, bool):
+                toy = 150
             fnames = fnames[:toy]
 
         # Generate dihedral angles
@@ -308,6 +317,28 @@ class CathCanonicalAnglesDataset(Dataset):
             self.structures.append(
                 {"angles": s, "fname": fname,}
             )
+
+        # Split the dataset if requested. This is implemented here to maintain
+        # functional parity with the original CATH dataset. Original CATH uses
+        # a 80/10/10 split
+        rng = np.random.default_rng(seed=6489)
+        rng.shuffle(self.structures)
+        if split is not None:
+            split_idx = int(len(self.structures) * 0.8)
+            if split == "train":
+                self.structures = self.structures[:split_idx]
+            elif split == "validation":
+                self.structures = self.structures[
+                    split_idx : split_idx + int(len(self.structures) * 0.1)
+                ]
+            elif split == "test":
+                self.structures = self.structures[
+                    split_idx + int(len(self.structures) * 0.1) :
+                ]
+            else:
+                raise ValueError(f"Unknown split: {split}")
+
+            logging.info(f"Split {split} contains {len(self.structures)} structures")
 
         # Aggregate lengths
         self.all_lengths = [s["angles"].shape[0] for s in self.structures]
