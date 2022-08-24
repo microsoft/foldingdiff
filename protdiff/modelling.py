@@ -532,7 +532,6 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
                 }
                 json.dump(d_to_write, f)
 
-        # pl.utilities.rank_zero_debug(f"Loss terms: {loss_terms}")
         return torch.stack(loss_terms)
 
     def training_step(self, batch, batch_idx):
@@ -549,10 +548,13 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
             avg_loss += self.l1_lambda * l1_penalty
 
         assert len(loss_terms) == len(self.ft_names)
-        for val_name, val in zip(self.ft_names, loss_terms):
-            self.log(f"train_loss_{val_name}", val)
+        loss_dict = {
+            f"train_loss_{val_name}": val
+            for val_name, val in zip(self.ft_names, loss_terms)
+        }
+        loss_dict["train_loss"] = avg_loss
+        self.log_dict(loss_dict)
 
-        self.log("train_loss", avg_loss)
         return avg_loss
 
     def training_epoch_end(self, outputs) -> None:
