@@ -9,13 +9,11 @@ import multiprocessing
 import os, sys
 import glob
 import gzip
-import tarfile
 import logging
 import json
 from typing import *
 import torch
 
-from tqdm.auto import tqdm
 
 from Bio import PDB
 from Bio.PDB import ic_rebuild
@@ -72,19 +70,9 @@ class CathConsecutiveAnglesDataset(Dataset):
 
     feature_names = {
         "angles": ["bond_dist", "omega", "theta", "phi"],
-        # "angles_sin_cos": [
-        #     "bond_dist",
-        #     "omega_sin",
-        #     "theta_sin",
-        #     "phi_sin",
-        #     "omega_cos",
-        #     "theta_cos",
-        #     "phi_cos",
-        # ],
     }
     feature_is_angular = {
         "angles": [False, True, True, True],
-        # "angles_sin_cos": [False, True, True, True, True, True, True, True],
     }
 
     def __init__(
@@ -210,17 +198,6 @@ class CathConsecutiveAnglesDataset(Dataset):
             assert angles[:, 1:].min() >= 0
             assert angles[:, 1:].max() < 2 * np.pi
 
-        # Calculate the sin/cos of angles
-        angles_sin = np.sin(angles[:, 1:])  # (pad, 3)
-        angles_cos = np.cos(angles[:, 1:])  # (pad, 3)
-        assert np.all(angles_sin >= -1.0) and np.all(angles_sin <= 1.0)
-        assert np.all(angles_cos >= -1.0) and np.all(angles_cos <= 1.0)
-        angles_sin_cos = np.hstack(((angles[:, np.newaxis, 0]), angles_sin, angles_cos))
-        assert angles_sin_cos.shape == (
-            self.pad,
-            7,
-        ), f"Mismatched shape: {angles_sin_cos.shape} != {(self.pad, 7)}"
-        angles_sin_cos = torch.from_numpy(angles_sin_cos).float()
 
         position_ids = torch.arange(start=0, end=self.pad, step=1, dtype=torch.long)
 
@@ -228,7 +205,6 @@ class CathConsecutiveAnglesDataset(Dataset):
 
         retval = {
             "angles": angles,
-            "angles_sin_cos": angles_sin_cos,
             "attn_mask": attn_mask,
             "position_ids": position_ids,
         }
