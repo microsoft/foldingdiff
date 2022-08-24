@@ -313,6 +313,9 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         if self.write_preds_to_dir:
             os.makedirs(self.write_preds_to_dir, exist_ok=True)
 
+        # Epoch counters
+        self.train_epoch_counter = 0
+
     @classmethod
     def from_dir(
         cls, dirname: str, load_weights: bool = True, **kwargs
@@ -561,9 +564,12 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         """Log the average training loss over the epoch"""
         losses = torch.stack([o["loss"] for o in outputs])
         mean_loss = torch.mean(losses)
-        pl.utilities.rank_zero_info(f"Train loss at epoch end: {mean_loss}")
+        pl.utilities.rank_zero_info(
+            f"Train loss at epoch {self.train_epoch_counter} end: {mean_loss}"
+        )
+        self.train_epoch_counter += 1
 
-    def validation_step(self, batch, batch_idx):
+    def validation_step(self, batch, batch_idx) -> Dict[str, torch.Tensor]:
         """
         Validation step
         """
@@ -589,8 +595,16 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         # with rank zero it seems that we don't need to use sync_dist
         self.log_dict(loss_dict, rank_zero_only=True)
 
-        # For some reason this only logs once per epoch?
-        pl.utilities.rank_zero_info(f"Valid loss: {loss_terms} {avg_loss}")
+        return {"val_loss": avg_loss}
+
+    def validation_epoch_end(self, outputs) -> None:
+        """Log the average validation loss over the epoch"""
+        # Note that this method is called before zstraining_epoch_end().
+        losses = torch.stack([o["val_loss"] for o in outputs])
+        mean_loss = torch.mean(losses)
+        pl.utilities.rank_zero_info(
+            f"Valid loss at epoch {self.train_epoch_counter} end: {mean_loss}"
+        )
 
     def configure_optimizers(self) -> Dict[str, Any]:
         """
