@@ -553,7 +553,7 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
             for val_name, val in zip(self.ft_names, loss_terms)
         }
         loss_dict["train_loss"] = avg_loss
-        self.log_dict(loss_dict)
+        self.log_dict(loss_dict)  # Don't seem to need rank zero or sync dist
 
         return avg_loss
 
@@ -581,13 +581,16 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
 
         # Log each of the loss terms
         assert len(loss_terms) == len(self.ft_names)
-        loss_dict = {f"val_loss_{val_name}": val for val_name, val in zip(self.ft_names, loss_terms)}
-        loss_dict['val_loss'] = avg_loss
-        self.log_dict(loss_dict, sync_dist=True, rank_zero_only=True)
-        
+        loss_dict = {
+            f"val_loss_{val_name}": self.all_gather(val)
+            for val_name, val in zip(self.ft_names, loss_terms)
+        }
+        loss_dict["val_loss"] = avg_loss
+        # with rank zero it seems that we don't need to use sync_dist
+        self.log_dict(loss_dict, rank_zero_only=True)
+
         # For some reason this only logs once per epoch?
         pl.utilities.rank_zero_info(f"Valid loss: {loss_terms} {avg_loss}")
-
 
     def configure_optimizers(self) -> Dict[str, Any]:
         """
