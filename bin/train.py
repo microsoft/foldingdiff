@@ -424,6 +424,7 @@ def train(
     if not cpu_only and torch.cuda.is_available():
         accelerator = "cuda"
         if torch.cuda.device_count() > 1:
+            # https://github.com/Lightning-AI/lightning/discussions/6761https://github.com/Lightning-AI/lightning/discussions/6761
             strategy = DDPStrategy(find_unused_parameters=False)
 
     logging.info(f"Using {accelerator} with strategy {strategy}")

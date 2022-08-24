@@ -577,16 +577,17 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
                 else None,
             )
             self.write_preds_counter += 1
+        avg_loss = torch.mean(loss_terms)
 
         # Log each of the loss terms
         assert len(loss_terms) == len(self.ft_names)
-        for val_name, val in zip(self.ft_names, loss_terms):
-            self.log(f"val_loss_{val_name}", val, sync_dist=True, rank_zero_only=True)
-
-        avg_loss = torch.mean(loss_terms)
+        loss_dict = {f"val_loss_{val_name}": val for val_name, val in zip(self.ft_names, loss_terms)}
+        loss_dict['val_loss'] = avg_loss
+        self.log_dict(loss_dict, sync_dist=True, rank_zero_only=True)
+        
         # For some reason this only logs once per epoch?
         pl.utilities.rank_zero_info(f"Valid loss: {loss_terms} {avg_loss}")
-        self.log("val_loss", avg_loss, sync_dist=True, rank_zero_only=True)
+
 
     def configure_optimizers(self) -> Dict[str, Any]:
         """
