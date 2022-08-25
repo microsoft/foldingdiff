@@ -72,8 +72,6 @@ def canonical_distances_and_dihedrals(
     parser = PDB.PDBParser(QUIET=True)
 
     s = parser.get_structure("", fname)
-    # s.atom_to_internal_coordinates()
-    # s.internal_to_atom_coordinates()
 
     # If there are multiple chains then skip and return None
     chains = [c for c in s.get_chains()]
