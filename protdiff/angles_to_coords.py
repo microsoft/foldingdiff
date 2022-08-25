@@ -240,9 +240,11 @@ def create_new_chain(
         for angle in angle_colnames:
             ric.set_angle(angle, dists_and_angles.iloc[i][angle] / np.pi * 180)
         for dist in dist_colnames:
-            # pass
-            # ric.set_length(dist, dists_and_angles.iloc[i][dist])
-            ""
+            d = dists_and_angles.iloc[i][dist]
+            if np.isclose(d, 0):
+                continue
+            ric.set_length(dist, d)
+
     chain.internal_coord = ic
 
     chain.internal_to_atom_coordinates()
