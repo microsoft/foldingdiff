@@ -520,6 +520,9 @@ class NoisedAnglesDataset(Dataset):
         # Noise is always 0 centered
         noise = torch.randn_like(vals)
 
+        # Shapes of vals couled be (batch, seq, feat) or (seq, feat)
+        # Therefore we need to index into last dimension consistently
+
         # Scale by provided variance scales based on angular or not
         if self.angular_var_scale != 1.0 or self.nonangular_var_scale != 1.0:
             for j in range(noise.shape[1]):
@@ -528,16 +531,16 @@ class NoisedAnglesDataset(Dataset):
                     if self.dset.feature_is_angular[self.dset_key][j]
                     else self.nonangular_var_scale
                 )
-                noise[:, j] *= s
+                noise[..., j] *= s
 
         # Make sure that the noise doesn't run over the boundaries
         angular_idx = np.where(self.dset.feature_is_angular[self.dset_key])[0]
-        noise[:, angular_idx] = utils.modulo_with_wrapped_range(
-            noise[:, angular_idx], -np.pi, np.pi
+        noise[..., angular_idx] = utils.modulo_with_wrapped_range(
+            noise[..., angular_idx], -np.pi, np.pi
         )
         if self.shift_to_zero_twopi:
             # Add pi
-            noise[:, angular_idx] += np.pi
+            noise[..., angular_idx] += np.pi
 
         return noise
 
