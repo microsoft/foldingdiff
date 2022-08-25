@@ -43,7 +43,7 @@ def p_sample(
     ][t_index]
 
     # Create the attention mask
-    attn_mask = torch.zeros(x.shape[:2], dtype=torch.bool, device=x.device)
+    attn_mask = torch.zeros(x.shape[:2], device=x.device)
     for i, l in enumerate(seq_lens):
         attn_mask[i, :l] = 1.0
 
