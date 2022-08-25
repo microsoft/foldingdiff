@@ -59,8 +59,8 @@ def pic_to_pdb(pic_file: str, pdb_file: str):
 
 def canonical_distances_and_dihedrals(
     fname: str,
-    distances=["0C:1N"],
-    angles=["phi", "psi", "omega", "tau"],
+    distances: List[str] = ["0C:1N"],
+    angles: List[str] = ["phi", "psi", "omega", "tau"],
     use_radians: bool = True,
 ) -> Optional[pd.DataFrame]:
     """
