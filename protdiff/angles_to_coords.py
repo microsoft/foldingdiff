@@ -80,7 +80,7 @@ def canonical_distances_and_dihedrals(
     if len(chains) > 1:
         logging.warning(f"{fname} has multiple chains, returning None")
         return None
-    chain = chains[0]
+    chain = chains.pop()
     chain.atom_to_internal_coordinates()
 
     residues = [r for r in chain.get_residues() if r.get_resname() not in ("HOH", "NA")]
@@ -122,6 +122,47 @@ def canonical_distances_and_dihedrals(
         len(distances) + len(angles),
     ), f"Got mismatched shapes {retval.shape} != {(len(residues), len(distances) + len(angles))}"
     return pd.DataFrame(retval, columns=distances + angles)
+
+
+def sample_coords(
+    fname: str,
+    subset_residues: Optional[Collection[str]] = None,
+    query_atoms: List[str] = ["N", "CA", "C", "O", "CB"],
+) -> List[pd.DataFrame]:
+    """
+    Sample the atomic coordinates of Alanine atoms. Return a list of dataframes each containing these
+    coordinates. 
+
+    We use this to help figure out where to initialize atoms when creating a new chain
+    """
+    atomic_coords = []
+
+    parser = PDB.PDBParser(QUIET=True)
+    s = parser.get_structure("", fname)
+    for chain in s.get_chains():
+        residues = [
+            r for r in chain.get_residues() if r.get_resname() not in ("HOH", "NA")
+        ]
+
+        for res in residues:
+            if subset_residues is not None and res.get_resname() not in subset_residues:
+                continue
+            coords = {}
+            for atom in res.get_atoms():
+                coords[atom.get_name()] = atom.get_coord()
+            all_atoms_present = True
+
+            for atom in query_atoms:
+                if atom not in coords:
+                    logging.debug(f"{atom} not found in {res.get_resname()}")
+                    all_atoms_present = False
+                    break
+
+            if all_atoms_present:
+                atomic_coords.append(
+                    pd.DataFrame([coords[k] for k in query_atoms], index=query_atoms)
+                )
+    return atomic_coords
 
 
 def create_new_chain(
@@ -238,19 +279,21 @@ def reverse_dihedral(v1, v2, v3, dihedral):
     return final_offset
 
 
-def test_generation():
+def test_generation(
+    reference_fname: str = os.path.join(
+        os.path.dirname(os.path.dirname(__file__)), "data/7PFL.pdb"
+    )
+):
     """
     Test the generation of a new chain
     """
-    # pdb_to_pic(
-    #     os.path.join(os.path.dirname(os.path.dirname(__file__)), "data/7PFL.pdb"),
-    #     "7PFL.pic",
-    # )
-    vals = canonical_distances_and_dihedrals(
-        os.path.join(os.path.dirname(os.path.dirname(__file__)), "data/7PFL.pdb")
-    )
+    sampled_coords = sample_coords(reference_fname)
+    print(sampled_coords[0])
+    return
+
+    vals = canonical_distances_and_dihedrals(reference_fname)
     print(vals.iloc[:5])
-    # pic_to_pdb("7PFL.pic", "7PFL.pdb")
+
     create_new_chain("test.pdb", vals)
     new_vals = canonical_distances_and_dihedrals("test.pdb")
     print(new_vals[:5])
@@ -273,5 +316,6 @@ def test_reverse_dihedral():
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.DEBUG)
     # test_reverse_dihedral()
     test_generation()
