@@ -6,24 +6,19 @@ data loader object
 import pickle
 import functools
 import multiprocessing
-import os, sys
+import os
 import glob
 import gzip
 import logging
 import json
 from typing import *
-import torch
-
-
-from Bio import PDB
-from Bio.PDB import ic_rebuild
-from sequence_models import pdb_utils
 
 from matplotlib import pyplot as plt
 import numpy as np
+
+import torch
 from torch import nn
 from torch.utils.data import Dataset
-from torch.utils.data.dataloader import DataLoader
 
 CATH_DIR = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data/cath"
