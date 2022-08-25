@@ -6,6 +6,7 @@ https://github.com/biopython/biopython/blob/master/Bio/PDB/ic_rebuild.py
 """
 import os
 import logging
+import pickle
 from typing import *
 
 import numpy as np
@@ -14,6 +15,7 @@ import scipy.linalg
 
 from Bio import PDB
 from Bio.PDB import PICIO, ic_rebuild
+from sequence_models import pdb_utils
 
 
 def pdb_to_pic(pdb_file: str, pic_file: str):
@@ -55,6 +57,97 @@ def pic_to_pdb(pic_file: str, pdb_file: str):
     io = PDB.PDBIO()
     io.set_structure(f)
     io.save(pdb_file)
+
+
+def coords_to_trrosetta_angles(
+    coords: Union[np.ndarray, Dict[str, List[List[float]]]],
+) -> Optional[np.ndarray]:
+    """
+    Sanitize the coordinates to not have NaN and convert them into
+    arrays of angles. If sanitization fails, return None
+
+    Returned angles given in [-pi, pi] range
+    """
+    if isinstance(coords, dict):
+        first_valid_idx, last_valid_idx = 0, len(coords["N"])
+        # Walk through coordinates and trim trailing nan
+        for k in ["N", "CA", "C"]:
+            logging.debug(f"{k}:\t{coords[k][:5]}")
+            arr = np.array(coords[k])
+            # Get all valid indices
+            valid_idx = np.where(~np.any(np.isnan(arr), axis=1))[0]
+            first_valid_idx = max(first_valid_idx, np.min(valid_idx))
+            last_valid_idx = min(last_valid_idx, np.max(valid_idx) + 1)
+        logging.debug(f"Trimming nans keeps {first_valid_idx}:{last_valid_idx}")
+        for k in ["N", "CA", "C"]:
+            coords[k] = coords[k][first_valid_idx:last_valid_idx]
+            arr = np.array(coords[k])
+            if np.any(np.isnan(arr)):
+                logging.debug("Got nan in middle of array")
+                return None
+    angles = pdb_utils.process_coords(coords)
+    # https://www.rosettacommons.org/docs/latest/application_documentation/trRosetta/trRosetta#application-purpose_a-note-on-nomenclature
+    # omega = inter-residue dihedral angle between CA/CB of first and CB/CA of second
+    # theta = inter-residue dihedral angle between N, CA, CB of first and CB of second
+    # phi   = inter-residue angle between CA and CB of first and CB of second
+    dist, omega, theta, phi = angles
+    assert dist.shape == omega.shape == theta.shape == phi.shape
+    logging.debug(f"Pre slice shape: {dist.shape, omega.shape, theta.shape, phi.shape}")
+    # Slice out so that we have the angles and distances between the n and n+1 items
+    n = dist.shape[0]
+    indices_i = np.arange(n - 1)
+    indices_j = indices_i + 1
+    dist_slice = dist[indices_i, indices_j]
+    omega_slice = omega[indices_i, indices_j]
+    theta_slice = theta[indices_i, indices_j]
+    phi_slice = phi[indices_i, indices_j]
+    logging.debug(
+        f"Post slice shape: {dist_slice.shape, omega_slice.shape, theta_slice.shape, phi_slice.shape}"
+    )
+    all_values = np.array([dist_slice, omega_slice, theta_slice, phi_slice]).T
+    assert all_values.shape == (n - 1, 4)
+
+    assert np.all(
+        np.logical_and(all_values[:, 1:] <= np.pi, all_values[:, 1:] >= -np.pi,)
+    ), "Angle values outside of expected [-pi, pi] range"
+    return all_values
+
+
+def trrosetta_angles_from_pdb(
+    fname: str, force_compute: bool = False, write_cache: bool = True
+) -> Dict[str, Any]:
+    """
+    Helper function for reading and computing angles from pdb file
+    """
+    # Check if cached computed results exists
+    # https://stackoverflow.com/questions/52444921/save-numpy-array-using-pickle
+    suffix = fname.split(".")[-1]
+    cached_fname = os.path.join(
+        os.path.dirname(os.path.abspath(fname)),
+        os.path.basename(fname).replace(suffix, "extracted.pkl"),
+    )
+    if os.path.isfile(cached_fname) and not force_compute:
+        logging.debug(f"Loading cached values from {cached_fname}")
+        with open(cached_fname, "rb") as f:
+            return pickle.load(f)
+
+    # Perform the computation
+    atoms = ["N", "CA", "C"]
+    coords, seq, valid_idx = pdb_utils.parse_PDB(fname, atoms=atoms)
+    assert coords.shape[0] == len(
+        seq
+    ), f"Mismatched lengths: {coords.shape[0]} vs {len(seq)} in {fname}"
+    # coords has shape (length, atoms, 3)
+    coords_dict = {atom: coords[:, i, :] for i, atom in enumerate(atoms)}
+    angles = coords_to_trrosetta_angles(coords_dict, shift_angles_positive=True)
+    retval = {"coords": coords, "angles": angles, "seq": seq, "valid_idx": valid_idx}
+    # Cache the result
+    if write_cache:
+        with open(cached_fname, "wb") as f:
+            logging.debug(f"Dumping cached values from {fname} to {cached_fname}")
+            pickle.dump(retval, f)
+
+    return retval
 
 
 def canonical_distances_and_dihedrals(
