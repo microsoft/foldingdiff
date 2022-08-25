@@ -169,7 +169,8 @@ def create_new_chain(
     out_fname: str, dists_and_angles: pd.DataFrame,
 ):
     """
-    Creates a new chain
+    Creates a new chain. Note that input is radians and must be converted to normal degrees
+    for PDB compatibility
 
     USeful references:
     https://stackoverflow.com/questions/47631064/create-a-polymer-chain-of-nonstandard-residues-from-a-single-residue-pdb
@@ -187,11 +188,12 @@ def create_new_chain(
     # https://biopython.org/docs/latest/api/Bio.PDB.internal_coords.html?highlight=ic_chain#Bio.PDB.internal_coords.IC_Residue
     # IC_residue extends https://biopython.org/docs/1.76/api/Bio.PDB.Residue.html
     # Set these IC_Residues
-    for resnum, aa in enumerate("A" * n):  # Alanine is a single carbon sidechain
+    for resnum, aa in enumerate(["ALA"] * n):  # Alanine is a single carbon sidechain
         # Constructor is ID, resname, segID
         # ID is 3-tuple of example (' ', 85, ' ')
         # resnum uses 1-indexing in real PDB files
-        res = PDB.Residue.Residue((" ", resnum + 1, " "), "ALA", "A")
+        res = PDB.Residue.Residue((" ", resnum + 1, " "), aa, "A")
+        # select a coordinate template for this atom
         # atoms in each resiude are N, CA, C, O, CB
         for atom in ["N", "CA", "C", "O", "CB"]:
             # https://biopython.org/docs/1.76/api/Bio.PDB.Atom.html
@@ -236,9 +238,11 @@ def create_new_chain(
     for i, ric in enumerate(ic.ordered_aa_ic_list):
         assert isinstance(ric, PDB.internal_coords.IC_Residue)
         for angle in angle_colnames:
-            ric.set_angle(angle, dists_and_angles.iloc[i][angle])
+            ric.set_angle(angle, dists_and_angles.iloc[i][angle] / np.pi * 180)
         for dist in dist_colnames:
-            ric.set_angle(dist, dists_and_angles.iloc[i][dist])
+            # pass
+            # ric.set_length(dist, dists_and_angles.iloc[i][dist])
+            ""
     chain.internal_coord = ic
 
     chain.internal_to_atom_coordinates()
@@ -287,16 +291,14 @@ def test_generation(
     """
     Test the generation of a new chain
     """
-    sampled_coords = sample_coords(reference_fname)
-    print(sampled_coords[0])
-    return
+    # sampled_coords = sample_coords(reference_fname)
 
     vals = canonical_distances_and_dihedrals(reference_fname)
-    print(vals.iloc[:5])
+    print(vals.iloc[:10])
 
     create_new_chain("test.pdb", vals)
     new_vals = canonical_distances_and_dihedrals("test.pdb")
-    print(new_vals[:5])
+    print(new_vals[:10])
 
 
 def test_reverse_dihedral():
