@@ -35,8 +35,8 @@ def pdb_to_pic(pdb_file: str, pic_file: str):
         # Look at only analines because that's what we generate
         if res.residue.get_resname() != "ALA":
             continue
-        print("REF", res, type(res))
-        print(res.hedra.keys())
+        # print("REF", res, type(res))
+        # print(res.dihedra.keys())
 
     with open(pic_file, "w") as sink:
         PICIO.write_PIC(chain, sink)
@@ -86,8 +86,11 @@ def create_new_chain(out_fname: str = "temp.pdb", n: int = 5):
             # constructor expects
             # name, coord, bfactor, occupancy, altloc, fullname, serial_number
             # Generate a random coordinate
+            # Occupancy is typically 1.0
+            # Values under 10 create a model of the atom that is very sharp, indicating that the atom is not moving much and is in the same position in all of the molecules in the crystal
+            # Values greater than 50 or so indicate that the atom is moving so much that it can barely been seen.
             atom_obj = PDB.Atom.Atom(
-                atom, rng.random(3), 0.0, 0.0, " ", atom, resnum, element=atom[:1]
+                atom, rng.random(3), 10.0, 1.0, " ", atom, resnum, element=atom[:1]
             )
             res.add(atom_obj)
         chain.add(res)
@@ -97,6 +100,11 @@ def create_new_chain(out_fname: str = "temp.pdb", n: int = 5):
         ic_res.gly_Cbeta = True
         assert ic_res.is20AA
 
+    # Write an intermediate to make sure we are modifying
+    # io = PDB.PDBIO()
+    # io.set_structure(chain)
+    # io.save("intermediate.pdb")
+
     # Finished setting up the chain, now get the internal coordinates
     ic = PDB.internal_coords.IC_Chain(chain)
     # Initialize internal_coord data for loaded Residues.
@@ -105,11 +113,17 @@ def create_new_chain(out_fname: str = "temp.pdb", n: int = 5):
     # set rprev and rnext on each sequential IC_Residue
     # populate initNCaC at start and after chain breaks
 
-    ic.set_residues()
+    # Create placeholder values
+    ic.atom_to_internal_coordinates()
+    # ic.set_residues()
     for ric in ic.ordered_aa_ic_list:
-        print("***")
-        print(ric, type(ric))
-        print(ric.hedra)
+        assert isinstance(ric, PDB.internal_coords.IC_Residue)
+        # Random values for now
+        ric.set_angle("phi", 0.5)
+        ric.set_angle("psi", 1.0)
+        ric.set_angle("omega", -1.0)
+        ric.set_angle("tau", -1.5)
+        ric.set_length("0C:1N", 1.1)
     chain.internal_coord = ic
 
     chain.internal_to_atom_coordinates()
@@ -117,7 +131,7 @@ def create_new_chain(out_fname: str = "temp.pdb", n: int = 5):
     # Write output
     io = PDB.PDBIO()
     io.set_structure(chain)
-    io.save(out_fname)
+    io.save("final.pdb")
 
 
 def reverse_dihedral(v1, v2, v3, dihedral):
@@ -179,10 +193,5 @@ def test_reverse_dihedral():
 
 
 if __name__ == "__main__":
-    test_reverse_dihedral()
-    # pdb_to_pic(
-    #     os.path.join(os.path.dirname(os.path.dirname(__file__)), "data/7PFL.pdb"),
-    #     "7PFL.pic",
-    # )
-    # pic_to_pdb("7PFL.pic", "7PFL.pdb")
-    # create_new_chain()
+    # test_reverse_dihedral()
+    test_generation()
