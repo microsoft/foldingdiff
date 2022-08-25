@@ -17,6 +17,7 @@ import torch
 
 from Bio import PDB
 from Bio.PDB import ic_rebuild
+from sequence_models import pdb_utils
 
 from matplotlib import pyplot as plt
 import numpy as np
@@ -32,8 +33,8 @@ ALPHAFOLD_DIR = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data/alphafold"
 )
 
-from sequence_models import pdb_utils
 import beta_schedules
+from angles_and_coords import canonical_distances_and_dihedrals
 import utils
 
 
@@ -198,7 +199,6 @@ class CathConsecutiveAnglesDataset(Dataset):
             assert angles[:, 1:].min() >= 0
             assert angles[:, 1:].max() < 2 * np.pi
 
-
         position_ids = torch.arange(start=0, end=self.pad, step=1, dtype=torch.long)
 
         angles = torch.from_numpy(angles).float()
@@ -286,7 +286,7 @@ class CathCanonicalAnglesDataset(Dataset):
             fnames = fnames[:toy]
 
             logging.info(f"Loading toy dataset of {toy} structures")
-            struct_arrays = [canonical_angles_from_fname(f) for f in fnames]
+            struct_arrays = [canonical_distances_and_dihedrals(f) for f in fnames]
             self.structures = []
             for fname, s in zip(fnames, struct_arrays):
                 if s is None:
@@ -299,7 +299,9 @@ class CathCanonicalAnglesDataset(Dataset):
             # Generate dihedral angles
             # https://biopython.org/docs/1.76/api/Bio.PDB.PDBParser.html
             pool = multiprocessing.Pool(processes=multiprocessing.cpu_count())
-            struct_arrays = pool.map(canonical_angles_from_fname, fnames, chunksize=250)
+            struct_arrays = pool.map(
+                canonical_distances_and_dihedrals, fnames, chunksize=250
+            )
             pool.close()
             pool.join()
 
@@ -398,70 +400,6 @@ class CathCanonicalAnglesDataset(Dataset):
             "position_ids": position_ids,
         }
         return retval
-
-
-def canonical_angles_from_fname(
-    fname: str,
-    angles=["phi", "psi", "omega", "tau"],
-    distances=["0C:1N"],
-    use_radians: bool = True,
-) -> Optional[np.ndarray]:
-    """
-    Parse PDB from fname. Returns an array of distance and angles
-    https://foldit.fandom.com/wiki/Backbone_angle - There are
-
-    https://biopython.org/wiki/Reading_large_PDB_files
-    """
-    parser = PDB.PDBParser(QUIET=True)
-
-    s = parser.get_structure("", fname)
-    # s.atom_to_internal_coordinates()
-    # s.internal_to_atom_coordinates()
-
-    # If there are multiple chains then skip and return None
-    chains = [c for c in s.get_chains()]
-    if len(chains) > 1:
-        logging.warning(f"{fname} has multiple chains, returning None")
-        return None
-    chain = chains[0]
-    chain.atom_to_internal_coordinates()
-
-    residues = [r for r in chain.get_residues()]
-
-    values = []
-    # https://biopython.org/docs/dev/api/Bio.PDB.internal_coords.html#Bio.PDB.internal_coords.IC_Chain
-    ic = chain.internal_coord  # Type IC_Chain
-    if not ic_rebuild.structure_rebuild_test(chain)["pass"]:
-        # https://biopython.org/docs/dev/api/Bio.PDB.ic_rebuild.html#Bio.PDB.ic_rebuild.structure_rebuild_test
-        logging.warning(f"{fname} failed rebuild test, returning None")
-        return None
-
-    # Attributes
-    # - dAtoms: homogeneous atom coordinates (4x4) of dihedra, second atom at origin
-    # - hAtoms: homogeneous atom coordinates (3x4) of hedra, central atom at origin
-    # - dihedra: Dihedra forming residues in this chain; indexed by 4-tuples of AtomKeys.
-    # - ordered_aa_ic_list: IC_Residue objects in order of appearance in the chain.
-    # https://biopython.org/docs/dev/api/Bio.PDB.internal_coords.html#Bio.PDB.internal_coords.IC_Residue
-    for ric in ic.ordered_aa_ic_list:
-        # https://biopython.org/docs/dev/api/Bio.PDB.internal_coords.html#Bio.PDB.internal_coords.IC_Residue.pick_angle
-        this_dists = np.array([ric.get_length(d) for d in distances], dtype=np.float64)
-        this_angles = np.array([ric.get_angle(a) for a in angles], dtype=np.float64)
-        this_angles_nonnan = ~np.isnan(this_angles)
-        if use_radians:
-            this_angles = this_angles / 180 * np.pi
-            assert np.all(this_angles[this_angles_nonnan] >= -np.pi) and np.all(
-                this_angles[this_angles_nonnan] <= np.pi
-            )
-        else:
-            assert np.all(this_angles[this_angles_nonnan] >= -180) and np.all(
-                this_angles[this_angles_nonnan] <= 180
-            )
-        values.append(np.concatenate((this_dists, this_angles)))
-
-    retval = np.array(values, dtype=np.float64)
-    np.nan_to_num(retval, copy=False)  # Replace nan with 0 and info with large num
-    assert retval.shape == (len(residues), len(distances) + len(angles))
-    return retval
 
 
 class AlphafoldConsecutiveAnglesDataset(Dataset):
