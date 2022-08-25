@@ -5,13 +5,15 @@ Based on:
 https://github.com/biopython/biopython/blob/master/Bio/PDB/ic_rebuild.py
 """
 import os
+import logging
 from typing import *
 
 import numpy as np
+import pandas as pd
 import scipy.linalg
 
 from Bio import PDB
-from Bio.PDB import PICIO
+from Bio.PDB import PICIO, ic_rebuild
 
 
 def pdb_to_pic(pdb_file: str, pic_file: str):
@@ -55,13 +57,83 @@ def pic_to_pdb(pic_file: str, pdb_file: str):
     io.save(pdb_file)
 
 
-def create_new_chain(out_fname: str = "temp.pdb", n: int = 5):
+def canonical_distances_and_dihedrals(
+    fname: str,
+    distances=["0C:1N"],
+    angles=["phi", "psi", "omega", "tau"],
+    use_radians: bool = True,
+) -> Optional[pd.DataFrame]:
+    """
+    Parse PDB from fname. Returns an array of distance and angles
+    https://foldit.fandom.com/wiki/Backbone_angle - There are
+
+    https://biopython.org/wiki/Reading_large_PDB_files
+    """
+    parser = PDB.PDBParser(QUIET=True)
+
+    s = parser.get_structure("", fname)
+    # s.atom_to_internal_coordinates()
+    # s.internal_to_atom_coordinates()
+
+    # If there are multiple chains then skip and return None
+    chains = [c for c in s.get_chains()]
+    if len(chains) > 1:
+        logging.warning(f"{fname} has multiple chains, returning None")
+        return None
+    chain = chains[0]
+    chain.atom_to_internal_coordinates()
+
+    residues = [r for r in chain.get_residues() if r.get_resname() not in ("HOH", "NA")]
+
+    values = []
+    # https://biopython.org/docs/dev/api/Bio.PDB.internal_coords.html#Bio.PDB.internal_coords.IC_Chain
+    ic = chain.internal_coord  # Type IC_Chain
+    if not ic_rebuild.structure_rebuild_test(chain)["pass"]:
+        # https://biopython.org/docs/dev/api/Bio.PDB.ic_rebuild.html#Bio.PDB.ic_rebuild.structure_rebuild_test
+        logging.warning(f"{fname} failed rebuild test, returning None")
+        return None
+
+    # Attributes
+    # - dAtoms: homogeneous atom coordinates (4x4) of dihedra, second atom at origin
+    # - hAtoms: homogeneous atom coordinates (3x4) of hedra, central atom at origin
+    # - dihedra: Dihedra forming residues in this chain; indexed by 4-tuples of AtomKeys.
+    # - ordered_aa_ic_list: IC_Residue objects in order of appearance in the chain.
+    # https://biopython.org/docs/dev/api/Bio.PDB.internal_coords.html#Bio.PDB.internal_coords.IC_Residue
+    for ric in ic.ordered_aa_ic_list:
+        # https://biopython.org/docs/dev/api/Bio.PDB.internal_coords.html#Bio.PDB.internal_coords.IC_Residue.pick_angle
+        this_dists = np.array([ric.get_length(d) for d in distances], dtype=np.float64)
+        this_angles = np.array([ric.get_angle(a) for a in angles], dtype=np.float64)
+        this_angles_nonnan = ~np.isnan(this_angles)
+        if use_radians:
+            this_angles = this_angles / 180 * np.pi
+            assert np.all(this_angles[this_angles_nonnan] >= -np.pi) and np.all(
+                this_angles[this_angles_nonnan] <= np.pi
+            )
+        else:
+            assert np.all(this_angles[this_angles_nonnan] >= -180) and np.all(
+                this_angles[this_angles_nonnan] <= 180
+            )
+        values.append(np.concatenate((this_dists, this_angles)))
+
+    retval = np.array(values, dtype=np.float64)
+    np.nan_to_num(retval, copy=False)  # Replace nan with 0 and info with large num
+    assert retval.shape == (
+        len(residues),
+        len(distances) + len(angles),
+    ), f"Got mismatched shapes {retval.shape} != {(len(residues), len(distances) + len(angles))}"
+    return pd.DataFrame(retval, columns=distances + angles)
+
+
+def create_new_chain(
+    out_fname: str, dists_and_angles: pd.DataFrame,
+):
     """
     Creates a new chain
 
     USeful references:
     https://stackoverflow.com/questions/47631064/create-a-polymer-chain-of-nonstandard-residues-from-a-single-residue-pdb
     """
+    n = len(dists_and_angles)
     chain = PDB.Chain.Chain("A")
     # Avoid nonetype error
     chain.parent = PDB.Structure.Structure("pdb")
@@ -74,7 +146,6 @@ def create_new_chain(out_fname: str = "temp.pdb", n: int = 5):
     # https://biopython.org/docs/latest/api/Bio.PDB.internal_coords.html?highlight=ic_chain#Bio.PDB.internal_coords.IC_Residue
     # IC_residue extends https://biopython.org/docs/1.76/api/Bio.PDB.Residue.html
     # Set these IC_Residues
-    aa_ic = []
     for resnum, aa in enumerate("A" * n):  # Alanine is a single carbon sidechain
         # Constructor is ID, resname, segID
         # ID is 3-tuple of example (' ', 85, ' ')
@@ -89,8 +160,9 @@ def create_new_chain(out_fname: str = "temp.pdb", n: int = 5):
             # Occupancy is typically 1.0
             # Values under 10 create a model of the atom that is very sharp, indicating that the atom is not moving much and is in the same position in all of the molecules in the crystal
             # Values greater than 50 or so indicate that the atom is moving so much that it can barely been seen.
+            coord = rng.random(3)
             atom_obj = PDB.Atom.Atom(
-                atom, rng.random(3), 10.0, 1.0, " ", atom, resnum, element=atom[:1]
+                atom, coord, 10.0, 1.0, " ", atom, resnum, element=atom[:1]
             )
             res.add(atom_obj)
         chain.add(res)
@@ -113,17 +185,19 @@ def create_new_chain(out_fname: str = "temp.pdb", n: int = 5):
     # set rprev and rnext on each sequential IC_Residue
     # populate initNCaC at start and after chain breaks
 
+    # Determine which of the values are angles and which are distances
+    angle_colnames = [c for c in dists_and_angles.columns if not ":" in c]
+    dist_colnames = [c for c in dists_and_angles.columns if ":" in c]
+
     # Create placeholder values
     ic.atom_to_internal_coordinates()
     # ic.set_residues()
-    for ric in ic.ordered_aa_ic_list:
+    for i, ric in enumerate(ic.ordered_aa_ic_list):
         assert isinstance(ric, PDB.internal_coords.IC_Residue)
-        # Random values for now
-        ric.set_angle("phi", 0.5)
-        ric.set_angle("psi", 1.0)
-        ric.set_angle("omega", -1.0)
-        ric.set_angle("tau", -1.5)
-        ric.set_length("0C:1N", 1.1)
+        for angle in angle_colnames:
+            ric.set_angle(angle, dists_and_angles.iloc[i][angle])
+        for dist in dist_colnames:
+            ric.set_angle(dist, dists_and_angles.iloc[i][dist])
     chain.internal_coord = ic
 
     chain.internal_to_atom_coordinates()
@@ -131,7 +205,7 @@ def create_new_chain(out_fname: str = "temp.pdb", n: int = 5):
     # Write output
     io = PDB.PDBIO()
     io.set_structure(chain)
-    io.save("final.pdb")
+    io.save(out_fname)
 
 
 def reverse_dihedral(v1, v2, v3, dihedral):
@@ -168,12 +242,18 @@ def test_generation():
     """
     Test the generation of a new chain
     """
-    pdb_to_pic(
-        os.path.join(os.path.dirname(os.path.dirname(__file__)), "data/7PFL.pdb"),
-        "7PFL.pic",
+    # pdb_to_pic(
+    #     os.path.join(os.path.dirname(os.path.dirname(__file__)), "data/7PFL.pdb"),
+    #     "7PFL.pic",
+    # )
+    vals = canonical_distances_and_dihedrals(
+        os.path.join(os.path.dirname(os.path.dirname(__file__)), "data/7PFL.pdb")
     )
-    pic_to_pdb("7PFL.pic", "7PFL.pdb")
-    create_new_chain()
+    print(vals.iloc[:5])
+    # pic_to_pdb("7PFL.pic", "7PFL.pdb")
+    create_new_chain("test.pdb", vals)
+    new_vals = canonical_distances_and_dihedrals("test.pdb")
+    print(new_vals[:5])
 
 
 def test_reverse_dihedral():
