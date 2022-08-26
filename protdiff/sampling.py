@@ -7,6 +7,8 @@ from typing import *
 
 from tqdm.auto import tqdm
 
+import numpy as np
+
 import torch
 from torch import nn
 
@@ -119,28 +121,30 @@ def p_sample_loop(
     return torch.stack(imgs)
 
 
-@torch.no_grad()
 def sample(
-    model: nn.Module,
-    seq_lens: Sequence[int],
-    seq_max_len: int,
-    betas: torch.Tensor,
-    posterior_variance: torch.Tensor,
-    batch_size: int = 16,
-    channels: int = 4,
-    timesteps: int = 200,
-    noise_modulo: Optional[Union[float, torch.Tensor]] = None,
-) -> torch.Tensor:
-    retval = p_sample_loop(
-        model,
-        lengths=seq_lens,
-        shape=(batch_size, seq_max_len, channels),
-        timesteps=timesteps,
-        betas=betas,
-        posterior_variance=posterior_variance,
-        noise_modulo=noise_modulo,
-    )[-1]
+    model: nn.Module, train_dset, n: int, batch_size: int = 256
+) -> List[np.ndarray]:
+    """
+    Sample from the given model. Use the train_dset to generate noise and to sample lengths.
+    """
+    # Process each batch
+    retval = []
+    for batch in utils.num_to_groups(n, batch_size):
+        # Sample noise and sample the lengths
+        noise = train_dset.sample_noise(
+            torch.zeros((batch, 512, model.n_inputs), dtype=torch.float32)
+        )
+        lengths = [train_dset.dset.sample_length() for _ in range(batch_size)]
 
-    # Trim the sequences by sequence lengths
-    retval = [retval[i, :l, :] for i, l in enumerate(seq_lens)]
+        # Produces (timesteps, batch_size, seq_len, n_ft)
+        sampled = p_sample_loop(
+            model=model,
+            lengths=lengths,
+            noise=noise,
+            timesteps=train_dset.timesteps,
+            betas=train_dset.alpha_beta_terms["betas"],
+            is_angle=True,
+        )
+        trimmed_sampled = [sampled[:, i, :l, :] for i, l in enumerate(lengths)]
+        retval.extend(trimmed_sampled)
     return retval
