@@ -15,6 +15,10 @@ from typing import *
 
 from matplotlib import pyplot as plt
 import numpy as np
+import scipy.special
+from scipy import stats
+
+from tqdm.auto import tqdm
 
 import torch
 from torch import nn
@@ -453,7 +457,7 @@ class NoisedAnglesDataset(Dataset):
     def __init__(
         self,
         dset: Dataset,
-        dset_key: str = 'angles',
+        dset_key: str = "angles",
         timesteps: int = 250,
         exhaustive_t: bool = False,
         beta_schedule: beta_schedules.SCHEDULES = "linear",
@@ -468,6 +472,7 @@ class NoisedAnglesDataset(Dataset):
         assert (
             dset_key in dset.feature_is_angular
         ), f"{dset_key} not in {dset.feature_is_angular}"
+        self.n_features = len(dset.feature_is_angular[dset_key])
 
         self.nonangular_var_scale = nonangular_variance
         self.angular_var_scale = angular_variance
@@ -511,6 +516,65 @@ class NoisedAnglesDataset(Dataset):
         )
         fig.savefig(fname, bbox_inches="tight")
         return fname
+
+    def plot_kl_divergence(self, fname: str, subset: Optional[int] = 100):
+        """
+        Plot the KL divergence between a Gaussian and each feature over timesteps.
+        Use the subset of n examples if given
+        """
+        # Sample noise that we sample from
+        pure_noise = self.sample_noise(torch.zeros(size=(1024, 512, self.n_features)))
+
+        # Generate each timestep for one item and compute the KL divergence across each feature
+        n = min(subset, len(self))
+        corrupted_examples = []
+        for t in tqdm(
+            range(self.timesteps), desc=f"Generating timesteps for {n} examples"
+        ):
+            t_examples = []  # Contains (stacked) examples at given timestep
+            for i in range(n):
+                noise_at_t = self.__getitem__(i, use_t_val=t)
+                corrupted = noise_at_t["corrupted"]
+                l = int(torch.sum(noise_at_t["attn_mask"]).item())
+                corrupted_subset = corrupted[:l]
+                assert corrupted_subset.shape == (l, self.n_features)
+                t_examples.append(corrupted_subset)
+            t_examples = torch.cat(t_examples, dim=0)
+            assert t_examples.ndim == 2 and t_examples.shape[1] == self.n_features
+            corrupted_examples.append(t_examples)
+        assert len(corrupted_examples) == self.timesteps
+
+        # Compute the kl divergence in parallel
+        per_ft_distribution_distance = {}
+        for ft_idx, ft_name in enumerate(self.dset.feature_names[self.dset_key]):
+            # ith_noise starts as (1024, 512) that we then flatten
+            ith_noise = pure_noise[..., ft_idx].numpy().flatten()
+            # Set of values for every time step
+            ith_vals = [c[..., ft_idx].numpy().flatten() for c in corrupted_examples]
+            pfunc = functools.partial(stats.wasserstein_distance, v_values=ith_noise)
+            pool = multiprocessing.Pool(multiprocessing.cpu_count())
+            ft_distribution_dist = pool.map(pfunc, ith_vals, chunksize=10)
+            pool.close()
+            pool.join()
+
+            per_ft_distribution_distance[ft_name] = ft_distribution_dist
+
+        fig, axes = plt.subplots(
+            dpi=300,
+            figsize=(self.n_features * 3.05, 2.5),
+            ncols=self.n_features,
+            sharey=True,
+        )
+        for i, (ax, (ft_name, ft_dists)) in enumerate(
+            zip(axes, per_ft_distribution_distance.items())
+        ):
+            ax.plot(np.arange(len(ft_dists)), ft_dists)
+            ax.set(title=ft_name)
+            if i == 0:
+                ax.set(ylabel="Wasserstein distance")
+            ax.set(xlabel="Timestep")
+        fig.suptitle(f"Wasserstein distance at timesteps, {n} examples", y=1.05)
+        fig.savefig(fname, bbox_inches="tight")
 
     def sample_noise(self, vals: torch.Tensor) -> torch.Tensor:
         """
