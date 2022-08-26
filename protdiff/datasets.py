@@ -568,11 +568,16 @@ class NoisedAnglesDataset(Dataset):
             zip(axes, per_ft_distribution_distance.items())
         ):
             ax.plot(np.arange(len(ft_dists)), ft_dists)
+            ax.axhline(0, color="grey", linestyle="--", alpha=0.6)
+            if "_" not in ft_name:  # Append angle name
+                ft_name += f" $\{ft_name}$"
             ax.set(title=ft_name)
             if i == 0:
                 ax.set(ylabel="KL divergence")
             ax.set(xlabel="Timestep")
-        fig.suptitle(f"KL divergence KL(empirical || Gaussian prior) at timesteps, {n} examples", y=1.05)
+        fig.suptitle(
+            f"KL(empirical || Gaussian prior) at timesteps, {n} examples", y=1.05,
+        )
         fig.savefig(fname, bbox_inches="tight")
 
     def sample_noise(self, vals: torch.Tensor) -> torch.Tensor:
