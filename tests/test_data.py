@@ -53,7 +53,7 @@ class TestCathCanonical(unittest.TestCase):
 
 class TestCathCanonicalAnglesOnly(unittest.TestCase):
     """
-    Tests for the CATCH canonical angles only dataset (i.e. no distance returned)
+    Tests for the CATH canonical angles only dataset (i.e. no distance returned)
     """
 
     def setUp(self) -> None:
