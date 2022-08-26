@@ -453,7 +453,7 @@ class NoisedAnglesDataset(Dataset):
     def __init__(
         self,
         dset: Dataset,
-        dset_key: str,
+        dset_key: str = 'angles',
         timesteps: int = 250,
         exhaustive_t: bool = False,
         beta_schedule: beta_schedules.SCHEDULES = "linear",
@@ -525,7 +525,7 @@ class NoisedAnglesDataset(Dataset):
 
         # Scale by provided variance scales based on angular or not
         if self.angular_var_scale != 1.0 or self.nonangular_var_scale != 1.0:
-            for j in range(noise.shape[1]):
+            for j in range(noise.shape[-1]):  # Last dim = feature dim
                 s = (
                     self.angular_var_scale
                     if self.dset.feature_is_angular[self.dset_key][j]
