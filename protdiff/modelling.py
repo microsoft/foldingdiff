@@ -260,7 +260,11 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
                 f"Mapping loss {loss} to list of losses corresponding to angular {ft_is_angular}"
             )
             if loss in self.loss_autocorrect_dict:
-                logging.info("Autocorrecting {} to {}".format(loss, self.loss_autocorrect_dict[loss]))
+                logging.info(
+                    "Autocorrecting {} to {}".format(
+                        loss, self.loss_autocorrect_dict[loss]
+                    )
+                )
                 loss = self.loss_autocorrect_dict[loss]
             self.loss_func = [
                 self.angular_loss_fn_dict[loss]
@@ -269,7 +273,9 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
                 for is_angular in ft_is_angular
             ]
         else:
-            logging.warning(f"Using pre-given callable loss: {loss}. This may not handle angles correctly!")
+            logging.warning(
+                f"Using pre-given callable loss: {loss}. This may not handle angles correctly!"
+            )
             self.loss_func = loss
         pl.utilities.rank_zero_info(f"Using loss: {self.loss_func}")
         if isinstance(self.loss_func, (tuple, list)):
@@ -362,27 +368,26 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         )
 
         if load_weights:
+            epoch_getter = lambda x: int(
+                re.findall(r"epoch=[0-9]+", os.path.basename(x)).pop().split("=")[-1]
+            )
             if legacy:
                 logging.info("Loading model assuming leacy file structure")
-                ckpt_names = glob.glob(
-                    os.path.join(
-                        dirname, "logs/lightning_logs/version_*/checkpoints/*.ckpt"
-                    )
+                ckpt_names = sorted(
+                    glob.glob(
+                        os.path.join(
+                            dirname, "logs/lightning_logs/version_*/checkpoints/*.ckpt"
+                        )
+                    ),
+                    key=epoch_getter,
                 )
                 logging.info(f"Found {len(ckpt_names)} checkpoints")
-                if len(ckpt_names) > 1:
-                    raise NotImplementedError("Multiple checkpoints found")
                 ckpt_name = ckpt_names[-1]
                 logging.info(f"Loading weights from {ckpt_name}")
                 retval = cls.load_from_checkpoint(
                     checkpoint_path=ckpt_name, **model_args
                 )
             else:
-                epoch_getter = lambda x: int(
-                    re.findall(r"epoch=[0-9]+", os.path.basename(x))
-                    .pop()
-                    .split("=")[-1]
-                )
                 logging.info("Loading model assuming new file structure")
                 subfolder = f"best_by_{best_by}"
                 # Sort checkpoints by epoch -- last item is latest epoch
