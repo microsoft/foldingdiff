@@ -371,6 +371,39 @@ class CathCanonicalAnglesDataset(Dataset):
         return retval
 
 
+class CathCanonicalAnglesOnlyDataset(CathCanonicalAnglesDataset):
+    """
+    Returns the canonical dihedral angles in CATH, and notably NOT returning distance.
+    """
+
+    def __init__(
+        self,
+        split: Optional[Literal["train", "test", "validation"]] = None,
+        pad: int = 512,
+        toy: int = 0,
+        shift_to_zero_twopi: bool = False,
+    ) -> None:
+        super().__init__(split, pad, toy, shift_to_zero_twopi)
+        # Trim out the distance in all the feature_names and feature_is_angular
+        for k in self.feature_names:
+            self.feature_names[k] = self.feature_names[k][1:]
+        for k in self.feature_is_angular:
+            self.feature_is_angular[k] = self.feature_is_angular[k][1:]
+        for k in self.feature_names:
+            assert len(self.feature_names[k]) == len(self.feature_is_angular[k])
+            assert all(
+                self.feature_is_angular[k]
+            ), f"Expected only angular features, got {self.feature_is_angular[k]}"
+
+    def __getitem__(self, index) -> Dict[str, torch.Tensor]:
+        # Return a dict with keys: angles, attn_mask, position_ids
+        return_dict = super().__getitem__(index)
+
+        # Remove the distance feature
+        return_dict["angles"] = return_dict["angles"][:, 1:]
+        return return_dict
+
+
 class AlphafoldConsecutiveAnglesDataset(Dataset):
     """
     Represent the
