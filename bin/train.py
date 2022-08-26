@@ -72,9 +72,9 @@ def plot_timestep_distributions(
     shift_angles_zero_twopi: bool,
     plots_folder: Path,
     n_intervals: int = 11,
-):
+) -> None:
     """
-    Plot the distributions across timesteps
+    Plot the distributions across timesteps. This is parallelized across multiple cores
     """
     pfunc = functools.partial(
         _plot_timestep_distributions_helper,
@@ -86,10 +86,19 @@ def plot_timestep_distributions(
     ts = np.minimum(ts, timesteps - 1).tolist()
     logging.info(f"Plotting distributions at {ts} to {plots_folder}")
 
+    # Parallelize the plotting
     pool = multiprocessing.Pool(processes=min(multiprocessing.cpu_count(), len(ts)))
     pool.map(pfunc, ts)
     pool.close()
     pool.join()
+
+
+@pl.utilities.rank_zero_only
+def plot_kl_divergence(train_dset, plots_folder: Path) -> None:
+    """
+    Plot the KL divergence over time
+    """
+    train_dset.plot_kl_divergence(plots_folder / "kl_divergence_timesteps.pdf")
 
 
 def get_train_valid_test_sets(
@@ -255,7 +264,7 @@ def train(
     # Controls output
     results_dir: str = "./results",
     # Controls data loading and noising process
-    angles_definitions: Literal["rosetta", "canonical"] = "rosetta",
+    angles_definitions: Literal["rosetta", "canonical"] = "canonical",
     shift_angles_zero_twopi: bool = False,
     noise_prior: Literal["gaussian", "uniform"] = "gaussian",  # Uniform not tested
     timesteps: int = 250,
@@ -338,7 +347,7 @@ def train(
         DataLoader(
             dataset=ds,
             batch_size=effective_batch_size,
-            shuffle=False,  # Shuffle only train loader
+            shuffle=i == 0,  # Shuffle only train loader
             num_workers=multiprocessing.cpu_count() if multithread else 1,
             pin_memory=True,
         )
@@ -355,6 +364,7 @@ def train(
         and not single_dist_debug
         and not syn_noiser
     ):
+        plot_kl_divergence(dsets[0], plots_folder)
         plot_timestep_distributions(
             dsets[0],
             timesteps=timesteps,
@@ -465,8 +475,7 @@ def build_parser() -> argparse.ArgumentParser:
     Build CLI parser
     """
     parser = argparse.ArgumentParser(
-        usage=__doc__,
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        usage=__doc__, formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 
     # https://stackoverflow.com/questions/4480075/argparse-optional-positional-arguments
