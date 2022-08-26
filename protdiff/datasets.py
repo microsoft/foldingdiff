@@ -358,7 +358,6 @@ class CathCanonicalAnglesDataset(Dataset):
             )
         elif angles.shape[0] > self.pad:
             angles = angles[: self.pad]
-        assert angles.shape == (self.pad, len(self.feature_names["angles"]))
 
         position_ids = torch.arange(start=0, end=self.pad, step=1, dtype=torch.long)
         angles = torch.from_numpy(angles).float()
@@ -385,10 +384,12 @@ class CathCanonicalAnglesOnlyDataset(CathCanonicalAnglesDataset):
     ) -> None:
         super().__init__(split, pad, toy, shift_to_zero_twopi)
         # Trim out the distance in all the feature_names and feature_is_angular
+        self.feature_names = self.feature_names.copy()
+        self.feature_is_angular = self.feature_is_angular.copy()
         for k in self.feature_names:
-            self.feature_names[k] = self.feature_names[k][1:]
+            self.feature_names[k] = super().feature_names[k].copy()[1:]
         for k in self.feature_is_angular:
-            self.feature_is_angular[k] = self.feature_is_angular[k][1:]
+            self.feature_is_angular[k] = super().feature_is_angular[k].copy()[1:]
         for k in self.feature_names:
             assert len(self.feature_names[k]) == len(self.feature_is_angular[k])
             assert all(
@@ -569,10 +570,9 @@ class NoisedAnglesDataset(Dataset):
                 corrupted = noise_at_t["corrupted"]
                 l = int(torch.sum(noise_at_t["attn_mask"]).item())
                 corrupted_subset = corrupted[:l]
-                assert corrupted_subset.shape == (l, self.n_features)
                 t_examples.append(corrupted_subset)
             t_examples = torch.cat(t_examples, dim=0)
-            assert t_examples.ndim == 2 and t_examples.shape[1] == self.n_features
+            assert t_examples.ndim == 2
             corrupted_examples.append(t_examples)
         assert len(corrupted_examples) == self.timesteps
 

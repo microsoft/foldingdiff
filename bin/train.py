@@ -102,7 +102,9 @@ def plot_kl_divergence(train_dset, plots_folder: Path) -> None:
 
 
 def get_train_valid_test_sets(
-    angles_definitions: Literal["rosetta", "canonical"] = "rosetta",
+    angles_definitions: Literal[
+        "rosetta", "canonical", "canonical_angles_only"
+    ] = "rosetta",  # Keep this default at rosetta for compatibility
     timesteps: int = 250,
     variance_schedule: SCHEDULES = "linear",
     noise_prior: Literal["gaussian", "uniform"] = "gaussian",
@@ -129,6 +131,8 @@ def get_train_valid_test_sets(
         clean_dset_class = datasets.CathConsecutiveAnglesDataset
     elif angles_definitions == "canonical":
         clean_dset_class = datasets.CathCanonicalAnglesDataset
+    elif angles_definitions == "canonical_angles_only":
+        clean_dset_class = datasets.CathCanonicalAnglesOnlyDataset
     else:
         raise NotImplementedError(f"Unknown angles_definitions: {angles_definitions}")
     clean_dsets = [
@@ -264,7 +268,9 @@ def train(
     # Controls output
     results_dir: str = "./results",
     # Controls data loading and noising process
-    angles_definitions: Literal["rosetta", "canonical"] = "canonical",
+    angles_definitions: Literal[
+        "rosetta", "canonical", "canonical_angles_only"
+    ] = "canonical",
     shift_angles_zero_twopi: bool = False,
     noise_prior: Literal["gaussian", "uniform"] = "gaussian",  # Uniform not tested
     timesteps: int = 250,
@@ -383,12 +389,11 @@ def train(
     logging.info(f"Using loss function: {loss_fn}")
 
     # Shape of the input is (batch_size, timesteps, features)
-    sample_input = dsets[0][0]["corrupted"]
+    sample_input = dsets[0][0]["corrupted"]  # First item of the training dset
     model_n_inputs = sample_input.shape[-1]
     logging.info(f"Auto detected {model_n_inputs} inputs")
 
     if implementation == "pytorch_encoder":
-        logging.info("Using PyTorch encoder implementation")
         raise NotImplementedError("PyTorch encoder not implemented")
     elif implementation == "huggingface_encoder":
         logging.info("Using HuggingFace encoder implementation")
