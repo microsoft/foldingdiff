@@ -226,7 +226,7 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         time_encoding: Literal["gaussian_fourier", "sinusoidal"] = "sinusoidal",
         decoder: Literal["linear", "mlp"] = "linear",
         lr: float = 1e-4,
-        loss: Union[Callable, Literal["l1", "l1_smooth"]] = "l1_smooth",
+        loss: Union[Callable, Literal["l1", "smooth_l1"]] = "smooth_l1",
         l2: float = 0.0,
         l1: float = 0.0,
         circle_reg: float = 0.0,
