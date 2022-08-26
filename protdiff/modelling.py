@@ -213,6 +213,10 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
             losses.radian_smooth_l1_loss, beta=torch.pi / 10
         ),
     }
+    # To have legacy models still work with these
+    loss_autocorrect_dict = {
+        "radian_l1_smooth": "smooth_l1",
+    }
 
     def __init__(
         self,
@@ -222,9 +226,7 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         time_encoding: Literal["gaussian_fourier", "sinusoidal"] = "sinusoidal",
         decoder: Literal["linear", "mlp"] = "linear",
         lr: float = 1e-4,
-        loss: Union[
-            Callable, Literal["huber", "radian_l1", "radian_l1_smooth"]
-        ] = "huber",
+        loss: Union[Callable, Literal["l1", "l1_smooth"]] = "l1_smooth",
         l2: float = 0.0,
         l1: float = 0.0,
         circle_reg: float = 0.0,
@@ -257,6 +259,9 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
             logging.info(
                 f"Mapping loss {loss} to list of losses corresponding to angular {ft_is_angular}"
             )
+            if loss in self.loss_autocorrect_dict:
+                logging.info("Autocorrecting {} to {}".format(loss, self.loss_autocorrect_dict[loss]))
+                loss = self.loss_autocorrect_dict[loss]
             self.loss_func = [
                 self.angular_loss_fn_dict[loss]
                 if is_angular
@@ -264,7 +269,7 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
                 for is_angular in ft_is_angular
             ]
         else:
-            logging.info(f"Using pre-given callable loss: {loss}")
+            logging.warning(f"Using pre-given callable loss: {loss}. This may not handle angles correctly!")
             self.loss_func = loss
         pl.utilities.rank_zero_info(f"Using loss: {self.loss_func}")
         if isinstance(self.loss_func, (tuple, list)):
