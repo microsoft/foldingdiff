@@ -7,6 +7,7 @@ import os, sys
 import unittest
 
 import numpy as np
+import torch
 
 SRC_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "protdiff")
 assert os.path.isdir(SRC_DIR)
@@ -88,3 +89,29 @@ class TestCathCanonicalAnglesOnly(unittest.TestCase):
         d = self.dset[5]
         self.assertTrue(np.all(d["angles"].numpy() >= -np.pi))
         self.assertTrue(np.all(d["angles"].numpy() <= np.pi))
+
+    def test_repeated_init(self):
+        """Test that repeatedly intializing does not break anything"""
+        # This can happy because of the way we define subclasses
+        dset1 = datasets.CathCanonicalAnglesOnlyDataset(pad=self.pad)
+        dset2 = datasets.CathCanonicalAnglesOnlyDataset(pad=self.pad)
+        self.assertTrue(
+            all(
+                [
+                    a == b
+                    for a, b in zip(
+                        dset1.feature_names["angles"], dset2.feature_names["angles"]
+                    )
+                ]
+            )
+        )
+
+    def test_repeated_query(self):
+        """Test that repeated query is consistent"""
+        x1 = self.dset[0]
+        x2 = self.dset[0]
+
+        for k1 in x1.keys():
+            v1 = x1[k1]
+            v2 = x2[k1]
+            self.assertTrue(torch.allclose(v1, v2))
