@@ -38,6 +38,7 @@ from angles_and_coords import (
     coords_to_trrosetta_angles,
     trrosetta_angles_from_pdb,
 )
+from custom_metrics import kl_from_empirical
 import utils
 
 
@@ -517,7 +518,7 @@ class NoisedAnglesDataset(Dataset):
         fig.savefig(fname, bbox_inches="tight")
         return fname
 
-    def plot_kl_divergence(self, fname: str, subset: Optional[int] = 100):
+    def plot_kl_divergence(self, fname: str, subset: Optional[int] = 200):
         """
         Plot the KL divergence between a Gaussian and each feature over timesteps.
         Use the subset of n examples if given
@@ -528,9 +529,7 @@ class NoisedAnglesDataset(Dataset):
         # Generate each timestep for one item and compute the KL divergence across each feature
         n = min(subset, len(self))
         corrupted_examples = []
-        for t in tqdm(
-            range(self.timesteps), desc=f"Generating timesteps for {n} examples"
-        ):
+        for t in tqdm(range(self.timesteps), desc=f"Timestep sweep for {n} examples"):
             t_examples = []  # Contains (stacked) examples at given timestep
             for i in range(n):
                 noise_at_t = self.__getitem__(i, use_t_val=t)
@@ -551,7 +550,7 @@ class NoisedAnglesDataset(Dataset):
             ith_noise = pure_noise[..., ft_idx].numpy().flatten()
             # Set of values for every time step
             ith_vals = [c[..., ft_idx].numpy().flatten() for c in corrupted_examples]
-            pfunc = functools.partial(stats.wasserstein_distance, v_values=ith_noise)
+            pfunc = functools.partial(kl_from_empirical, v=ith_noise)
             pool = multiprocessing.Pool(multiprocessing.cpu_count())
             ft_distribution_dist = pool.map(pfunc, ith_vals, chunksize=10)
             pool.close()
@@ -571,9 +570,9 @@ class NoisedAnglesDataset(Dataset):
             ax.plot(np.arange(len(ft_dists)), ft_dists)
             ax.set(title=ft_name)
             if i == 0:
-                ax.set(ylabel="Wasserstein distance")
+                ax.set(ylabel="KL divergence")
             ax.set(xlabel="Timestep")
-        fig.suptitle(f"Wasserstein distance at timesteps, {n} examples", y=1.05)
+        fig.suptitle(f"KL divergence KL(empirical || Gaussian prior) at timesteps, {n} examples", y=1.05)
         fig.savefig(fname, bbox_inches="tight")
 
     def sample_noise(self, vals: torch.Tensor) -> torch.Tensor:
