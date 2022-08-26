@@ -15,7 +15,7 @@ def kl_from_empirical(u: np.ndarray, v: np.ndarray, nbins: int = 100) -> float:
     """
     min_val = min(np.min(u), np.min(v))
     max_val = max(np.max(u), np.max(v))
-    logging.debug(f"Creating bins between {min_val} - {max_val}")
+    logging.debug(f"Creating {nbins} bins between {min_val} - {max_val}")
 
     bins = np.linspace(min_val, max_val, nbins + 1)
     u_hist, _u_bin_edges = np.histogram(u, bins=bins, density=True)
