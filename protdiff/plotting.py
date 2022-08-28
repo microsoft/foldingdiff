@@ -22,6 +22,27 @@ PLOT_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "plots")
 assert os.path.isdir(PLOT_DIR)
 
 
+def plot_joint_kde(
+    x_values, y_values, show_axes: bool = True, fname: Optional[str] = None, **kwargs
+):
+    """
+    Plot a density scatter plot (KDE) of the values. kwargs are passed to
+    ax.set()
+
+    Useful for plotting Ramachandran plot - x = phi, y = psi
+    https://proteopedia.org/wiki/index.php/Ramachandran_Plots
+    """
+    fig, ax = plt.subplots(dpi=300)
+    sns.kdeplot(x=x_values, y=y_values, levels=25, fill=True, ax=ax)
+    if show_axes:
+        ax.axvline(0, color="grey", alpha=0.5)
+        ax.axhline(0, color="grey", alpha=0.5)
+    ax.set(**kwargs)
+    if fname is not None:
+        fig.savefig(fname, bbox_inches="tight")
+    return fig
+
+
 def plot_val_dists_at_t(
     dset,
     t: int,
