@@ -17,6 +17,7 @@ from astropy.visualization import LogStretch
 from astropy.visualization.mpl_normalize import ImageNormalize
 
 import torch
+from torch.utils.data import Dataset
 
 PLOT_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "plots")
 assert os.path.isdir(PLOT_DIR)
@@ -45,7 +46,7 @@ def plot_joint_kde(
 
 def plot_val_dists_at_t(
     t: int,
-    dset,
+    dset: Dataset,
     share_axes: bool = True,
     zero_center_angles: bool = False,
     fname: Optional[str] = None,

@@ -570,68 +570,6 @@ class NoisedAnglesDataset(Dataset):
         fig.savefig(fname, bbox_inches="tight")
         return fname
 
-    def plot_kl_divergence(self, fname: str, subset: Optional[int] = 200):
-        """
-        Plot the KL divergence between a Gaussian and each feature over timesteps.
-        Use the subset of n examples if given
-        """
-        # Sample noise that we sample from
-        pure_noise = self.sample_noise(torch.zeros(size=(1024, 512, self.n_features)))
-
-        # Generate each timestep for one item and compute the KL divergence across each feature
-        n = min(subset, len(self))
-        corrupted_examples = []
-        for t in tqdm(range(self.timesteps), desc=f"Timestep sweep for {n} examples"):
-            t_examples = []  # Contains (stacked) examples at given timestep
-            for i in range(n):
-                noise_at_t = self.__getitem__(i, use_t_val=t)
-                corrupted = noise_at_t["corrupted"]
-                l = int(torch.sum(noise_at_t["attn_mask"]).item())
-                corrupted_subset = corrupted[:l]
-                t_examples.append(corrupted_subset)
-            t_examples = torch.cat(t_examples, dim=0)
-            assert t_examples.ndim == 2
-            corrupted_examples.append(t_examples)
-        assert len(corrupted_examples) == self.timesteps
-
-        # Compute the kl divergence in parallel
-        per_ft_distribution_distance = {}
-        for ft_idx, ft_name in enumerate(self.dset.feature_names[self.dset_key]):
-            # ith_noise starts as (1024, 512) that we then flatten
-            ith_noise = pure_noise[..., ft_idx].numpy().flatten()
-            # Set of values for every time step
-            ith_vals = [c[..., ft_idx].numpy().flatten() for c in corrupted_examples]
-            pfunc = functools.partial(kl_from_empirical, v=ith_noise)
-            pool = multiprocessing.Pool(multiprocessing.cpu_count())
-            ft_distribution_dist = pool.map(pfunc, ith_vals, chunksize=10)
-            pool.close()
-            pool.join()
-
-            per_ft_distribution_distance[ft_name] = ft_distribution_dist
-
-        fig, axes = plt.subplots(
-            dpi=300,
-            figsize=(self.n_features * 3.05, 2.5),
-            ncols=self.n_features,
-            sharey=True,
-        )
-        for i, (ax, (ft_name, ft_dists)) in enumerate(
-            zip(axes, per_ft_distribution_distance.items())
-        ):
-            ax.plot(np.arange(len(ft_dists)), ft_dists)
-            ax.axhline(0, color="grey", linestyle="--", alpha=0.6)
-            if "_" not in ft_name:  # Append angle name
-                ft_name += f" $\{ft_name}$"
-            ax.set(title=ft_name)
-            if i == 0:
-                ax.set(ylabel="KL divergence")
-            ax.set(xlabel="Timestep")
-        fig.suptitle(
-            f"KL(empirical || Gaussian prior) at timesteps, {n} examples",
-            y=1.05,
-        )
-        fig.savefig(fname, bbox_inches="tight")
-
     def sample_noise(self, vals: torch.Tensor) -> torch.Tensor:
         """
         Adaptively sample noise based on modulo. We scale only the variance because
