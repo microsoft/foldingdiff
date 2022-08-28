@@ -399,6 +399,9 @@ class CathCanonicalAnglesOnlyDataset(CathCanonicalAnglesDataset):
 
         # Remove the distance feature
         return_dict["angles"] = return_dict["angles"][:, self.feature_idx]
+        assert torch.all(return_dict["angles"] >= -torch.pi)
+        assert torch.all(return_dict["angles"] <= torch.pi)
+
         return return_dict
 
 
