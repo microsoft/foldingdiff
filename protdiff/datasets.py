@@ -377,6 +377,7 @@ class CathCanonicalAnglesOnlyDataset(CathCanonicalAnglesDataset):
 
     def __init__(
         self,
+        angles: List[str] = ["phi", "psi", "omega", "tau"],
         split: Optional[Literal["train", "test", "validation"]] = None,
         pad: int = 512,
         toy: int = 0,
@@ -384,24 +385,20 @@ class CathCanonicalAnglesOnlyDataset(CathCanonicalAnglesDataset):
     ) -> None:
         super().__init__(split, pad, toy, shift_to_zero_twopi)
         # Trim out the distance in all the feature_names and feature_is_angular
-        self.feature_names = self.feature_names.copy()
-        self.feature_is_angular = self.feature_is_angular.copy()
-        for k in self.feature_names:
-            self.feature_names[k] = super().feature_names[k].copy()[1:]
-        for k in self.feature_is_angular:
-            self.feature_is_angular[k] = super().feature_is_angular[k].copy()[1:]
-        for k in self.feature_names:
-            assert len(self.feature_names[k]) == len(self.feature_is_angular[k])
-            assert all(
-                self.feature_is_angular[k]
-            ), f"Expected only angular features, got {self.feature_is_angular[k]}"
+        self.feature_names = {"angles": angles}
+        self.feature_is_angular = {"angles": [True] * len(angles)}
+        orig_features = super().feature_names["angles"].copy()
+        self.feature_idx = [orig_features.index(ft) for ft in angles]
+        logging.info(
+            f"CATH canonical angles only dataset with {angles} (subset idx {self.feature_idx})"
+        )
 
     def __getitem__(self, index) -> Dict[str, torch.Tensor]:
         # Return a dict with keys: angles, attn_mask, position_ids
         return_dict = super().__getitem__(index)
 
         # Remove the distance feature
-        return_dict["angles"] = return_dict["angles"][:, 1:]
+        return_dict["angles"] = return_dict["angles"][:, self.feature_idx]
         return return_dict
 
 
@@ -609,7 +606,8 @@ class NoisedAnglesDataset(Dataset):
                 ax.set(ylabel="KL divergence")
             ax.set(xlabel="Timestep")
         fig.suptitle(
-            f"KL(empirical || Gaussian prior) at timesteps, {n} examples", y=1.05,
+            f"KL(empirical || Gaussian prior) at timesteps, {n} examples",
+            y=1.05,
         )
         fig.savefig(fname, bbox_inches="tight")
 
