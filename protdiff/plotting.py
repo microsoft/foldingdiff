@@ -2,6 +2,7 @@
 Utility functions for plotting
 """
 import os, sys
+import re
 from typing import Optional, Sequence, Union
 
 from tqdm.auto import tqdm
@@ -59,7 +60,12 @@ def plot_val_dists_at_t(
     return fig
 
 
-def plot_losses(log_fname: str, out_fname: Optional[str] = None, simple: bool = False):
+def plot_losses(
+    log_fname: str,
+    out_fname: Optional[str] = None,
+    simple: bool = False,
+    pattern: Optional[str] = None,
+):
     """
     Plot the validation loss values from a log file. Spuports multiple
     validation losses if present in log file. Plots per epoch, and if multiple
@@ -79,6 +85,12 @@ def plot_losses(log_fname: str, out_fname: Optional[str] = None, simple: bool = 
         assert len(x_retval) == 2
         return x_retval
 
+    if simple:
+        assert pattern is None
+        pattern = re.compile(r"_loss$")
+    if isinstance(pattern, str):
+        pattern = re.compile(pattern)
+
     fig, ax = plt.subplots(dpi=300)
 
     df = pd.read_csv(log_fname)
@@ -87,8 +99,9 @@ def plot_losses(log_fname: str, out_fname: Optional[str] = None, simple: bool = 
     for colname in df.columns:
         if "loss" not in colname:
             continue
-        if simple and colname not in ["train_loss", "val_loss"]:
-            continue
+        if pattern is not None:
+            if not pattern.search(colname):
+                continue
         vals = df.loc[:, ["epoch", colname]]
         vals.dropna(axis="index", how="any", inplace=True)
         sns.lineplot(x="epoch", y=colname, data=vals, ax=ax, label=colname, alpha=0.5)
