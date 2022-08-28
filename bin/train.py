@@ -103,7 +103,10 @@ def plot_kl_divergence(train_dset, plots_folder: Path) -> None:
 
 def get_train_valid_test_sets(
     angles_definitions: Literal[
-        "rosetta", "canonical", "canonical_angles_only"
+        "rosetta",
+        "canonical",
+        "canonical_angles_only",
+        "canonical_dihedrals_only",
     ] = "rosetta",  # Keep this default at rosetta for compatibility
     timesteps: int = 250,
     variance_schedule: SCHEDULES = "linear",
@@ -126,15 +129,13 @@ def get_train_valid_test_sets(
         single_angle_debug != 0
     ), f"Invalid value for single_angle_debug: {single_angle_debug}"
 
-    # Get the dataset
-    if angles_definitions == "rosetta":
-        clean_dset_class = datasets.CathConsecutiveAnglesDataset
-    elif angles_definitions == "canonical":
-        clean_dset_class = datasets.CathCanonicalAnglesDataset
-    elif angles_definitions == "canonical_angles_only":
-        clean_dset_class = datasets.CathCanonicalAnglesOnlyDataset
-    else:
-        raise NotImplementedError(f"Unknown angles_definitions: {angles_definitions}")
+    clean_dset_class = {
+        "rosetta": datasets.CathConsecutiveAnglesDataset,
+        "canonical": datasets.CathCanonicalAnglesDataset,
+        "canonical_angles_only": datasets.CathCanonicalAnglesOnlyDataset,
+        "canonical_dihedrals_only": datasets.CathCanonicalDihedralsOnlyDataset,
+    }[angles_definitions]
+
     clean_dsets = [
         clean_dset_class(split=s, shift_to_zero_twopi=shift_to_zero_twopi, toy=toy)
         for s in ["train", "validation", "test"]
@@ -269,7 +270,7 @@ def train(
     results_dir: str = "./results",
     # Controls data loading and noising process
     angles_definitions: Literal[
-        "rosetta", "canonical", "canonical_angles_only"
+        "rosetta", "canonical", "canonical_angles_only", "canonical_dihedrals_only"
     ] = "canonical",
     shift_angles_zero_twopi: bool = False,
     noise_prior: Literal["gaussian", "uniform"] = "gaussian",  # Uniform not tested

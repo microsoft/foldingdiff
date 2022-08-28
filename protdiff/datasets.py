@@ -374,10 +374,11 @@ class CathCanonicalAnglesOnlyDataset(CathCanonicalAnglesDataset):
     """
     Returns the canonical dihedral angles in CATH, and notably NOT returning distance.
     """
+    feature_names = {"angles": ["phi", "psi", "omega", "tau"]}
+    feature_is_angular = {"angles": [True, True, True, True]}
 
     def __init__(
         self,
-        angles: List[str] = ["phi", "psi", "omega", "tau"],
         split: Optional[Literal["train", "test", "validation"]] = None,
         pad: int = 512,
         toy: int = 0,
@@ -385,12 +386,10 @@ class CathCanonicalAnglesOnlyDataset(CathCanonicalAnglesDataset):
     ) -> None:
         super().__init__(split, pad, toy, shift_to_zero_twopi)
         # Trim out the distance in all the feature_names and feature_is_angular
-        self.feature_names = {"angles": angles}
-        self.feature_is_angular = {"angles": [True] * len(angles)}
         orig_features = super().feature_names["angles"].copy()
-        self.feature_idx = [orig_features.index(ft) for ft in angles]
+        self.feature_idx = [orig_features.index(ft) for ft in self.feature_names['angles']]
         logging.info(
-            f"CATH canonical angles only dataset with {angles} (subset idx {self.feature_idx})"
+            f"CATH canonical angles only dataset with {self.feature_names['angles']} (subset idx {self.feature_idx})"
         )
 
     def __getitem__(self, index) -> Dict[str, torch.Tensor]:
@@ -403,6 +402,11 @@ class CathCanonicalAnglesOnlyDataset(CathCanonicalAnglesDataset):
         assert torch.all(return_dict["angles"] <= torch.pi)
 
         return return_dict
+
+
+class CathCanonicalDihedralsOnlyDataset(CathCanonicalAnglesOnlyDataset):
+    feature_names = {'angles': ['phi', 'psi']}
+    feature_is_angular = {"angles": [True, True]}
 
 
 class AlphafoldConsecutiveAnglesDataset(Dataset):
