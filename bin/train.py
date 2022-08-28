@@ -215,7 +215,7 @@ def build_callbacks(
             save_weights_only=True,
             mode="min",
         ),
-        # pl.callbacks.LearningRateMonitor(logging_interval="epoch", log_momentum=True),
+        pl.callbacks.LearningRateMonitor(logging_interval="epoch"),
     ]
     if early_stop_patience is not None and early_stop_patience > 0:
         logging.info(f"Using early stopping with patience {early_stop_patience}")
@@ -298,10 +298,10 @@ def train(
     l2_norm: float = 0.0,  # AdamW default has 0.01 L2 regularization, but BERT trainer uses 0.0
     l1_norm: float = 0.0,
     circle_reg: float = 0.0,
-    min_epochs: int = 5000,
+    min_epochs: Optional[int] = None,
     max_epochs: int = 10000,
     early_stop_patience: int = 0,  # Set to 0 to disable early stopping
-    lr_scheduler: Optional[Literal["OneCycleLR"]] = None,
+    lr_scheduler: Optional[Literal["OneCycleLR", "LinearWarmup"]] = None,
     use_swa: bool = False,  # Stochastic weight averaging can improve training genearlization
     # Misc. and debugging
     multithread: bool = True,
@@ -419,7 +419,7 @@ def train(
             l2=l2_norm,
             l1=l1_norm,
             circle_reg=circle_reg,
-            min_epochs=min_epochs,
+            epochs=max_epochs,
             steps_per_epoch=len(train_dataloader),
             lr_scheduler=lr_scheduler,
             write_preds_to_dir=results_folder / "valid_preds"
@@ -480,7 +480,8 @@ def build_parser() -> argparse.ArgumentParser:
     Build CLI parser
     """
     parser = argparse.ArgumentParser(
-        usage=__doc__, formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        usage=__doc__,
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 
     # https://stackoverflow.com/questions/4480075/argparse-optional-positional-arguments

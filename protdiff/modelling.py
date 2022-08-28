@@ -23,6 +23,7 @@ from transformers.models.bert.modeling_bert import (
     BertEncoder,
 )
 from transformers.activations import get_activation
+from transformers.optimization import get_linear_schedule_with_warmup
 
 import losses
 import utils
@@ -225,16 +226,16 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         config,
         ft_is_angular: List[bool] = [False, True, True, True],
         ft_names: Optional[List[str]] = None,
-        time_encoding: Literal["gaussian_fourier", "sinusoidal"] = "sinusoidal",
-        decoder: Literal["linear", "mlp"] = "linear",
-        lr: float = 1e-4,
+        time_encoding: Literal["gaussian_fourier", "sinusoidal"] = "gaussian_fourier",
+        decoder: Literal["linear", "mlp"] = "mlp",
+        lr: float = 5e-5,
         loss: Union[Callable, Literal["l1", "smooth_l1"]] = "smooth_l1",
         l2: float = 0.0,
         l1: float = 0.0,
         circle_reg: float = 0.0,
-        min_epochs: int = 1,
+        epochs: int = 1,
         steps_per_epoch: int = 250,  # Dummy value
-        lr_scheduler: Optional[Literal["OneCycleLR"]] = None,
+        lr_scheduler: Optional[Literal["OneCycleLR", "LinearWarmup"]] = None,
         write_preds_to_dir: Optional[str] = None,
     ) -> None:
         """
@@ -288,7 +289,7 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         self.l1_lambda = l1
         self.l2_lambda = l2
         self.circle_lambda = circle_reg
-        self.min_epochs = min_epochs
+        self.epochs = epochs
         self.steps_per_epoch = steps_per_epoch
         self.lr_scheduler = lr_scheduler
 
@@ -675,12 +676,28 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
                     "scheduler": torch.optim.lr_scheduler.OneCycleLR(
                         optim,
                         max_lr=1e-2,
-                        epochs=self.min_epochs,
+                        epochs=self.epochs,
                         steps_per_epoch=self.steps_per_epoch,
                     ),
                     "monitor": "val_loss",
                     "frequency": 1,
                     "interval": "step",
+                }
+            elif self.lr_scheduler == "LinearWarmup":
+                # https://huggingface.co/docs/transformers/v4.21.2/en/main_classes/optimizer_schedules#transformers.get_linear_schedule_with_warmup
+                # Transformers typically do well with linear warmup
+                warmup_steps = int(self.epochs * 0.1)
+                pl.utilities.rank_zero_info(
+                    f"Using linear warmup with {warmup_steps}/{self.epochs} warmup steps"
+                )
+                retval["lr_scheduler"] = {
+                    "scheduler": get_linear_schedule_with_warmup(
+                        optim,
+                        num_warmup_steps=warmup_steps,
+                        num_training_steps=self.epochs,
+                    ),
+                    "frequency": 1,
+                    "interval": "epoch",  # Call after 1 epoch
                 }
             else:
                 raise ValueError(f"Unknown lr scheduler {self.lr_scheduler}")

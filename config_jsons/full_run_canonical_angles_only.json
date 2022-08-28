@@ -20,7 +20,7 @@
     "l2_norm": 0.0,
     "l1_norm": 0.0,
     "circle_reg": 0.0,
-    "lr_scheduler": "",
+    "lr_scheduler": "LinearWarmup",
     "min_epochs": 10000,
     "max_epochs": 10000,
     "early_stop_patience": 0,
