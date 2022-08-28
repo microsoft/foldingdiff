@@ -141,7 +141,9 @@ class BertEmbeddings(nn.Module):
         )
 
     def forward(
-        self, input_embeds: torch.Tensor, position_ids: torch.LongTensor,
+        self,
+        input_embeds: torch.Tensor,
+        position_ids: torch.LongTensor,
     ) -> torch.Tensor:
         assert position_ids is not None, "`position_ids` must be defined"
         embeddings = input_embeds
@@ -332,12 +334,14 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         dirname: str,
         load_weights: bool = True,
         legacy: bool = False,
+        idx: int = -1,
         best_by: Literal["train", "valid"] = "valid",
         **kwargs,
     ) -> "BertForDiffusion":
         """
         Builds this model out from directory. Legacy mode is for loading models
         before there were separate folders for training and validation best models.
+        idx indicates which model to load if multiple are given
         """
         train_args_fname = os.path.join(dirname, "training_args.json")
         with open(train_args_fname, "r") as source:
@@ -382,13 +386,13 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
                     key=epoch_getter,
                 )
                 logging.info(f"Found {len(ckpt_names)} checkpoints")
-                ckpt_name = ckpt_names[-1]
+                ckpt_name = ckpt_names[idx]
                 logging.info(f"Loading weights from {ckpt_name}")
                 retval = cls.load_from_checkpoint(
                     checkpoint_path=ckpt_name, **model_args
                 )
             else:
-                logging.info("Loading model assuming new file structure")
+                logging.info("Loading model assuminsg new file structure")
                 subfolder = f"best_by_{best_by}"
                 # Sort checkpoints by epoch -- last item is latest epoch
                 ckpt_names = sorted(
@@ -396,7 +400,7 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
                     key=epoch_getter,
                 )
                 logging.info(f"Found {len(ckpt_names)} checkpoints")
-                ckpt_name = ckpt_names[-1]
+                ckpt_name = ckpt_names[idx]
                 logging.info(f"Loading weights from {ckpt_name}")
                 retval = cls.load_from_checkpoint(
                     checkpoint_path=ckpt_name, **model_args
@@ -468,7 +472,11 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         if position_ids is None:
             # [1, seq_length]
             position_ids = (
-                torch.arange(seq_length,).expand(batch_size, -1).type_as(timestep)
+                torch.arange(
+                    seq_length,
+                )
+                .expand(batch_size, -1)
+                .type_as(timestep)
             )
 
         # pl.utilities.rank_zero_debug(
@@ -656,7 +664,9 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         Return optimizer. Limited support for some optimizers
         """
         optim = torch.optim.AdamW(
-            self.parameters(), lr=self.learning_rate, weight_decay=self.l2_lambda,
+            self.parameters(),
+            lr=self.learning_rate,
+            weight_decay=self.l2_lambda,
         )
         retval = {"optimizer": optim}
         if self.lr_scheduler:
@@ -955,7 +965,9 @@ class BertDenoiserEncoderModel(pl.LightningModule):
         * https://pytorch.org/docs/stable/optim.html
         """
         optim = torch.optim.AdamW(
-            self.parameters(), lr=self.learning_rate, weight_decay=self.l2_lambda,
+            self.parameters(),
+            lr=self.learning_rate,
+            weight_decay=self.l2_lambda,
         )
         retval = {"optimizer": optim}
         if self.lr_scheduler:
