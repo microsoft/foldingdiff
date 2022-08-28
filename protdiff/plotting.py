@@ -44,8 +44,8 @@ def plot_joint_kde(
 
 
 def plot_val_dists_at_t(
-    dset,
     t: int,
+    dset,
     share_axes: bool = True,
     zero_center_angles: bool = False,
     fname: Optional[str] = None,

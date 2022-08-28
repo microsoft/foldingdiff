@@ -44,27 +44,6 @@ torch.manual_seed(6489)
 torch.backends.cudnn.benchmark = False
 
 
-def plot_epoch_losses(loss_values, fname: str):
-    """Plot the loss values and save to fname"""
-    fig, ax = plt.subplots(dpi=300)
-    ax.plot(np.arange(len(loss_values)), loss_values)
-    ax.set(xlabel="Epoch", ylabel="Loss", title="Loss over epochs")
-    fig.savefig(fname)
-
-
-def _plot_timestep_distributions_helper(
-    t: int, train_dset, shift_angles_zero_twopi: bool, plots_folder: Path
-):
-    logging.info(f"Plotting distribution at time {t}")
-    plotting.plot_val_dists_at_t(
-        train_dset,
-        t=t,
-        share_axes=False,
-        zero_center_angles=not shift_angles_zero_twopi,
-        fname=plots_folder / f"train_dists_at_t_{t}.pdf",
-    )
-
-
 @pl.utilities.rank_zero_only
 def plot_timestep_distributions(
     train_dset,
@@ -76,19 +55,23 @@ def plot_timestep_distributions(
     """
     Plot the distributions across timesteps. This is parallelized across multiple cores
     """
-    pfunc = functools.partial(
-        _plot_timestep_distributions_helper,
-        train_dset=train_dset,
-        shift_angles_zero_twopi=shift_angles_zero_twopi,
-        plots_folder=plots_folder,
-    )
     ts = np.linspace(0, timesteps, num=n_intervals, endpoint=True).astype(int)
     ts = np.minimum(ts, timesteps - 1).tolist()
     logging.info(f"Plotting distributions at {ts} to {plots_folder}")
+    args = [
+        (
+            t,
+            train_dset,
+            True,
+            not shift_angles_zero_twopi,
+            plots_folder / f"train_dists_at_t_{t}.pdf",
+        )
+        for t in ts
+    ]
 
     # Parallelize the plotting
     pool = multiprocessing.Pool(processes=min(multiprocessing.cpu_count(), len(ts)))
-    pool.map(pfunc, ts)
+    pool.starmap(plotting.plot_val_dists_at_t, args)
     pool.close()
     pool.join()
 
