@@ -374,6 +374,7 @@ class CathCanonicalAnglesOnlyDataset(CathCanonicalAnglesDataset):
     """
     Returns the canonical dihedral angles in CATH, and notably NOT returning distance.
     """
+
     feature_names = {"angles": ["phi", "psi", "omega", "tau"]}
     feature_is_angular = {"angles": [True, True, True, True]}
 
@@ -387,7 +388,9 @@ class CathCanonicalAnglesOnlyDataset(CathCanonicalAnglesDataset):
         super().__init__(split, pad, toy, shift_to_zero_twopi)
         # Trim out the distance in all the feature_names and feature_is_angular
         orig_features = super().feature_names["angles"].copy()
-        self.feature_idx = [orig_features.index(ft) for ft in self.feature_names['angles']]
+        self.feature_idx = [
+            orig_features.index(ft) for ft in self.feature_names["angles"]
+        ]
         logging.info(
             f"CATH canonical angles only dataset with {self.feature_names['angles']} (subset idx {self.feature_idx})"
         )
@@ -405,7 +408,7 @@ class CathCanonicalAnglesOnlyDataset(CathCanonicalAnglesDataset):
 
 
 class CathCanonicalDihedralsOnlyDataset(CathCanonicalAnglesOnlyDataset):
-    feature_names = {'angles': ['phi', 'psi']}
+    feature_names = {"angles": ["phi", "psi"]}
     feature_is_angular = {"angles": [True, True]}
 
 
@@ -506,6 +509,7 @@ class NoisedAnglesDataset(Dataset):
     ) -> None:
         super().__init__()
         self.dset = dset
+        assert hasattr(dset, "feature_names")
         assert hasattr(dset, "feature_is_angular")
         self.dset_key = dset_key
         assert (
@@ -533,6 +537,16 @@ class NoisedAnglesDataset(Dataset):
 
         betas = beta_schedules.get_variance_schedule(beta_schedule, timesteps)
         self.alpha_beta_terms = beta_schedules.compute_alphas(betas)
+
+    @property
+    def feature_names(self):
+        """Pass through feature names property of wrapped dset"""
+        return self.dset.feature_names
+
+    @property
+    def feature_is_angular(self):
+        """Pass through feature is angular property of wrapped dset"""
+        return self.dset.feature_is_angular
 
     def __str__(self) -> str:
         return f"NoisedAnglesDataset wrapping {self.dset} with {len(self)} examples with {self.schedule}-{self.timesteps} with variance scales {self.nonangular_var_scale} and {self.angular_var_scale}"
