@@ -1,4 +1,4 @@
-description: Initial full run of CATH dataset
+description: CATH canonical angles only with linear warmup
 
 target:
   service: sing  # Target service platform
@@ -25,7 +25,7 @@ environment: # https://singularitydocs.azurewebsites.net/docs/container_images/
     - pip install transformers==4.11.3  # https://huggingface.co/docs/transformers/installation
     - pip install pytorch-lightning==1.6.4  # https://www.pytorchlightning.ai/
     - pip install sequence-models  # https://github.com/microsoft/protein-sequence-models
-    - pip install biopython
+    - pip install biopython==1.79
 
 code:
   local_dir: $CONFIG_DIR/..  # elative to config file directory
@@ -37,4 +37,4 @@ jobs:
   sla_tier: premium
   command:
   - tar -xzf data/cath/cath-dataset-nonredundant-S40.pdb.tgz -C data/cath
-  - python bin/train.py config_jsons/full_run_canonical.json -o $$AMLT_OUTPUT_DIR/results
+  - python bin/train.py config_jsons/full_run_canonical_angles_only.json -o $$AMLT_OUTPUT_DIR/results
