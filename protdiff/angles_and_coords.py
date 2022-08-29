@@ -17,6 +17,9 @@ from Bio import PDB
 from Bio.PDB import PICIO, ic_rebuild
 from sequence_models import pdb_utils
 
+import torch
+from torch.utils.data import Dataset
+
 import constants
 import utils
 
@@ -267,13 +270,12 @@ def create_new_chain(
     dists_and_angles: pd.DataFrame,
     angles_to_set: List[str] = ["phi", "psi", "omega", "tau"],
     distances_to_set: List[str] = ["bond_dist"],
-    default_values: Optional[
-        Dict[str, Tuple[float, float]]
-    ] = constants.CathCanonicalTraining.ft_mean_var["angles"],
+    sampled_values_dset: Optional[Dataset] = None,
 ):
     """
     Creates a new chain. Note that input is radians and must be converted to normal degrees
-    for PDB compatibility
+    for PDB compatibility. If given, sampled_values_dset is used to sample values that are
+    not provided in the given dists_and_angles.
 
     USeful references:
     https://stackoverflow.com/questions/47631064/create-a-polymer-chain-of-nonstandard-residues-from-a-single-residue-pdb
@@ -336,6 +338,17 @@ def create_new_chain(
     # angle_colnames = [c for c in dists_and_angles.columns if not ":" in c]
     # dist_colnames = [c for c in dists_and_angles.columns if ":" in c]
 
+    def sample_val_from_dset(val_name: str) -> float:
+        """Sample a value from the dataset"""
+        idx = rng.integers(0, len(sampled_values_dset))
+        # Choose a random item
+        rand_item = sampled_values_dset[idx]
+        # Choose a random value from the sequence
+        a = rng.integers(0, torch.sum(rand_item["attn_mask"]).item())
+        b = sampled_values_dset.feature_names["angles"].index(angle)
+        v = rand_item["angles"][a, b]
+        return v
+
     # Create placeholder values
     ic.atom_to_internal_coordinates()
     # ic.set_residues()
@@ -345,22 +358,22 @@ def create_new_chain(
             # Angles are given in radians, convert them back to degrees
             if angle in dists_and_angles:
                 v = dists_and_angles.iloc[i][angle]
-                assert -np.pi <= v <= np.pi, f"{angle} is out of range with value {v}"
+            elif angle in sampled_values_dset.feature_names["angles"]:
+                v = sample_val_from_dset(angle)
             else:
-                mean, var = default_values[angle]
-                v = rng.normal(mean, var)
-                v = np.clip(v, mean - 3 * var, mean + 3 * var)
-                v = utils.modulo_with_wrappedrange(v, -np.pi, np.pi)
+                continue
+            assert -np.pi <= v <= np.pi, f"{angle} is out of range with value {v}"
             ric.set_angle(angle, v / np.pi * 180)
 
         for dist in distances_to_set:
 
             if dist in dists_and_angles:
                 d = dists_and_angles.iloc[i][dist]
+            elif dist in sampled_values_dset.feature_names["angles"]:
+                d = sample_val_from_dset(dist)
             else:
-                mean, var = default_values[dist]
-                d = rng.normal(mean, var)
-                d = np.clip(d, mean - 3 * var, mean + 3 * var)
+                continue
+
             if np.isclose(d, 0):
                 continue
             if dist == "bond_dist":
