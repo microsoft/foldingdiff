@@ -17,6 +17,9 @@ from Bio import PDB
 from Bio.PDB import PICIO, ic_rebuild
 from sequence_models import pdb_utils
 
+import constants
+import utils
+
 
 def pdb_to_pic(pdb_file: str, pic_file: str):
     """
@@ -108,7 +111,10 @@ def coords_to_trrosetta_angles(
     assert all_values.shape == (n - 1, 4)
 
     assert np.all(
-        np.logical_and(all_values[:, 1:] <= np.pi, all_values[:, 1:] >= -np.pi,)
+        np.logical_and(
+            all_values[:, 1:] <= np.pi,
+            all_values[:, 1:] >= -np.pi,
+        )
     ), "Angle values outside of expected [-pi, pi] range"
     return all_values
 
@@ -222,7 +228,7 @@ def sample_coords(
 ) -> List[pd.DataFrame]:
     """
     Sample the atomic coordinates of Alanine atoms. Return a list of dataframes each containing these
-    coordinates. 
+    coordinates.
 
     We use this to help figure out where to initialize atoms when creating a new chain
     """
@@ -257,7 +263,13 @@ def sample_coords(
 
 
 def create_new_chain(
-    out_fname: str, dists_and_angles: pd.DataFrame,
+    out_fname: str,
+    dists_and_angles: pd.DataFrame,
+    angles_to_set: List[str] = ["phi", "psi", "omega", "tau"],
+    distances_to_set: List[str] = ["bond_dist"],
+    default_values: Optional[
+        Dict[str, Tuple[float, float]]
+    ] = constants.CathCanonicalTraining.ft_mean_var["angles"],
 ):
     """
     Creates a new chain. Note that input is radians and must be converted to normal degrees
@@ -267,6 +279,7 @@ def create_new_chain(
     https://stackoverflow.com/questions/47631064/create-a-polymer-chain-of-nonstandard-residues-from-a-single-residue-pdb
     """
     n = len(dists_and_angles)
+    logging.info(f"Creating new chain of {n} residues")
     chain = PDB.Chain.Chain("A")
     # Avoid nonetype error
     chain.parent = PDB.Structure.Structure("pdb")
@@ -320,24 +333,43 @@ def create_new_chain(
     # populate initNCaC at start and after chain breaks
 
     # Determine which of the values are angles and which are distances
-    angle_colnames = [c for c in dists_and_angles.columns if not ":" in c]
-    dist_colnames = [c for c in dists_and_angles.columns if ":" in c]
+    # angle_colnames = [c for c in dists_and_angles.columns if not ":" in c]
+    # dist_colnames = [c for c in dists_and_angles.columns if ":" in c]
 
     # Create placeholder values
     ic.atom_to_internal_coordinates()
     # ic.set_residues()
     for i, ric in enumerate(ic.ordered_aa_ic_list):
         assert isinstance(ric, PDB.internal_coords.IC_Residue)
-        for angle in angle_colnames:
-            ric.set_angle(angle, dists_and_angles.iloc[i][angle] / np.pi * 180)
-        for dist in dist_colnames:
-            d = dists_and_angles.iloc[i][dist]
+        for angle in angles_to_set:
+            # Angles are given in radians, convert them back to degrees
+            if angle in dists_and_angles:
+                v = dists_and_angles.iloc[i][angle]
+                assert -np.pi <= v <= np.pi, f"{angle} is out of range with value {v}"
+            else:
+                mean, var = default_values[angle]
+                v = rng.normal(mean, var)
+                v = np.clip(v, mean - 3 * var, mean + 3 * var)
+                v = utils.modulo_with_wrappedrange(v, -np.pi, np.pi)
+            ric.set_angle(angle, v / np.pi * 180)
+
+        for dist in distances_to_set:
+
+            if dist in dists_and_angles:
+                d = dists_and_angles.iloc[i][dist]
+            else:
+                mean, var = default_values[dist]
+                d = rng.normal(mean, var)
+                d = np.clip(d, mean - 3 * var, mean + 3 * var)
             if np.isclose(d, 0):
                 continue
+            if dist == "bond_dist":
+                dist = "0C:1N"
             ric.set_length(dist, d)
 
     chain.internal_coord = ic
 
+    # Recalculate the atom coordinates
     chain.internal_to_atom_coordinates()
 
     # Write output
