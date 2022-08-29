@@ -319,12 +319,12 @@ class CathCanonicalAnglesDataset(Dataset):
             f"Length of angles: {np.min(self.all_lengths)}-{np.max(self.all_lengths)}, mean {np.mean(self.all_lengths)}"
         )
 
-        for ft in self.feature_names["angles"]:
-            idx = self.feature_names["angles"].index(ft)
-            is_angular = self.feature_is_angular["angles"][idx]
-            logging.info(f"Feature {ft} is angular: {is_angular}")
-            m, v = self.get_feature_mean_var(ft)
-            logging.info(f"Feature {ft} mean, var: {m}, {v}")
+        # for ft in self.feature_names["angles"]:
+        #     idx = self.feature_names["angles"].index(ft)
+        #     is_angular = self.feature_is_angular["angles"][idx]
+        #     logging.info(f"Feature {ft} is angular: {is_angular}")
+        #     m, v = self.get_feature_mean_var(ft)
+        #     logging.info(f"Feature {ft} mean, var: {m}, {v}")
 
     def sample_length(self, n: int = 1) -> Union[int, List[int]]:
         """
