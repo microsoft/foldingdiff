@@ -369,6 +369,24 @@ class CathCanonicalAnglesDataset(Dataset):
         }
         return retval
 
+    def get_feature_mean_var(self, ft_name: str) -> Tuple[float, float]:
+        """
+        Return the mean and variance associated with a given feature
+        """
+        assert ft_name in self.feature_names["angles"], f"Unknown feature {ft_name}"
+        idx = self.feature_names["angles"].index(ft_name)
+        logging.info(f"Computing metrics for {ft_name} - idx {idx}")
+
+        all_vals = []
+        for i in range(len(self)):
+            item = self[i]
+            attn_idx = torch.where(item["attn_mask"] == 1.0)[0]
+            vals = item["angles"][attn_idx, idx]
+            all_vals.append(vals)
+        all_vals = torch.cat(all_vals)
+        assert all_vals.ndim == 1
+        return torch.var_mean(all_vals)
+
 
 class CathCanonicalAnglesOnlyDataset(CathCanonicalAnglesDataset):
     """

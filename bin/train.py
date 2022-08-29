@@ -84,18 +84,22 @@ def plot_kl_divergence(train_dset, plots_folder: Path) -> None:
     """
     kl_at_timesteps = cm.kl_from_dset(train_dset)  # Shape (n_timesteps, n_features)
     n_timesteps, n_features = kl_at_timesteps.shape
-    fig, axes = plt.subplots(dpi=300, figsize=(n_features * 3.05, 2.5), ncols=n_features, sharey=True)
+    fig, axes = plt.subplots(
+        dpi=300, figsize=(n_features * 3.05, 2.5), ncols=n_features, sharey=True
+    )
     for i, (ft_name, ax) in enumerate(zip(train_dset.feature_names["angles"], axes)):
         ax.plot(np.arange(n_timesteps), kl_at_timesteps[:, i], label=ft_name)
-        ax.axhline(0, color='grey', linestyle='--', alpha=0.5)
+        ax.axhline(0, color="grey", linestyle="--", alpha=0.5)
         if "_" not in ft_name:
             ft_name += f" $\{ft_name}$"
         ax.set(title=ft_name)
         if i == 0:
             ax.set(ylabel="KL divergence")
         ax.set(xlabel="Timestep")
-    fig.suptitle(f"KL(empirical || Gaussian) over timesteps={train_dset.timesteps}", y=1.05)
-    fig.savefig(plots_folder / "kl_divergence_timesteps.pdf", bbox_inches='tight')
+    fig.suptitle(
+        f"KL(empirical || Gaussian) over timesteps={train_dset.timesteps}", y=1.05
+    )
+    fig.savefig(plots_folder / "kl_divergence_timesteps.pdf", bbox_inches="tight")
 
 
 def get_train_valid_test_sets(
@@ -454,7 +458,7 @@ def train(
         strategy=strategy,
         gpus=ngpu,
         enable_progress_bar=False,
-        move_metrics_to_cpu=True,  # Saves memory
+        move_metrics_to_cpu=False,  # Saves memory
     )
     trainer.fit(
         model=model,
