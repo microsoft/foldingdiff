@@ -281,7 +281,9 @@ def create_new_chain(
     https://stackoverflow.com/questions/47631064/create-a-polymer-chain-of-nonstandard-residues-from-a-single-residue-pdb
     """
     n = len(dists_and_angles)
-    logging.info(f"Creating new chain of {n} residues")
+    logging.info(
+        f"Creating new chain of {n} residues with input values {dists_and_angles.columns.tolist()}"
+    )
     chain = PDB.Chain.Chain("A")
     # Avoid nonetype error
     chain.parent = PDB.Structure.Structure("pdb")
