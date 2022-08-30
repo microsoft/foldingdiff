@@ -113,6 +113,7 @@ def get_train_valid_test_sets(
     variance_schedule: SCHEDULES = "linear",
     noise_prior: Literal["gaussian", "uniform"] = "gaussian",
     shift_to_zero_twopi: bool = False,
+    zero_center: bool = False,
     var_scale: float = np.pi,
     toy: Union[int, bool] = False,
     exhaustive_t: bool = False,
@@ -138,9 +139,19 @@ def get_train_valid_test_sets(
     }[angles_definitions]
 
     clean_dsets = [
-        clean_dset_class(split=s, shift_to_zero_twopi=shift_to_zero_twopi, toy=toy)
+        clean_dset_class(
+            split=s,
+            shift_to_zero_twopi=shift_to_zero_twopi,
+            zero_center=zero_center,
+            toy=toy,
+        )
         for s in ["train", "validation", "test"]
     ]
+    # Set the training set mean to the validation set mean
+    if clean_dsets[0].means is not None:
+        logging.info(f"Updating valid/test mean offset to {clean_dsets[0].means}")
+        clean_dsets[1].means = clean_dsets[0].means
+        clean_dsets[2].means = clean_dsets[0].means
 
     if syn_noiser != "":
         if syn_noiser == "halfhalf":
@@ -274,6 +285,7 @@ def train(
         "rosetta", "canonical", "canonical_angles_only", "canonical_dihedrals_only"
     ] = "canonical",
     shift_angles_zero_twopi: bool = False,
+    zero_center: bool = True,
     noise_prior: Literal["gaussian", "uniform"] = "gaussian",  # Uniform not tested
     timesteps: int = 250,
     variance_schedule: SCHEDULES = "linear",  # cosine better on single angle toy test
@@ -332,6 +344,7 @@ def train(
         variance_schedule=variance_schedule,
         noise_prior=noise_prior,
         shift_to_zero_twopi=shift_angles_zero_twopi,
+        zero_center=zero_center,
         var_scale=variance_scale,
         toy=subset,
         syn_noiser=syn_noiser,

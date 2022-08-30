@@ -433,8 +433,9 @@ class CathCanonicalAnglesOnlyDataset(CathCanonicalAnglesDataset):
         pad: int = 512,
         toy: int = 0,
         shift_to_zero_twopi: bool = False,
+        zero_center: bool = False,
     ) -> None:
-        super().__init__(split, pad, toy, shift_to_zero_twopi)
+        super().__init__(split, pad, toy, shift_to_zero_twopi, zero_center=zero_center)
         # Trim out the distance in all the feature_names and feature_is_angular
         orig_features = super().feature_names["angles"].copy()
         self.feature_idx = [
