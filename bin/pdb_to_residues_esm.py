@@ -56,7 +56,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--output",
         type=str,
         default="",
-        help="Output file (fasta format) to write to",
+        help="Output file (fasta format) to write to. If not provided, default to input + .fasta",
     )
     parser.add_argument(
         "-s",
@@ -92,8 +92,11 @@ def main():
     logging.info(f"Sampled sequence: {sampled_seq}")
 
     # If output file is given, write it
+    out = args.output
+    if out == "":
+        out = fpath.replace(".pdb", ".fasta")
     if args.output:
-        write_fa(args.output, sampled_seq)
+        write_fa(out, sampled_seq)
 
 
 if __name__ == "__main__":
