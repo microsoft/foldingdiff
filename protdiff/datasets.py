@@ -238,6 +238,7 @@ class CathCanonicalAnglesDataset(Dataset):
         pad: int = 512,
         toy: int = 0,
         shift_to_zero_twopi: bool = False,
+        zero_center: bool = False,  # Center the features to have 0 mean
     ) -> None:
         super().__init__()
         assert not shift_to_zero_twopi, "No reason to shift to zero twopi"
@@ -247,7 +248,7 @@ class CathCanonicalAnglesDataset(Dataset):
         fnames = glob.glob(os.path.join(CATH_DIR, "dompdb", "*"))
         assert fnames, f"No files found in {CATH_DIR}/dompdb"
 
-        # self.structures should be a list of dicts
+        # self.structures should be a list of dicts with keys (angles, fname)
         # Always compoute for toy; do not save
         if toy:
             if isinstance(toy, bool):
@@ -312,6 +313,17 @@ class CathCanonicalAnglesDataset(Dataset):
 
             logging.info(f"Split {split} contains {len(self.structures)} structures")
 
+        # if given, zero center the features
+        self.means = None
+        if zero_center:
+            structures_concat = np.concatenate([s["angles"] for s in self.structures])
+            assert structures_concat.ndim == 2
+            self.means = np.mean(structures_concat, axis=0)
+            # Subtract the mean and perform modulo where values are radial
+            logging.info(
+                f"Offsetting features {self.feature_names['angles']} by means {self.means}"
+            )
+
         # Aggregate lengths
         self.all_lengths = [s["angles"].shape[0] for s in self.structures]
         self._length_rng = np.random.default_rng(seed=6489)
@@ -346,8 +358,18 @@ class CathCanonicalAnglesDataset(Dataset):
 
         angles = self.structures[index]["angles"]
         assert angles is not None
+        angular_idx = np.where(self.feature_is_angular["angles"])[0]
+        assert np.min(angles[:, angular_idx]) >= -np.pi
+        assert np.max(angles[:, angular_idx]) <= np.pi
 
-        # Pad/trim and create attention mask. 0 indicates masked
+        # If given, offset the angles with mean
+        if self.means is not None:
+            angles -= self.means
+            angles[:, angular_idx] = utils.modulo_with_wrapped_range(
+                angles[:, angular_idx], -np.pi, np.pi
+            )
+
+        # Create attention mask. 0 indicates masked
         l = min(self.pad, angles.shape[0])
         attn_mask = torch.zeros(size=(self.pad,))
         attn_mask[:l] = 1.0
@@ -356,6 +378,7 @@ class CathCanonicalAnglesDataset(Dataset):
         # is_nan = np.where(np.any(np.isnan(angles), axis=1))[0]
         # attn_mask[is_nan] = 0.0  # Mask out the nan positions
 
+        # Perform padding/trimming
         if angles.shape[0] < self.pad:
             angles = np.pad(
                 angles,
@@ -366,6 +389,7 @@ class CathCanonicalAnglesDataset(Dataset):
         elif angles.shape[0] > self.pad:
             angles = angles[: self.pad]
 
+        # Create position IDs
         position_ids = torch.arange(start=0, end=self.pad, step=1, dtype=torch.long)
         angles = torch.from_numpy(angles).float()
 
