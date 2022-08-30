@@ -125,7 +125,8 @@ def sample(
     model: nn.Module, train_dset, n: int, batch_size: int = 256
 ) -> List[np.ndarray]:
     """
-    Sample from the given model. Use the train_dset to generate noise and to sample lengths.
+    Sample from the given model. Use the train_dset to generate noise to sample
+    sequence lengths. Returns a list of arrays, shape (timesteps, seq_len, fts)
     """
     # Process each batch
     retval = []
@@ -145,6 +146,7 @@ def sample(
             betas=train_dset.alpha_beta_terms["betas"],
             is_angle=True,
         )
+        # Gets to size (timesteps, seq_len, n_ft)
         trimmed_sampled = [sampled[:, i, :l, :] for i, l in enumerate(lengths)]
         retval.extend(trimmed_sampled)
     return retval
