@@ -316,6 +316,7 @@ class CathCanonicalAnglesDataset(Dataset):
         # if given, zero center the features
         self.means = None
         if zero_center:
+            # Note that these angles are not yet padded
             structures_concat = np.concatenate([s["angles"] for s in self.structures])
             assert structures_concat.ndim == 2
             self.means = wrapped_mean(structures_concat, axis=0)
@@ -349,6 +350,12 @@ class CathCanonicalAnglesDataset(Dataset):
         else:
             l = self._length_rng.choice(self.all_lengths, size=n, replace=True).tolist()
         return l
+
+    def get_masked_means(self) -> np.ndarray:
+        """Return the means subset to the actual features used"""
+        if self.means is None:
+            return None
+        return np.copy(self.means)
 
     @functools.cached_property
     def filenames(self) -> List[str]:
@@ -459,6 +466,12 @@ class CathCanonicalAnglesOnlyDataset(CathCanonicalAnglesDataset):
         logging.info(
             f"CATH canonical angles only dataset with {self.feature_names['angles']} (subset idx {self.feature_idx})"
         )
+
+    def get_masked_means(self) -> np.ndarray:
+        """Return the means subset to the actual features used"""
+        if self.means is None:
+            return None
+        return np.copy(self.means)[self.feature_idx]
 
     def __getitem__(
         self, index, ignore_zero_center: bool = False
