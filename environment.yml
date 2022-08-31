@@ -20,5 +20,6 @@ dependencies:
   - conda-forge::astropy=5.1
   - conda-forge::gitpython
   - conda-forge::biopython=1.79
+  - bioconda::tmalign
   - pip
     - sequence-models
