@@ -350,6 +350,11 @@ class CathCanonicalAnglesDataset(Dataset):
             l = self._length_rng.choice(self.all_lengths, size=n, replace=True).tolist()
         return l
 
+    @functools.cached_property
+    def filenames(self) -> List[str]:
+        """Return the filenames that constitute this dataset"""
+        return [s["fname"] for s in self.structures]
+
     def __len__(self) -> int:
         return len(self.structures)
 
