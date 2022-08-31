@@ -358,7 +358,9 @@ class CathCanonicalAnglesDataset(Dataset):
     def __len__(self) -> int:
         return len(self.structures)
 
-    def __getitem__(self, index) -> Dict[str, torch.Tensor]:
+    def __getitem__(
+        self, index, ignore_zero_center: bool = False
+    ) -> Dict[str, torch.Tensor]:
         if not 0 <= index < len(self):
             raise IndexError("Index out of range")
 
@@ -372,7 +374,7 @@ class CathCanonicalAnglesDataset(Dataset):
         ]
 
         # If given, offset the angles with mean
-        if self.means is not None:
+        if self.means is not None and not ignore_zero_center:
             assert self.means.shape[0] == angles.shape[1]
             angles -= self.means
             angles[:, angular_idx] = utils.modulo_with_wrapped_range(
@@ -458,9 +460,11 @@ class CathCanonicalAnglesOnlyDataset(CathCanonicalAnglesDataset):
             f"CATH canonical angles only dataset with {self.feature_names['angles']} (subset idx {self.feature_idx})"
         )
 
-    def __getitem__(self, index) -> Dict[str, torch.Tensor]:
+    def __getitem__(
+        self, index, ignore_zero_center: bool = False
+    ) -> Dict[str, torch.Tensor]:
         # Return a dict with keys: angles, attn_mask, position_ids
-        return_dict = super().__getitem__(index)
+        return_dict = super().__getitem__(index, ignore_zero_center=ignore_zero_center)
 
         # Remove the distance feature
         assert return_dict["angles"].ndim == 2
