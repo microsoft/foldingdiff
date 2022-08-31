@@ -285,7 +285,7 @@ def train(
         "rosetta", "canonical", "canonical_angles_only", "canonical_dihedrals_only"
     ] = "canonical",
     shift_angles_zero_twopi: bool = False,
-    zero_center: bool = True,
+    zero_center: bool = False,
     noise_prior: Literal["gaussian", "uniform"] = "gaussian",  # Uniform not tested
     timesteps: int = 250,
     variance_schedule: SCHEDULES = "linear",  # cosine better on single angle toy test
