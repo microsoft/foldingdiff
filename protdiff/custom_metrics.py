@@ -4,12 +4,16 @@ Some custom metrics
 import functools
 import multiprocessing
 import logging
+from cmath import rect, phase
+from math import radians, degrees
 
 import numpy as np
 from scipy import stats
 
 import torch
 from torch.utils.data import Dataset
+
+import utils
 
 
 def kl_from_empirical(u: np.ndarray, v: np.ndarray, nbins: int = 100) -> float:
@@ -75,3 +79,15 @@ def kl_from_dset(dset: Dataset, single_thread: bool = False) -> np.ndarray:
         pool.close()
         pool.join()
     return np.array(kl_values)
+
+
+def wrapped_mean(x: np.ndarray, min_val=-np.pi, max_val=np.pi) -> float:
+    """
+    Wrap the mean function about the given range
+    """
+    # https://rosettacode.org/wiki/Averages/Mean_angle
+    sin_x = np.sin(x)
+    cos_x = np.cos(x)
+
+    retval = np.arctan2(np.mean(sin_x), np.mean(cos_x))
+    return retval

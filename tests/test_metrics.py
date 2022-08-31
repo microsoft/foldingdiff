@@ -44,3 +44,51 @@ class TestKLFromEmpirical(unittest.TestCase):
 
         kl = cm.kl_from_empirical(u, v)
         self.assertEqual(np.inf, kl)
+
+
+class TestWrappedMean(unittest.TestCase):
+    """Test for the wrapped mean function"""
+
+    def setUp(self) -> None:
+        self.rng = np.random.default_rng(seed=6489)
+        self.rad2deg = lambda x: x * 180 / np.pi
+        self.deg2rad = lambda x: x * np.pi / 180
+
+    def test_simple(self):
+        """Test a hand-engineered example"""
+        true_mean = 170
+        x = np.array([true_mean - 30, true_mean + 30])
+        x_rad = self.deg2rad(x)
+        m = cm.wrapped_mean(x_rad)
+        m_deg = self.rad2deg(m)
+        self.assertAlmostEqual(true_mean, m_deg, places=2)
+
+    def test_positive(self):
+        """Simple test"""
+        x = self.rng.normal(loc=3.0, scale=0.25, size=100000)
+        m = cm.wrapped_mean(x)
+        self.assertAlmostEqual(m, 3.0, places=2)
+
+    def test_negative(self):
+        """Test that wrapping a negative mean works"""
+        x = self.rng.normal(loc=-3.0, scale=0.25, size=100000)
+        m = cm.wrapped_mean(x)
+        self.assertAlmostEqual(m, -3.0, places=2)
+
+    def test_zero(self):
+        """Test that a zero mean is still correctly handled"""
+        x = self.rng.normal(loc=0.0, scale=0.25, size=100000)
+        m = cm.wrapped_mean(x)
+        self.assertAlmostEqual(m, 0.0, places=2)
+
+    def test_positive_unwrapped(self):
+        """Test positive values that don't actually require wrapping"""
+        x = self.rng.normal(loc=0.5, scale=0.25, size=100000)
+        m = cm.wrapped_mean(x)
+        self.assertAlmostEqual(m, 0.5, places=2)
+
+    def test_negative_unwrapped(self):
+        """Test negative values don't actually require wrapping"""
+        x = self.rng.normal(loc=-0.5, scale=0.25, size=100000)
+        m = cm.wrapped_mean(x)
+        self.assertAlmostEqual(m, -0.5, places=2)
