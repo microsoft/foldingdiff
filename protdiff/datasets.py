@@ -38,7 +38,7 @@ from angles_and_coords import (
     coords_to_trrosetta_angles,
     trrosetta_angles_from_pdb,
 )
-from custom_metrics import kl_from_empirical
+from custom_metrics import kl_from_empirical, wrapped_mean
 import utils
 
 
@@ -249,7 +249,7 @@ class CathCanonicalAnglesDataset(Dataset):
         assert fnames, f"No files found in {CATH_DIR}/dompdb"
 
         # self.structures should be a list of dicts with keys (angles, fname)
-        # Always compoute for toy; do not save
+        # Always compute for toy; do not save
         if toy:
             if isinstance(toy, bool):
                 toy = 150
@@ -318,7 +318,8 @@ class CathCanonicalAnglesDataset(Dataset):
         if zero_center:
             structures_concat = np.concatenate([s["angles"] for s in self.structures])
             assert structures_concat.ndim == 2
-            self.means = np.mean(structures_concat, axis=0)
+            self.means = wrapped_mean(structures_concat, axis=0)
+            assert self.means.shape == (structures_concat.shape[1],)
             # Subtract the mean and perform modulo where values are radial
             logging.info(
                 f"Offsetting features {self.feature_names['angles']} by means {self.means}"
@@ -358,8 +359,12 @@ class CathCanonicalAnglesDataset(Dataset):
 
         angles = self.structures[index]["angles"]
         assert angles is not None
-        assert angles.shape[1] == len(CathCanonicalAnglesDataset.feature_is_angular['angles'])
-        angular_idx = np.where(CathCanonicalAnglesDataset.feature_is_angular["angles"])[0]
+        assert angles.shape[1] == len(
+            CathCanonicalAnglesDataset.feature_is_angular["angles"]
+        )
+        angular_idx = np.where(CathCanonicalAnglesDataset.feature_is_angular["angles"])[
+            0
+        ]
 
         # If given, offset the angles with mean
         if self.means is not None:

@@ -81,7 +81,7 @@ def kl_from_dset(dset: Dataset, single_thread: bool = False) -> np.ndarray:
     return np.array(kl_values)
 
 
-def wrapped_mean(x: np.ndarray) -> float:
+def wrapped_mean(x: np.ndarray, axis=None) -> float:
     """
     Wrap the mean function about [-pi, pi]
     """
@@ -89,5 +89,5 @@ def wrapped_mean(x: np.ndarray) -> float:
     sin_x = np.sin(x)
     cos_x = np.cos(x)
 
-    retval = np.arctan2(np.mean(sin_x), np.mean(cos_x))
+    retval = np.arctan2(np.mean(sin_x, axis=axis), np.mean(cos_x, axis=axis))
     return retval
