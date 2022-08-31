@@ -11,7 +11,7 @@ import logging
 from typing import List
 
 
-def run_tmalign(query: str, reference: str) -> float:
+def run_tmalign(query: str, reference: str, fast: bool = False) -> float:
     """
     Run TMalign on the two given input pdb files
     """
@@ -25,6 +25,8 @@ def run_tmalign(query: str, reference: str) -> float:
 
     # Build the command
     cmd = f"{exec} {query} {reference}"
+    if fast:
+        cmd += " -fast"
     output = subprocess.check_output(cmd, shell=True)
     score_lines = []
     for line in output.decode().split("\n"):
@@ -43,11 +45,12 @@ def max_tm_across_refs(
 ) -> float:
     """
     Compare the query against each of the references in parallel and return the maximum score
+    This is typically a lot of comparisons so we run with fast set to True
     """
     logging.info(
-        f"Matching against {len(references)} references using {n_threads} workers"
+        f"Matching against {len(references)} references using {n_threads} workers with fast=True"
     )
-    args = [(query, ref) for ref in references]
+    args = [(query, ref, True) for ref in references]
     pool = multiprocessing.Pool(n_threads)
     values = pool.starmap(run_tmalign, args, chunksize=10)
     pool.close()
