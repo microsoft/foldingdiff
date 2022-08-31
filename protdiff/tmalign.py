@@ -48,7 +48,7 @@ def max_tm_across_refs(
     This is typically a lot of comparisons so we run with fast set to True by default
     """
     logging.info(
-        f"Matching against {len(references)} references using {n_threads} workers with fast=True"
+        f"Matching against {len(references)} references using {n_threads} workers with fast={fast}"
     )
     args = [(query, ref, fast) for ref in references]
     pool = multiprocessing.Pool(n_threads)
