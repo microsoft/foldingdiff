@@ -6,6 +6,9 @@ import os
 import re
 import shutil
 import subprocess
+import multiprocessing
+import logging
+from typing import List
 
 
 def run_tmalign(query: str, reference: str) -> float:
@@ -33,6 +36,24 @@ def run_tmalign(query: str, reference: str) -> float:
     score_getter = lambda s: float(re.findall(r"=\s+([0-9.]+)", s)[0])
     results_dict = {key_getter(s): score_getter(s) for s in score_lines}
     return results_dict["Chain_2"]  # Normalize by reference length
+
+
+def max_tm_across_refs(
+    query: str, references: List[str], n_threads: int = multiprocessing.cpu_count()
+) -> float:
+    """
+    Compare the query against each of the references in parallel and return the maximum score
+    """
+    logging.info(
+        f"Matching against {len(references)} references using {n_threads} workers"
+    )
+    args = [(query, ref) for ref in references]
+    pool = multiprocessing.Pool(n_threads)
+    values = pool.starmap(run_tmalign, args, chunksize=10)
+    pool.close()
+    pool.join()
+
+    return max(values)
 
 
 def main():
