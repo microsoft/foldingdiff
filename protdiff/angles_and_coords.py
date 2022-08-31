@@ -11,7 +11,6 @@ from typing import *
 
 import numpy as np
 import pandas as pd
-import scipy.linalg
 
 from Bio import PDB
 from Bio.PDB import PICIO, ic_rebuild
@@ -19,9 +18,6 @@ from sequence_models import pdb_utils
 
 import torch
 from torch.utils.data import Dataset
-
-import constants
-import utils
 
 
 def pdb_to_pic(pdb_file: str, pic_file: str):
@@ -393,36 +389,6 @@ def create_new_chain(
     io.save(out_fname)
 
 
-def reverse_dihedral(v1, v2, v3, dihedral):
-    """
-    Find vector from c->d given a, b, c, & dihedral angle formed by a, b, c, d
-    """
-    # see https://github.com/pycogent/pycogent/blob/master/cogent/struct/dihedral.py
-    def rotate(v, theta, axis):
-        # https://stackoverflow.com/questions/6802577/rotation-of-3d-vector
-        m = scipy.linalg.expm(
-            np.cross(np.eye(3), axis / scipy.linalg.norm(axis) * theta)
-        )
-        return np.dot(v, m)
-
-    v12 = v2 - v1
-    v23 = v3 - v2
-    # This is the first vector in the angle calculation that gives dihedral
-    normal1 = np.cross(v12, v23)
-    normal1 = normal1 / scipy.linalg.norm(normal1)
-
-    rotated = rotate(normal1, dihedral, v12)
-
-    # Invert cross product
-    # https://math.stackexchange.com/questions/32600/whats-the-opposite-of-a-cross-product
-    num = np.cross(rotated, v23)
-    den = np.dot(v23, v23.T)
-    final_offset = num / den  # Corresponds to V34
-    final_offset /= scipy.linalg.norm(final_offset)
-
-    return final_offset
-
-
 def test_generation(
     reference_fname: str = os.path.join(
         os.path.dirname(os.path.dirname(__file__)), "data/7PFL.pdb"
@@ -439,22 +405,6 @@ def test_generation(
     create_new_chain("test.pdb", vals)
     new_vals = canonical_distances_and_dihedrals("test.pdb")
     print(new_vals[:10])
-
-
-def test_reverse_dihedral():
-    """
-    Test that we can reverse a dihedral
-    """
-    from sequence_models import pdb_utils
-
-    a = np.array([[1.0, 0.0, 0.0]])
-    b = np.array([[0.0, 0.0, 0.0]])
-    c = np.array([[0.0, 1.0, 0.0]])
-    d = np.array([[-1.0, 1.0, 0.0]])
-    dh = pdb_utils.get_dihedrals(a, b, c, d)
-    print(dh)
-
-    reverse_dihedral(a, b, c, dh)
 
 
 if __name__ == "__main__":
