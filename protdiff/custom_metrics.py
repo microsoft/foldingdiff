@@ -81,9 +81,9 @@ def kl_from_dset(dset: Dataset, single_thread: bool = False) -> np.ndarray:
     return np.array(kl_values)
 
 
-def wrapped_mean(x: np.ndarray, min_val=-np.pi, max_val=np.pi) -> float:
+def wrapped_mean(x: np.ndarray) -> float:
     """
-    Wrap the mean function about the given range
+    Wrap the mean function about [-pi, pi]
     """
     # https://rosettacode.org/wiki/Averages/Mean_angle
     sin_x = np.sin(x)
