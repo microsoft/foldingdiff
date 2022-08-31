@@ -41,16 +41,16 @@ def run_tmalign(query: str, reference: str, fast: bool = False) -> float:
 
 
 def max_tm_across_refs(
-    query: str, references: List[str], n_threads: int = multiprocessing.cpu_count()
+    query: str, references: List[str], n_threads: int = multiprocessing.cpu_count(), fast: bool =True
 ) -> float:
     """
     Compare the query against each of the references in parallel and return the maximum score
-    This is typically a lot of comparisons so we run with fast set to True
+    This is typically a lot of comparisons so we run with fast set to True by default
     """
     logging.info(
         f"Matching against {len(references)} references using {n_threads} workers with fast=True"
     )
-    args = [(query, ref, True) for ref in references]
+    args = [(query, ref, fast) for ref in references]
     pool = multiprocessing.Pool(n_threads)
     values = pool.starmap(run_tmalign, args, chunksize=10)
     pool.close()
