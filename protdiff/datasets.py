@@ -358,12 +358,12 @@ class CathCanonicalAnglesDataset(Dataset):
 
         angles = self.structures[index]["angles"]
         assert angles is not None
-        angular_idx = np.where(self.feature_is_angular["angles"])[0]
-        assert np.min(angles[:, angular_idx]) >= -np.pi
-        assert np.max(angles[:, angular_idx]) <= np.pi
+        assert angles.shape[1] == len(CathCanonicalAnglesDataset.feature_is_angular['angles'])
+        angular_idx = np.where(CathCanonicalAnglesDataset.feature_is_angular["angles"])[0]
 
         # If given, offset the angles with mean
         if self.means is not None:
+            assert self.means.shape[0] == angles.shape[1]
             angles -= self.means
             angles[:, angular_idx] = utils.modulo_with_wrapped_range(
                 angles[:, angular_idx], -np.pi, np.pi
@@ -391,6 +391,9 @@ class CathCanonicalAnglesDataset(Dataset):
 
         # Create position IDs
         position_ids = torch.arange(start=0, end=self.pad, step=1, dtype=torch.long)
+
+        assert np.min(angles[:, angular_idx]) >= -np.pi
+        assert np.max(angles[:, angular_idx]) <= np.pi
         angles = torch.from_numpy(angles).float()
 
         retval = {
@@ -450,9 +453,14 @@ class CathCanonicalAnglesOnlyDataset(CathCanonicalAnglesDataset):
         return_dict = super().__getitem__(index)
 
         # Remove the distance feature
+        assert return_dict["angles"].ndim == 2
         return_dict["angles"] = return_dict["angles"][:, self.feature_idx]
-        assert torch.all(return_dict["angles"] >= -torch.pi)
-        assert torch.all(return_dict["angles"] <= torch.pi)
+        assert torch.all(
+            return_dict["angles"] >= -torch.pi
+        ), f"Minimum value {torch.min(return_dict['angles'])} lower than -pi"
+        assert torch.all(
+            return_dict["angles"] <= torch.pi
+        ), f"Maximum value {torch.max(return_dict['angles'])} higher than pi"
 
         return return_dict
 
