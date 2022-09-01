@@ -32,11 +32,11 @@ import esm
 import esm.inverse_folding
 
 
-def write_fa(fname: str, seq: str):
+def write_fa(fname: str, seq: str, seqname:str="sampled"):
     """Write a fasta file"""
     assert fname.endswith(".fasta")
     with open(fname, "w") as f:
-        f.write(">sampled\n")
+        f.write(f">{seqname}\n")
         for chunk in [seq[i : i + 80] for i in range(0, len(seq), 80)]:
             f.write(chunk + "\n")
     return fname
@@ -73,7 +73,7 @@ def update_fname(fname: str, i: int, new_dir: str = "") -> str:
     if new_dir:
         assert os.path.isdir(new_dir), f"Expected {new_dir} to be a directory"
         parent = new_dir
-    return os.path.join(parent, f"{child_base}_esm_generated_{i}.fasta")
+    return os.path.join(parent, f"{child_base}_esm_residues_{i}.fasta")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -125,21 +125,22 @@ def main():
         sequences = pfunc(args.fname)
         for i, seq in enumerate(sequences):
             out_fname = update_fname(args.fname, i)
-            write_fa(out_fname, seq)
+            seq_name = os.path.splitext(os.path.basename(out_fname))[0]
+            write_fa(out_fname, seq, seqname = seq_name)
     elif os.path.isdir(args.fname):
         # create a subdirecotry to store the fastas
         outdir = os.path.join(args.fname, "esm_generated_fastas")
         os.makedirs(outdir, exist_ok=True)
-        logging.info(f"Writing output to {outdir}")
+        logging.info(f"Writing output to {os.path.abspath(outdir)}")
         # Query for inputs and process them
-        inputs = glob.glob(os.path.join(args.fname, "*.pdb"))
+        inputs = sorted(glob.glob(os.path.join(args.fname, "*.pdb")))
         logging.info(f"Found {len(inputs)} PDB files to process in {args.fname}")
-        generated = [pfunc(f) for f in tqdm(inputs)]
+        generated = (pfunc(f) for f in tqdm(inputs))
         # Write outputs
         for orig_fname, seqs in zip(inputs, generated):
             for i, seq in enumerate(seqs):
                 out_fname = update_fname(orig_fname, i, new_dir=outdir)
-                write_fa(out_fname, seq)
+                write_fa(out_fname, seq, seqname=os.path.splitext(os.path.basename(out_fname))[0])
     else:
         raise RuntimeError(f"Expected {args.fname} to be a file or directory")
 
