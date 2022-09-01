@@ -32,7 +32,7 @@ import esm
 import esm.inverse_folding
 
 
-def write_fa(fname: str, seq: str, seqname:str="sampled"):
+def write_fa(fname: str, seq: str, seqname: str = "sampled"):
     """Write a fasta file"""
     assert fname.endswith(".fasta")
     with open(fname, "w") as f:
@@ -54,6 +54,8 @@ def generate_residues(
     logging.debug(f"Native sequence: {native_seq}")
     retval = []
     for _ in range(n):
+        # Sample is defined here:
+        # https://github.com/facebookresearch/esm/blob/dc0e039dce52ff11e8eadaa1ef96f0cefcc505e9/esm/inverse_folding/gvp_transformer.py
         sampled_seq = model.sample(coords, temperature=temperature)
         logging.debug(f"Sampled sequence: {sampled_seq}")
         retval.append(sampled_seq)
@@ -126,7 +128,7 @@ def main():
         for i, seq in enumerate(sequences):
             out_fname = update_fname(args.fname, i)
             seq_name = os.path.splitext(os.path.basename(out_fname))[0]
-            write_fa(out_fname, seq, seqname = seq_name)
+            write_fa(out_fname, seq, seqname=seq_name)
     elif os.path.isdir(args.fname):
         # create a subdirecotry to store the fastas
         outdir = os.path.join(args.fname, "esm_generated_fastas")
@@ -140,7 +142,11 @@ def main():
         for orig_fname, seqs in zip(inputs, generated):
             for i, seq in enumerate(seqs):
                 out_fname = update_fname(orig_fname, i, new_dir=outdir)
-                write_fa(out_fname, seq, seqname=os.path.splitext(os.path.basename(out_fname))[0])
+                write_fa(
+                    out_fname,
+                    seq,
+                    seqname=os.path.splitext(os.path.basename(out_fname))[0],
+                )
     else:
         raise RuntimeError(f"Expected {args.fname} to be a file or directory")
 
