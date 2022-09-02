@@ -75,26 +75,6 @@ def modulo_with_wrapped_range(
 
     >>> modulo_with_wrapped_range(3, -2, 2)
     -1
-    >>> modulo_with_wrapped_range(3 + 2, -2, 2)
-    1
-    >>> modulo_with_wrapped_range(-1, -2, 2)
-    -1
-    >>> modulo_with_wrapped_range(-3, -2, 2)
-    1
-    >>> modulo_with_wrapped_range(3, 0, 4)
-    3
-    >>> modulo_with_wrapped_range(3.5 + 4, 0, 4)
-    3.5
-    >>> modulo_with_wrapped_range(-1, 0, 4)
-    3
-    >>> np.round(modulo_with_wrapped_range(-3.9 - 32, -4, 4), 4)
-    -3.9
-    >>> np.round(modulo_with_wrapped_range(15.6578, -3.1416, 3.1416), 4)
-    3.0914
-    >>> modulo_with_wrapped_range(np.array([-2, 2]), -2, 2)
-    array([-2, -2])
-    >>> modulo_with_wrapped_range(np.array([-1, -3.5]), -2, 2)
-    array([-1. ,  0.5])
     """
     assert range_min <= 0.0
     assert range_min < range_max
