@@ -145,7 +145,7 @@ def sample(
             is_angle=train_dset.feature_is_angular["angles"],
         )
         # Gets to size (timesteps, seq_len, n_ft)
-        trimmed_sampled = [sampled[:, i, :l, :] for i, l in enumerate(lengths)]
+        trimmed_sampled = [sampled[:, i, :l, :].numpy() for i, l in enumerate(lengths)]
         retval.extend(trimmed_sampled)
     # Note that we don't use means variable here directly because we may need a subset
     # of it based on which features are active in the dataset. The function
