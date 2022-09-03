@@ -2,17 +2,21 @@
 Script to sample from a trained diffusion model
 """
 import os, sys
+import argparse
 import logging
 import json
 from pathlib import Path
-from typing import List, Optional
+from typing import *
 
 import numpy as np
+import pandas as pd
+from matplotlib import pyplot as plt
+import seaborn as sns
 
 import torch
-from torch.nn import functional as F
 
-from transformers import BertConfig
+# Import data loading code from main training script
+from train import get_train_valid_test_sets
 
 SRC_DIR = (Path(os.path.dirname(os.path.abspath(__file__))) / "../protdiff").resolve()
 assert SRC_DIR.is_dir()
@@ -20,93 +24,225 @@ sys.path.append(str(SRC_DIR))
 import modelling
 import beta_schedules
 import sampling
-import utils
+import plotting
+from datasets import NoisedAnglesDataset, CathCanonicalAnglesDataset
+from angles_and_coords import create_new_chain
+
+# :)
+SEED = int(
+    float.fromhex("54616977616e20697320616e20696e646570656e64656e7420636f756e747279")
+    % 10000
+)
 
 
-def sample(
-    num: int,
-    dset_obj,
-    model_path: str,
-    bert_cfg_path: Optional[str] = None,
-    config_json: Optional[str] = None,
-    seed: int = 6489,
-) -> List[torch.Tensor]:
+def build_datasets(
+    training_args: Dict[str, Any]
+) -> Tuple[NoisedAnglesDataset, NoisedAnglesDataset, NoisedAnglesDataset]:
     """
-    Sample from the given model
+    Build datasets given args again
     """
-    assert hasattr(
-        dset_obj, "sample_length"
-    ), "Passed dataset object must have a sample_length attribute"
-    # Load in the model
-    if bert_cfg_path is None:
-        # Try to automatically load the config from the model path
-        bert_cfg_path = os.path.join(os.path.dirname(model_path), "config.json")
-        assert os.path.isfile(
-            bert_cfg_path
-        ), f"Could not find config file at {bert_cfg_path}"
-    cfg = BertConfig.from_json_file(bert_cfg_path)
-    model = modelling.BertForDiffusion.load_from_checkpoint(
-        checkpoint_path=model_path, config=cfg
+    # Build args based on training args
+    dset_args = dict(
+        timesteps=training_args["timesteps"],
+        variance_schedule=training_args["variance_schedule"],
+        noise_prior=training_args["noise_prior"],
+        shift_to_zero_twopi=training_args["shift_angles_zero_twopi"],
+        var_scale=training_args["variance_scale"],
+        toy=training_args["subset"],
+        syn_noiser=training_args["syn_noiser"],
+        exhaustive_t=training_args["exhaustive_validation_t"],
+        single_dist_debug=training_args["single_dist_debug"],
+        single_angle_debug=training_args["single_angle_debug"],
+        single_time_debug=training_args["single_timestep_debug"],
     )
-    model.eval()
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model.to(device)
+    if "angles_definitions" in training_args:
+        dset_args["angles_definitions"] = training_args["angles_definitions"]
+    if "zero_center" in training_args:
+        dset_args["zero_center"] = training_args["zero_center"]
+    else:
+        dset_args["zero_center"] = False  # Old default value
 
-    # Reproduce the variance schedules bsaed on the config json
-    if config_json is None:
-        # Try to find a default config
-        config_json = os.path.join(os.path.dirname(model_path, "training_args.json"))
-        assert os.path.isfile(
-            config_json
-        ), f"Could not automatically find config at {config_json}"
-    with open(config_json) as source:
-        model_config = json.load(source)
-    betas = beta_schedules.get_variance_schedule(
-        model_config["variance_schedule"], model_config["timesteps"]
+    train_dset, valid_dset, test_dset = get_train_valid_test_sets(**dset_args)
+    logging.info(
+        f"Training dset contains features: {train_dset.feature_names} - angular {train_dset.feature_is_angular}"
     )
+    return train_dset, valid_dset, test_dset
 
-    # Calculate posterior variance
-    alphas = 1.0 - betas
-    # corresponds to bar alpha, product up till t of the first t 1-B terms
-    alphas_cumprod = torch.cumprod(alphas, axis=0)
-    alphas_cumprod_prev = F.pad(alphas_cumprod[:-1], (1, 0), value=1.0)
 
-    # Posterior variance, higher variance wih greater t
-    posterior_variance = betas * (1.0 - alphas_cumprod_prev) / (1.0 - alphas_cumprod)
+def write_as_pdb(
+    preds: pd.DataFrame,
+    all_ft_train_dset: CathCanonicalAnglesDataset,
+    fname: str,
+    angles_to_use: Optional[List[str]] = None,
+):
+    """Write the predictions as a pdb file"""
+    if angles_to_use:
+        preds = preds.loc[:, angles_to_use]  # Sample only dihedrals
+    create_new_chain(fname, preds, sampled_values_dset=all_ft_train_dset)
 
-    # Sample
-    # batch 128 ~ 9GB GPU memory, batch 512 ~ 38GB GPU memory
-    torch.manual_seed(seed)
-    samps = []
-    for bs in utils.num_to_groups(num, 512):
-        seq_lens = [dset_obj.sample_length() for _ in range(bs)]
-        s = sampling.sample(
-            model,
-            seq_lens=seq_lens,
-            seq_max_len=model.config.max_position_embeddings,
-            betas=betas,
-            posterior_variance=posterior_variance,
-            timesteps=model_config["timesteps"],
-            batch_size=bs,
-            noise_modulo=torch.Tensor([0, 2 * torch.pi, 2 * torch.pi, 2 * torch.pi]),
-        )
-        samps.extend(s)
-    # samps = torch.vstack(samps)
-    return samps
+
+def write_preds_pdb_folder(
+    final_sampled: Sequence[pd.DataFrame],
+    all_ft_train_dset: CathCanonicalAnglesDataset,
+    outdir: str,
+):
+    """
+    Write the predictions as pdb files in the given folder along with information regarding the
+    tm_score for each prediction.
+    """
+    os.makedirs(outdir, exist_ok=True)
+    logging.info(f"Writing sampled anlges as PDB files to {outdir}")
+    for i, samp in enumerate(final_sampled):
+        fname = os.path.join(outdir, f"generated_{i}.pdb")
+        write_as_pdb(samp, all_ft_train_dset, fname)
+
+
+def plot_distribution_overlap(
+    train_values: np.ndarray, sampled_values: np.ndarray, ft_name: str, fname: str
+):
+    """
+    Plot the distribution overlap between the training and sampled values
+    """
+    # Plot the distribution overlap
+    logging.info(f"Plotting distribution overlap for {ft_name}")
+    fig, ax = plt.subplots(dpi=300)
+    sns.histplot(
+        train_values,
+        bins=40,
+        stat="proportion",
+        ax=ax,
+        label="Training",
+        color="tab:blue",
+        alpha=0.6,
+    )
+    sns.histplot(
+        sampled_values,
+        bins=40,
+        stat="proportion",
+        ax=ax,
+        label="Sampled",
+        color="tab:orange",
+        alpha=0.6,
+    )
+    ax.set(title=f"Sampled distribution - {ft_name}")
+    ax.legend()
+    fig.savefig(fname, bbox_inches="tight")
+
+
+def build_parser() -> argparse.ArgumentParser:
+    """
+    Build CLI parser
+    """
+    parser = argparse.ArgumentParser(
+        usage=__doc__, formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    parser.add_argument(
+        "model",
+        type=str,
+        help="Path to model directory. Should contain training_args.json",
+    )
+    parser.add_argument(
+        "--outdir", "-o", type=str, default=os.getcwd(), help="Path to output directory"
+    )
+    parser.add_argument(
+        "--num", "-n", type=int, default=10, help="Number of examples to generate"
+    )
+    parser.add_argument(
+        "--legacy", action="store_true", help="Use legacy model loading code"
+    )
+    parser.add_argument("--seed", type=int, default=SEED, help="Random seed")
+    parser.add_argument("--device", type=str, default="cuda:0", help="Device to use")
+    return parser
 
 
 def main():
-    import datasets
+    parser = build_parser()
+    args = parser.parse_args()
 
-    cath_dset = datasets.CathConsecutiveAnglesDataset(split="train", toy=True)
-    x = sample(
-        10,
-        cath_dset,
-        "/home/t-kevinwu/projects/protein_diffusion/models_initial/1000_timesteps_linear_variance_schedule_64_batch_size_0.0001_lr_0.5_gradient_clip/lightning_logs/version_0/checkpoints/epoch=9-step=1990.ckpt",
-        "/home/t-kevinwu/projects/protein_diffusion/models_initial/1000_timesteps_linear_variance_schedule_64_batch_size_0.0001_lr_0.5_gradient_clip/training_args.json",
+    logging.info(f"Creating {args.outdir}")
+    os.makedirs(args.outdir, exist_ok=True)
+    outdir = Path(args.outdir)
+    assert not os.listdir(outdir), f"Expected {outdir} to be empty!"
+
+    plotdir = outdir / "plots"
+    os.makedirs(plotdir, exist_ok=True)
+
+    with open(os.path.join(args.model, "training_args.json")) as source:
+        training_args = json.load(source)
+
+    # Reproduce the beta schedule
+    beta_values = beta_schedules.get_variance_schedule(
+        training_args["variance_schedule"],
+        training_args["timesteps"],
     )
-    for item in x:
-        print(item.shape)
+    alpha_beta_values = beta_schedules.compute_alphas(beta_values)
+    alpha_beta_values.keys()
+
+    # Load the dataset based on training args
+    train_dset, valid_dset, test_dset = build_datasets(training_args)
+    # Fetch values for training distribution
+    select_by_attn = lambda x: x["angles"][x["attn_mask"] != 0]
+    train_values = [
+        select_by_attn(train_dset.dset.__getitem__(i, ignore_zero_center=True))
+        for i in range(len(train_dset))
+    ]
+    train_values_stacked = torch.cat(train_values, dim=0).cpu().numpy()
+
+    # Plot ramachandran plot for the training distribution
+    phi_idx = train_dset.feature_names["angles"].index("phi")
+    psi_idx = train_dset.feature_names["angles"].index("psi")
+    plotting.plot_joint_kde(
+        train_values_stacked[:5000, phi_idx],
+        train_values_stacked[:5000, psi_idx],
+        xlabel="$\phi$",
+        ylabel="$\psi$",
+        title="Ramachandran plot, training",
+        fname=plotdir / "ramachandran_train.pdf",
+    )
+
+    # Load the model
+    model = modelling.BertForDiffusion.from_dir(args.model, legacy=args.legacy).to(
+        torch.device(args.device)
+    )
+
+    # Perform sampling
+    torch.manual_seed(args.seed)
+    sampled = sampling.sample(model, train_dset, n=args.num)
+    final_sampled = [s[-1] for s in sampled]
+    final_sampled_stacked = np.vstack(final_sampled)
+
+    # Write the raw sampled items to np files
+    sampled_angles_folder = outdir / "sampled_angles"
+    os.makedirs(sampled_angles_folder, exist_ok=True)
+    logging.info(f"Writing sampled angles to {sampled_angles_folder}")
+    for i, s in enumerate(sampled):
+        np.save(sampled_angles_folder / f"generated_{i}.npy", s)
+
+    # Generate histograms of sampled angles
+    for i, ft_name in enumerate(train_dset.feature_names["angles"]):
+        orig_values = train_values_stacked[:, i]
+        samp_values = final_sampled_stacked[:, i]
+        plot_distribution_overlap(
+            orig_values, samp_values, ft_name, plotdir / f"dist_{ft_name}.pdf"
+        )
+
+    # Generate ramachandran plot for sampled angles
+    plotting.plot_joint_kde(
+        final_sampled_stacked[:5000, phi_idx],
+        final_sampled_stacked[:5000, psi_idx],
+        xlabel="$\phi$",
+        ylabel="$\psi$",
+        title="Ramachandran plot, generated",
+        fname=plotdir / "ramachandran_generated.pdf",
+    )
+
+    # Write the sampled angles as pdb files
+    all_ft_train_dset = CathCanonicalAnglesDataset(split="train")
+    sampled_dfs = [
+        pd.DataFrame(s, columns=train_dset.feature_names["angles"])
+        for s in final_sampled
+    ]
+    write_preds_pdb_folder(sampled_dfs, all_ft_train_dset, outdir / "sampled_pdb")
 
 
 if __name__ == "__main__":
