@@ -27,6 +27,7 @@ import sampling
 import plotting
 from datasets import NoisedAnglesDataset, CathCanonicalAnglesDataset
 from angles_and_coords import create_new_chain
+import tmalign
 
 # :)
 SEED = int(
@@ -85,16 +86,19 @@ def write_preds_pdb_folder(
     final_sampled: Sequence[pd.DataFrame],
     all_ft_train_dset: CathCanonicalAnglesDataset,
     outdir: str,
-):
+) -> List[str]:
     """
     Write the predictions as pdb files in the given folder along with information regarding the
-    tm_score for each prediction.
+    tm_score for each prediction. Returns the list of files written.
     """
     os.makedirs(outdir, exist_ok=True)
     logging.info(f"Writing sampled anlges as PDB files to {outdir}")
+    retval = []
     for i, samp in enumerate(final_sampled):
         fname = os.path.join(outdir, f"generated_{i}.pdb")
         write_as_pdb(samp, all_ft_train_dset, fname)
+        retval.append(fname)
+    return retval
 
 
 def plot_distribution_overlap(
@@ -145,7 +149,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--outdir", "-o", type=str, default=os.getcwd(), help="Path to output directory"
     )
     parser.add_argument(
-        "--num", "-n", type=int, default=10, help="Number of examples to generate"
+        "--num", "-n", type=int, default=512, help="Number of examples to generate"
     )
     parser.add_argument(
         "--legacy", action="store_true", help="Use legacy model loading code"
@@ -242,8 +246,16 @@ def main():
         pd.DataFrame(s, columns=train_dset.feature_names["angles"])
         for s in final_sampled
     ]
-    write_preds_pdb_folder(sampled_dfs, all_ft_train_dset, outdir / "sampled_pdb")
+    pdb_files = write_preds_pdb_folder(sampled_dfs, all_ft_train_dset, outdir / "sampled_pdb")
 
+    logging.info(f"Done writing main outputs! Calculating tm scores...")
+    all_tm_scores = {}
+    for i, fname in enumerate(pdb_files):
+        samp_name = os.path.splitext(os.path.basename(fname))[0]
+        tm_score = tmalign.max_tm_across_refs(fname, train_dset.dset.filenames)
+        all_tm_scores[samp_name] = tm_score
+    with open(outdir / "tm_scores.json", "w") as sink:
+        json.dump(all_tm_scores, sink, indent=4)
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
