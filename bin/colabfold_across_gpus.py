@@ -55,8 +55,11 @@ def run_colabfold(input_a3m: Path, outdir: Path, gpu: int) -> None:
 
 
 def run_colabfold_multi(input_a3m_files: List[Path], gpu: int, outdir: Path) -> None:
+    """Runs each file in a different folder"""
     for f in input_a3m_files:
-        run_colabfold(f, outdir, gpu)
+        this_outdir = outdir / os.path.splitext(os.path.basename(f))[0]
+        os.makedirs(this_outdir, exist_ok=True) # Make sure the output directory exists
+        run_colabfold(f, this_outdir, gpu)
 
 
 def main():
@@ -73,7 +76,7 @@ def main():
     os.makedirs(outdir, exist_ok=True)
 
     # Get all a3m files in the input directory
-    input_files = glob.glob(os.path.join(args.foldername, "*.a3m"))[:4]
+    input_files = sorted(glob.glob(os.path.join(args.foldername, "*.a3m")))
     assert input_files, f"No a3m files found in {args.foldername}"
 
     # Split the input_files into chunks equal to the number of GPUs
