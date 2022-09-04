@@ -88,6 +88,7 @@ def build_parser() -> argparse.ArgumentParser:
         type=str,
         help="PDB file to generate residues for, or a folder containing these",
     )
+    parser.add_argument("-o", "--outdir", type=str, default="", help="Output directory")
     parser.add_argument(
         "-t",
         "--temperature",
@@ -131,7 +132,10 @@ def main():
             write_fa(out_fname, seq, seqname=seq_name)
     elif os.path.isdir(args.fname):
         # create a subdirecotry to store the fastas
-        outdir = os.path.join(args.fname, "esm_generated_fastas")
+        if args.outdir:
+            outdir = args.outdir
+        else:
+            outdir = os.path.join(args.fname, "esm_generated_fastas")
         os.makedirs(outdir, exist_ok=True)
         logging.info(f"Writing output to {os.path.abspath(outdir)}")
         # Query for inputs and process them
