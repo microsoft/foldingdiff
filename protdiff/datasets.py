@@ -236,6 +236,7 @@ class CathCanonicalAnglesDataset(Dataset):
         self,
         split: Optional[Literal["train", "test", "validation"]] = None,
         pad: int = 512,
+        min_length: int = 40,  # Set to 0 to disable
         trim_strategy: Literal["leftalign", "randomcrop"] = "leftalign",
         toy: int = 0,
         shift_to_zero_twopi: bool = False,
@@ -245,6 +246,7 @@ class CathCanonicalAnglesDataset(Dataset):
         assert not shift_to_zero_twopi, "No reason to shift to zero twopi"
         self.trim_strategy = trim_strategy
         self.pad = pad
+        self.min_length = min_length
 
         # gather files
         fnames = glob.glob(os.path.join(CATH_DIR, "dompdb", "*"))
@@ -291,6 +293,17 @@ class CathCanonicalAnglesDataset(Dataset):
             logging.info(f"Loading cached full dataset from {self.cache_fname}")
             with open(self.cache_fname, "rb") as source:
                 self.structures = pickle.load(source)
+
+        # If specified, remove sequences shorter than min_length
+        if self.min_length:
+            orig_len = len(self.structures)
+            self.structures = [
+                s for s in self.structures if s["angles"].shape[0] >= self.min_length
+            ]
+            len_delta = orig_len - len(self.structures)
+            logging.info(
+                f"Removing structures shorter than {self.min_length} residues excludes {len_delta}/{orig_len} --> {len(self.structures)} sequences"
+            )
 
         # Split the dataset if requested. This is implemented here to maintain
         # functional parity with the original CATH dataset. Original CATH uses
