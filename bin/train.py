@@ -104,11 +104,11 @@ def plot_kl_divergence(train_dset, plots_folder: Path) -> None:
 
 def get_train_valid_test_sets(
     angles_definitions: Literal[
-        "rosetta",
-        "canonical",
-        "canonical_angles_only",
-        "canonical_dihedrals_only",
+        "rosetta", "canonical", "canonical_angles_only", "canonical_dihedrals_only",
     ] = "rosetta",  # Keep this default at rosetta for compatibility
+    max_seq_len: int = 512,
+    min_seq_len: int = 0,
+    seq_trim_strategy: Literal["leftalign", "randomcrop"] = "leftalign",
     timesteps: int = 250,
     variance_schedule: SCHEDULES = "linear",
     noise_prior: Literal["gaussian", "uniform"] = "gaussian",
@@ -137,10 +137,14 @@ def get_train_valid_test_sets(
         "canonical_angles_only": datasets.CathCanonicalAnglesOnlyDataset,
         "canonical_dihedrals_only": datasets.CathCanonicalDihedralsOnlyDataset,
     }[angles_definitions]
+    logging.info(f"Clean dataset class: {clean_dset_class}")
 
     clean_dsets = [
         clean_dset_class(
             split=s,
+            pad=max_seq_len,
+            min_length=min_seq_len,
+            trim_strategy=seq_trim_strategy,
             shift_to_zero_twopi=shift_to_zero_twopi,
             zero_center=zero_center,
             toy=toy,
@@ -284,6 +288,9 @@ def train(
     angles_definitions: Literal[
         "rosetta", "canonical", "canonical_angles_only", "canonical_dihedrals_only"
     ] = "canonical",
+    max_seq_len: int = 512,
+    min_seq_len: int = 0,  # 0 means no filtering based on min sequence length
+    trim_strategy: Literal["leftalign", "randomcrop"] = "leftalign",
     shift_angles_zero_twopi: bool = False,
     zero_center: bool = False,
     noise_prior: Literal["gaussian", "uniform"] = "gaussian",  # Uniform not tested
@@ -340,6 +347,9 @@ def train(
     # Get datasets and wrap them in dataloaders
     dsets = get_train_valid_test_sets(
         angles_definitions=angles_definitions,
+        max_seq_len=max_seq_len,
+        min_seq_len=min_seq_len,
+        seq_trim_strategy=trim_strategy,
         timesteps=timesteps,
         variance_schedule=variance_schedule,
         noise_prior=noise_prior,
@@ -408,11 +418,10 @@ def train(
     model_n_inputs = sample_input.shape[-1]
     logging.info(f"Auto detected {model_n_inputs} inputs")
 
-    if implementation == "pytorch_encoder":
-        raise NotImplementedError("PyTorch encoder not implemented")
-    elif implementation == "huggingface_encoder":
+    if implementation == "huggingface_encoder":
         logging.info("Using HuggingFace encoder implementation")
         cfg = BertConfig(
+            max_position_embeddings=max_seq_len,
             num_attention_heads=num_heads,
             hidden_size=hidden_size,
             intermediate_size=intermediate_size,
@@ -495,8 +504,7 @@ def build_parser() -> argparse.ArgumentParser:
     Build CLI parser
     """
     parser = argparse.ArgumentParser(
-        usage=__doc__,
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        usage=__doc__, formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 
     # https://stackoverflow.com/questions/4480075/argparse-optional-positional-arguments

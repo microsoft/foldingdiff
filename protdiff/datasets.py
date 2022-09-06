@@ -429,7 +429,6 @@ class CathCanonicalAnglesDataset(Dataset):
                 end_idx = start_idx + self.pad
                 assert end_idx < angles.shape[0]
                 angles = angles[start_idx:end_idx]
-                print(start_idx, end_idx)
                 assert angles.shape[0] == self.pad
             else:
                 raise ValueError(f"Unknown trim strategy: {self.trim_strategy}")
@@ -475,15 +474,8 @@ class CathCanonicalAnglesOnlyDataset(CathCanonicalAnglesDataset):
     feature_names = {"angles": ["phi", "psi", "omega", "tau"]}
     feature_is_angular = {"angles": [True, True, True, True]}
 
-    def __init__(
-        self,
-        split: Optional[Literal["train", "test", "validation"]] = None,
-        pad: int = 512,
-        toy: int = 0,
-        shift_to_zero_twopi: bool = False,
-        zero_center: bool = False,
-    ) -> None:
-        super().__init__(split, pad, toy, shift_to_zero_twopi, zero_center=zero_center)
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
         # Trim out the distance in all the feature_names and feature_is_angular
         orig_features = super().feature_names["angles"].copy()
         self.feature_idx = [
