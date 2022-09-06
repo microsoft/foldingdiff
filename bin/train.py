@@ -335,6 +335,7 @@ def train(
     cpu_only: bool = False,
     ngpu: int = -1,  # -1 for all GPUs
     write_valid_preds: bool = False,  # Write validation predictions to disk at each epoch
+    dryrun: bool = False,  # Disable some frills for a fast run to see that we can train
 ):
     """Main training loop"""
     # Record the args given to the function before we create more vars
@@ -394,6 +395,7 @@ def train(
         and not single_timestep_debug
         and not single_dist_debug
         and not syn_noiser
+        and not dryrun
     ):
         plot_kl_divergence(dsets[0], plots_folder)
         plot_timestep_distributions(
@@ -541,6 +543,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--ngpu", type=int, default=-1, help="Number of GPUs to use (-1 for all)"
     )
+    parser.add_argument("--dryrun", action="store_true", help="Dry run")
     return parser
 
 
@@ -563,6 +566,7 @@ def main():
             "single_timestep_debug": args.debug_single_time,
             "cpu_only": args.cpu,
             "ngpu": args.ngpu,
+            "dryrun": args.dryrun,
         },
     )
     train(**config_args)
