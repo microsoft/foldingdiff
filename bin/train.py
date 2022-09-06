@@ -308,7 +308,7 @@ def train(
     num_heads: int = 12,  # Default 12
     position_embedding_type: Literal[
         "absolute", "relative_key", "relative_key_query"
-    ] = "absolute",
+    ] = "absolute",  # relative_key = https://arxiv.org/pdf/1803.02155.pdf | relative_key_query = https://arxiv.org/pdf/2009.13658.pdf
     dropout_p: float = 0.1,  # Default 0.1, can disable for debugging
     decoder: Literal["mlp", "linear"] = "mlp",
     # Related to training strategy

@@ -3,6 +3,7 @@ Modelling
 """
 import os
 import re
+import time
 import glob
 import json
 import inspect
@@ -128,7 +129,8 @@ class BertEmbeddings(nn.Module):
                 config.max_position_embeddings, config.hidden_size
             )
             self.register_buffer(
-                "position_ids", torch.arange(config.max_position_embeddings).expand((1, -1))
+                "position_ids",
+                torch.arange(config.max_position_embeddings).expand((1, -1)),
             )
 
         # self.LayerNorm is not snake-cased to stick with TensorFlow model variable name and be able to load
@@ -138,9 +140,7 @@ class BertEmbeddings(nn.Module):
         # position_ids (1, len position emb) is contiguous in memory and exported when serialized
 
     def forward(
-        self,
-        input_embeds: torch.Tensor,
-        position_ids: torch.LongTensor,
+        self, input_embeds: torch.Tensor, position_ids: torch.LongTensor,
     ) -> torch.Tensor:
         assert position_ids is not None, "`position_ids` must be defined"
         embeddings = input_embeds
@@ -322,8 +322,9 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         if self.write_preds_to_dir:
             os.makedirs(self.write_preds_to_dir, exist_ok=True)
 
-        # Epoch counters
+        # Epoch counters and timers
         self.train_epoch_counter = 0
+        self.train_epoch_last_time = time.time()
 
     @classmethod
     def from_dir(
@@ -469,11 +470,7 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         if position_ids is None:
             # [1, seq_length]
             position_ids = (
-                torch.arange(
-                    seq_length,
-                )
-                .expand(batch_size, -1)
-                .type_as(timestep)
+                torch.arange(seq_length,).expand(batch_size, -1).type_as(timestep)
             )
 
         # pl.utilities.rank_zero_debug(
@@ -614,10 +611,13 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         """Log the average training loss over the epoch"""
         losses = torch.stack([o["loss"] for o in outputs])
         mean_loss = torch.mean(losses)
+        t_delta = time.time() - self.train_epoch_last_time
         pl.utilities.rank_zero_info(
-            f"Train loss at epoch {self.train_epoch_counter} end: {mean_loss}"
+            f"Train loss at epoch {self.train_epoch_counter} end: {mean_loss:.4f} ({t_delta:.2f} seconds)"
         )
+        # Increment counter and timers
         self.train_epoch_counter += 1
+        self.train_epoch_last_time = time.time()
 
     def validation_step(self, batch, batch_idx) -> Dict[str, torch.Tensor]:
         """
@@ -653,7 +653,7 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         losses = torch.stack([o["val_loss"] for o in outputs])
         mean_loss = torch.mean(losses)
         pl.utilities.rank_zero_info(
-            f"Valid loss at epoch {self.train_epoch_counter} end: {mean_loss}"
+            f"Valid loss at epoch {self.train_epoch_counter} end: {mean_loss:.4f}"
         )
 
     def configure_optimizers(self) -> Dict[str, Any]:
@@ -661,9 +661,7 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         Return optimizer. Limited support for some optimizers
         """
         optim = torch.optim.AdamW(
-            self.parameters(),
-            lr=self.learning_rate,
-            weight_decay=self.l2_lambda,
+            self.parameters(), lr=self.learning_rate, weight_decay=self.l2_lambda,
         )
         retval = {"optimizer": optim}
         if self.lr_scheduler:

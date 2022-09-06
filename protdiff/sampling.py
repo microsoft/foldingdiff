@@ -13,6 +13,7 @@ from torch import nn
 
 import beta_schedules
 import utils
+from datasets import CathCanonicalAnglesDataset
 
 
 @torch.no_grad()
@@ -120,7 +121,7 @@ def p_sample_loop(
 
 
 def sample(
-    model: nn.Module, train_dset, n: int, batch_size: int = 256
+    model: nn.Module, train_dset: CathCanonicalAnglesDataset, n: int, batch_size: int = 256
 ) -> List[np.ndarray]:
     """
     Sample from the given model. Use the train_dset to generate noise to sample
