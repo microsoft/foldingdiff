@@ -236,12 +236,14 @@ class CathCanonicalAnglesDataset(Dataset):
         self,
         split: Optional[Literal["train", "test", "validation"]] = None,
         pad: int = 512,
+        trim_strategy: Literal["leftalign", "randomcrop"] = "leftalign",
         toy: int = 0,
         shift_to_zero_twopi: bool = False,
         zero_center: bool = False,  # Center the features to have 0 mean
     ) -> None:
         super().__init__()
         assert not shift_to_zero_twopi, "No reason to shift to zero twopi"
+        self.trim_strategy = trim_strategy
         self.pad = pad
 
         # gather files
@@ -293,9 +295,9 @@ class CathCanonicalAnglesDataset(Dataset):
         # Split the dataset if requested. This is implemented here to maintain
         # functional parity with the original CATH dataset. Original CATH uses
         # a 80/10/10 split
-        rng = np.random.default_rng(seed=6489)
+        self.rng = np.random.default_rng(seed=6489)
         # Shuffle the sequences so contiguous splits acts like random splits
-        rng.shuffle(self.structures)
+        self.rng.shuffle(self.structures)
         if split is not None:
             split_idx = int(len(self.structures) * 0.8)
             if split == "train":
@@ -406,7 +408,18 @@ class CathCanonicalAnglesDataset(Dataset):
                 constant_values=0,
             )
         elif angles.shape[0] > self.pad:
-            angles = angles[: self.pad]
+            if self.trim_strategy == "leftalign":
+                angles = angles[: self.pad]
+            elif self.trim_strategy == "randomcrop":
+                # Randomly crop the sequence to
+                start_idx = self.rng.integers(0, angles.shape[0] - self.pad)
+                end_idx = start_idx + self.pad
+                assert end_idx < angles.shape[0]
+                angles = angles[start_idx:end_idx]
+                print(start_idx, end_idx)
+                assert angles.shape[0] == self.pad
+            else:
+                raise ValueError(f"Unknown trim strategy: {self.trim_strategy}")
 
         # Create position IDs
         position_ids = torch.arange(start=0, end=self.pad, step=1, dtype=torch.long)
@@ -1127,7 +1140,7 @@ def main():
     # print(len(noised_dset))
     # print(noised_dset[0])
 
-    dset = CathCanonicalAnglesDataset()
+    dset = CathCanonicalAnglesDataset(pad=32, trim_strategy="randomcrop")
     noised_dset = NoisedAnglesDataset(dset, dset_key="angles")
     print(len(noised_dset))
     print(noised_dset[0])
