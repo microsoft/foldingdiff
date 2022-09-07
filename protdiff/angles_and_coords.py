@@ -179,14 +179,25 @@ def canonical_distances_and_dihedrals(
 
     # Get any additional angles
     non_dihedral_angles = [a for a in angles if a not in calc_angles]
-    # Gets the N - CA - C for eacch residue
+    # Gets the N - CA - C for each residue
     # https://www.biotite-python.org/apidoc/biotite.structure.filter_backbone.html
     backbone_atoms = source_struct[struc.filter_backbone(source_struct)]
     for a in non_dihedral_angles:
-        if a == "tau":
+        if a == "tau" or a == "N:CA:C":
             # tau = N - CA - C internal angles
             idx = np.array(
                 [list(range(i, i + 3)) for i in range(0, len(backbone_atoms), 3)]
+            )
+        elif a == "CA:C:1N":  # Same as C-N angle in nerf
+            # This measures an angle between two residues. Due to the way we build
+            # proteins out later, we do not need to meas
+            idx = np.array(
+                [(i + 1, i + 2, i + 3) for i in range(0, len(backbone_atoms) - 3, 3)]
+                + [(0, 0, 0)]
+            )
+        elif a == "C:1N:1CA":
+            idx = np.array(
+                [(i + 2, i + 3, i + 4) for i in range(0, len(backbone_atoms) - 3, 3)] + [(0, 0, 0)]
             )
         else:
             raise ValueError(f"Unrecognized angle: {a}")
@@ -292,8 +303,12 @@ def create_new_chain_nerf(
         if a in required_dihedrals:
             continue
         assert a in dists_and_angles
-        if a == "tau":
+        if a == "tau" or a == "N:CA:C":
             nerf_build_kwargs["bond_angle_ca_c"] = dists_and_angles[a]
+        elif a == "CA:C:1N":
+            nerf_build_kwargs['bond_angle_c_n'] = dists_and_angles[a]
+        elif a == "C:1N:1CA":
+            nerf_build_kwargs['bond_angle_n_ca'] = dists_and_angles[a]
         else:
             raise ValueError(f"Unrecognized angle: {a}")
 
@@ -304,7 +319,7 @@ def create_new_chain_nerf(
         elif d == "N:CA":
             nerf_build_kwargs["bond_len_n_ca"] = dists_and_angles[d]
         elif d == "CA:C":
-            nerf_build_kwargs['bond_len_ca_c'] = dists_and_angles[d]
+            nerf_build_kwargs["bond_len_ca_c"] = dists_and_angles[d]
         else:
             raise ValueError(f"Unrecognized distance: {d}")
 
