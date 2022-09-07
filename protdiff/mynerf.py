@@ -6,6 +6,7 @@ https://benjamin-computer.medium.com/protein-loops-in-tensorflow-a-i-bio-part-2-
 https://www.biotite-python.org/examples/gallery/structure/peptide_assembly.html
 """
 import os
+from functools import cached_property
 import itertools
 from typing import *
 
@@ -64,7 +65,8 @@ class NERFBuilder:
 
         self.bonds = itertools.cycle(self.bond_angles.keys())
 
-    def build(self):
+    @cached_property
+    def cartesian_coords(self) -> np.ndarray:
         """Build out the molecule"""
         retval = self.init_coords.copy()
 
@@ -151,9 +153,8 @@ def main():
     phi, psi, omega = struc.dihedral_backbone(source_struct)
 
     builder = NERFBuilder(phi, psi, omega)
-    built = builder.build()
-    print(built)
-    print(built.shape)
+    print(builder.cartesian_coords)
+    print(builder.cartesian_coords.shape)
 
 
 if __name__ == "__main__":
