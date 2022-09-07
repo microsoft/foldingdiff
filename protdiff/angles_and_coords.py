@@ -16,8 +16,14 @@ from Bio import PDB
 from Bio.PDB import PICIO, ic_rebuild
 from sequence_models import pdb_utils
 
+import biotite.structure as struc
+from biotite.structure.io.pdb import PDBFile
+
 import torch
 from torch.utils.data import Dataset
+
+import pnerf  # Pytorch based
+import nerf  # from medium
 
 
 def pdb_to_pic(pdb_file: str, pic_file: str):
@@ -401,9 +407,84 @@ def create_new_chain(
     io.save(out_fname)
 
 
+def create_new_chain_nerf(
+    out_fname: str,
+    dists_and_angles: pd.DataFrame,
+    backend: str = "nerf",
+):
+    """Create a new chain using NERF to convert to cartesian coordinates"""
+    angles_to_set = ["phi", "psi", "omega"]
+    assert all([a in dists_and_angles.columns for a in angles_to_set])
+    dihedral_values = dists_and_angles[angles_to_set].values
+
+    if backend == "pnerf":
+        arr_input = torch.from_numpy(dihedral_values).type(torch.float)
+        assert torch.all(arr_input >= -torch.pi)
+        assert torch.all(arr_input <= torch.pi)
+        assert arr_input.shape == (dists_and_angles.shape[0], len(angles_to_set))
+        points = pnerf.dihedral_to_point(arr_input.unsqueeze(1))
+        assert points.shape[1] == 1
+        coords = (
+            pnerf.point_to_coordinate(points, num_fragments=None)
+            .squeeze()
+            .cpu()
+            .numpy()
+        )
+
+    elif backend == "nerf":
+        nerf_builder = nerf.NeRF()
+        coords = nerf_builder.compute_positions(dihedral_values.flatten())
+
+    else:
+        raise ValueError(f"Unknown backend: {backend}")
+    # assert coords.shape == (
+    #     int(dists_and_angles.shape[0] * 3),
+    #     3,
+    # ), f"Unexpected shape: {coords.shape} for input of {len(dists_and_angles)}"
+    # Create a new PDB file using biotite
+    # https://www.biotite-python.org/tutorial/target/index.html#creating-structures
+    atoms = []
+    for i, (n_coord, ca_coord, c_coord) in enumerate(
+        (coords[j : j + 3] for j in range(0, len(coords), 3))
+    ):
+        atom1 = struc.Atom(
+            n_coord,
+            chain_id="A",
+            res_id=i + 1,
+            atom_id=i * 3 + 1,
+            res_name="GLY",
+            atom_name="N",
+            element="N",
+        )
+        atom2 = struc.Atom(
+            ca_coord,
+            chain_id="A",
+            res_id=i + 1,
+            atom_id=i * 3 + 2,
+            res_name="GLY",
+            atom_name="CA",
+            element="C",
+        )
+        atom3 = struc.Atom(
+            c_coord,
+            chain_id="A",
+            res_id=i + 1,
+            atom_id=i * 3 + 3,
+            res_name="GLY",
+            atom_name="C",
+            element="C",
+        )
+        atoms.extend([atom1, atom2, atom3])
+    full_structure = struc.array(atoms)
+
+    sink = PDBFile()
+    sink.set_structure(full_structure)
+    sink.write(out_fname)
+
+
 def test_generation(
     reference_fname: str = os.path.join(
-        os.path.dirname(os.path.dirname(__file__)), "data/7PFL.pdb"
+        os.path.dirname(os.path.dirname(__file__)), "data/1CRN.pdb"
     )
 ):
     """
@@ -414,7 +495,7 @@ def test_generation(
     vals = canonical_distances_and_dihedrals(reference_fname)
     print(vals.iloc[:10])
 
-    create_new_chain("test.pdb", vals)
+    create_new_chain_nerf("test.pdb", vals)
     new_vals = canonical_distances_and_dihedrals("test.pdb")
     print(new_vals[:10])
 
