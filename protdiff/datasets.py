@@ -11,26 +11,27 @@ import glob
 import gzip
 import logging
 import json
+from pathlib import Path
 from typing import *
 
 from matplotlib import pyplot as plt
 import numpy as np
-import scipy.special
-from scipy import stats
-
-from tqdm.auto import tqdm
 
 import torch
 from torch import nn
 from torch.utils.data import Dataset
 
-CATH_DIR = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data/cath"
+LOCAL_DATA_DIR = Path(
+    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
 )
+assert LOCAL_DATA_DIR.is_dir(), f"Data directory {LOCAL_DATA_DIR} does not exist"
 
-ALPHAFOLD_DIR = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data/alphafold"
-)
+CATH_DIR = LOCAL_DATA_DIR / "cath"
+assert CATH_DIR.is_dir(), f"CATH directory {CATH_DIR} does not exist"
+
+ALPHAFOLD_DIR = LOCAL_DATA_DIR / "alphafold"
+assert ALPHAFOLD_DIR.is_dir(), f"Alphafold directory {ALPHAFOLD_DIR} does not exist"
+
 
 import beta_schedules
 from angles_and_coords import (
@@ -103,7 +104,7 @@ class CathConsecutiveAnglesDataset(Dataset):
         self.pad = pad
         self.shift_to_zero_twopi = shift_to_zero_twopi
         # json list file -- each line is a json
-        data_file = os.path.join(CATH_DIR, "chain_set.jsonl.gz")
+        data_file = CATH_DIR / "chain_set.jsonl.gz"
         assert os.path.isfile(data_file)
         self.structures = []
         with gzip.open(data_file) as source:
@@ -117,7 +118,7 @@ class CathConsecutiveAnglesDataset(Dataset):
         # Get data split if given
         self.split = split
         if self.split is not None:
-            splitfile = os.path.join(CATH_DIR, "chain_set_splits.json")
+            splitfile = CATH_DIR / "chain_set_splits.json"
             with open(splitfile) as source:
                 data_splits = json.load(source)
             assert split in data_splits.keys(), f"Unrecognized split: {split}"
