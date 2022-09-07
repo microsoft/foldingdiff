@@ -164,6 +164,58 @@ def canonical_distances_and_dihedrals(
     fname: str,
     distances: List[str] = ["0C:1N"],
     angles: List[str] = ["phi", "psi", "omega", "tau"],
+) -> Optional[pd.DataFrame]:
+    """Parse the pdb file for the given values"""
+    assert os.path.isfile(fname)
+    source = PDBFile.read(str(fname))
+    if source.get_model_count() > 1:
+        return None
+    # Pull out the atomarray from atomarraystack
+    source_struct = source.get_structure()[0]
+
+    # First get the dihedrals
+    phi, psi, omega = struc.dihedral_backbone(source_struct)
+    calc_angles = {"phi": phi, "psi": psi, "omega": omega}
+
+    # Get any additional angles
+    non_dihedral_angles = [a for a in angles if a not in calc_angles]
+    # Gets the N - CA - C for eacch residue
+    # https://www.biotite-python.org/apidoc/biotite.structure.filter_backbone.html
+    backbone_atoms = source_struct[struc.filter_backbone(source_struct)]
+    for a in non_dihedral_angles:
+        if a == "tau":
+            # tau = N - CA - C internal angles
+            idx = np.array(
+                [list(range(i, i + 3)) for i in range(0, len(backbone_atoms), 3)]
+            )
+        else:
+            raise ValueError(f"Unrecognized angle: {a}")
+        calc_angles[a] = struc.index_angle(backbone_atoms, indices=idx)
+
+    # At this point we've only looked at dihedral and angles; check value range
+    for k, v in calc_angles.items():
+        assert (
+            np.nanmin(v) >= -np.pi and np.nanmax(v) <= np.pi
+        ), f"Illegal values for {k}"
+
+    # Get any additional distances
+    for d in distances:
+        if d == "0C:1N":
+            idx = np.array(
+                [(i + 2, i + 3) for i in range(0, len(backbone_atoms) - 3, 3)]
+                + [(0, 0)]
+            )
+        else:
+            raise ValueError(f"Unrecognized distance: {d}")
+        calc_angles[d] = struc.index_distance(backbone_atoms, indices=idx)
+
+    return pd.DataFrame({k: calc_angles[k].squeeze() for k in distances + angles})
+
+
+def canonical_distances_and_dihedrals_old_pdb(
+    fname: str,
+    distances: List[str] = ["0C:1N"],
+    angles: List[str] = ["phi", "psi", "omega", "tau"],
     use_radians: bool = True,
 ) -> Optional[pd.DataFrame]:
     """
@@ -441,6 +493,7 @@ def create_new_chain_nerf(
             atom_name="N",
             element="N",
             occupancy=1.0,
+            hetero=False,
         )
         atom2 = struc.Atom(
             ca_coord,
@@ -451,6 +504,7 @@ def create_new_chain_nerf(
             atom_name="CA",
             element="C",
             occupancy=1.0,
+            hetero=False,
         )
         atom3 = struc.Atom(
             c_coord,
@@ -461,6 +515,7 @@ def create_new_chain_nerf(
             atom_name="C",
             element="C",
             occupancy=1.0,
+            hetero=False,
         )
         atoms.extend([atom1, atom2, atom3])
     full_structure = struc.array(atoms)
@@ -483,15 +538,18 @@ def test_generation(
     test = PDBFile.read(reference_fname)
     print(test.get_structure())
 
+    vals_old = canonical_distances_and_dihedrals_old_pdb(reference_fname)
+    print(vals_old.iloc[:10])
+
     vals = canonical_distances_and_dihedrals(reference_fname)
     print(vals.iloc[:10])
 
-    create_new_chain_nerf("test.pdb", vals)
-    new_vals = canonical_distances_and_dihedrals("test.pdb")
-    print(new_vals[:10])
+    # create_new_chain_nerf("test.pdb", vals)
+    # new_vals = canonical_distances_and_dihedrals("test.pdb")
+    # print(new_vals[:10])
 
-    score = tmalign.run_tmalign("test.pdb", reference_fname)
-    print(score)
+    # score = tmalign.run_tmalign("test.pdb", reference_fname)
+    # print(score)
 
 
 if __name__ == "__main__":
