@@ -92,7 +92,7 @@ class NERFBuilder:
                 retval[-2],
                 retval[-1],
                 bond_angle=self.bond_angles[("N", "CA")],
-                bond_length=self.bond_angles[("N", "CA")],
+                bond_length=self.bond_lengths[("N", "CA")],
                 torsion_angle=omega,
             )
             retval.append(ca_coords)
@@ -102,7 +102,7 @@ class NERFBuilder:
                 retval[-2],
                 retval[-1],
                 bond_angle=self.bond_angles[("CA", "C")],
-                bond_length=self.bond_angles[("CA", "C")],
+                bond_length=self.bond_lengths[("CA", "C")],
                 torsion_angle=phi,
             )
             retval.append(c_coords)
