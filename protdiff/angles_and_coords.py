@@ -110,10 +110,7 @@ def coords_to_trrosetta_angles(
     assert all_values.shape == (n - 1, 4)
 
     assert np.all(
-        np.logical_and(
-            all_values[:, 1:] <= np.pi,
-            all_values[:, 1:] >= -np.pi,
-        )
+        np.logical_and(all_values[:, 1:] <= np.pi, all_values[:, 1:] >= -np.pi,)
     ), "Angle values outside of expected [-pi, pi] range"
     return all_values
 
@@ -265,7 +262,7 @@ def create_new_chain(
     out_fname: str,
     dists_and_angles: pd.DataFrame,
     angles_to_set: List[str] = ["phi", "psi", "omega", "tau"],
-    distances_to_set: List[str] = ["bond_dist"],
+    distances_to_set: List[str] = ["0C:1N"],
     sampled_values_dset: Optional[Dataset] = None,
 ):
     """
@@ -276,9 +273,17 @@ def create_new_chain(
     USeful references:
     https://stackoverflow.com/questions/47631064/create-a-polymer-chain-of-nonstandard-residues-from-a-single-residue-pdb
     """
+
+    def map_colname(colname: str) -> str:
+        """Map human readable names to more accurate names"""
+        mapping_dict = {"bond_dist": "0C:1N"}
+        return mapping_dict.get(colname, colname)
+
     n = len(dists_and_angles)
+    dists_and_angles = dists_and_angles.copy()
+    dists_and_angles.columns = [map_colname(c) for c in dists_and_angles.columns]
     logging.info(
-        f"Creating new chain of {n} residues with input values {dists_and_angles.columns.tolist()}"
+        f"Creating new chain of {n} residues with input values {dists_and_angles.columns.tolist()} setting {angles_to_set + distances_to_set}"
     )
     chain = PDB.Chain.Chain("A")
     # Avoid nonetype error
@@ -356,7 +361,10 @@ def create_new_chain(
             # Angles are given in radians, convert them back to degrees
             if angle in dists_and_angles:
                 v = dists_and_angles.iloc[i][angle]
-            elif angle in sampled_values_dset.feature_names["angles"]:
+            elif (
+                sampled_values_dset is not None
+                and angle in sampled_values_dset.feature_names["angles"]
+            ):
                 v = sample_val_from_dset(angle)
             else:
                 continue
@@ -364,18 +372,19 @@ def create_new_chain(
             ric.set_angle(angle, v / np.pi * 180)
 
         for dist in distances_to_set:
-
-            if dist in dists_and_angles:
+            if dist in dists_and_angles.columns:
                 d = dists_and_angles.iloc[i][dist]
-            elif dist in sampled_values_dset.feature_names["angles"]:
+            elif (
+                sampled_values_dset is not None
+                and dist in sampled_values_dset.feature_names["angles"]
+            ):
                 d = sample_val_from_dset(dist)
             else:
                 continue
 
             if np.isclose(d, 0):
                 continue
-            if dist == "bond_dist":
-                dist = "0C:1N"
+
             ric.set_length(dist, d)
 
     chain.internal_coord = ic
