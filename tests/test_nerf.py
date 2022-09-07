@@ -35,7 +35,7 @@ class TestDihedralPlacement(unittest.TestCase):
 
     def test_randomized(self):
         """Simple test using randomized values"""
-        for _ in range(5):
+        for _ in range(100):
             a, b, c, d = self.rng.uniform(low=-5, high=5, size=(4, 3))
             calc_d = nerf.place_dihedral(
                 a,

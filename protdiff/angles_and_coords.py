@@ -411,45 +411,23 @@ def create_new_chain(
 def create_new_chain_nerf(
     out_fname: str,
     dists_and_angles: pd.DataFrame,
-    backend: str = "nerf",
 ):
     """Create a new chain using NERF to convert to cartesian coordinates"""
     angles_to_set = ["phi", "psi", "omega"]
     assert all([a in dists_and_angles.columns for a in angles_to_set])
     dihedral_values = dists_and_angles[angles_to_set].values
 
-    if backend == "pnerf":
-        arr_input = torch.from_numpy(dihedral_values).type(torch.float)
-        assert torch.all(arr_input >= -torch.pi)
-        assert torch.all(arr_input <= torch.pi)
-        assert arr_input.shape == (dists_and_angles.shape[0], len(angles_to_set))
-        points = pnerf.dihedral_to_point(arr_input.unsqueeze(1))
-        assert points.shape[1] == 1
-        coords = (
-            pnerf.point_to_coordinate(points, num_fragments=None)
-            .squeeze()
-            .cpu()
-            .numpy()
-        )
+    nerf_builder = mynerf.NERFBuilder(
+        phi_dihedrals=dists_and_angles["phi"],
+        psi_dihedrals=dists_and_angles["psi"],
+        omega_dihedrals=dists_and_angles["omega"],
+    )
+    coords = nerf_builder.cartesian_coords
 
-    elif backend == "nerf":
-        nerf_builder = nerf.NeRF()
-        coords = nerf_builder.compute_positions(dihedral_values.flatten())
-
-    elif backend == "mynerf":
-        nerf_builder = mynerf.NERFBuilder(
-            phi_dihedrals=dists_and_angles["phi"],
-            psi_dihedrals=dists_and_angles["psi"],
-            omega_dihedrals=dists_and_angles["omega"],
-        )
-        coords = nerf_builder.cartesian_coords
-
-    else:
-        raise ValueError(f"Unknown backend: {backend}")
-    # assert coords.shape == (
-    #     int(dists_and_angles.shape[0] * 3),
-    #     3,
-    # ), f"Unexpected shape: {coords.shape} for input of {len(dists_and_angles)}"
+    assert coords.shape == (
+        int(dists_and_angles.shape[0] * 3),
+        3,
+    ), f"Unexpected shape: {coords.shape} for input of {len(dists_and_angles)}"
     # Create a new PDB file using biotite
     # https://www.biotite-python.org/tutorial/target/index.html#creating-structures
     atoms = []
@@ -507,7 +485,7 @@ def test_generation(
     vals = canonical_distances_and_dihedrals(reference_fname)
     print(vals.iloc[:10])
 
-    create_new_chain_nerf("test.pdb", vals, backend="mynerf")
+    create_new_chain_nerf("test.pdb", vals)
     new_vals = canonical_distances_and_dihedrals("test.pdb")
     print(new_vals[:10])
 
