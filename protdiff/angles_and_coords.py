@@ -110,7 +110,10 @@ def coords_to_trrosetta_angles(
     assert all_values.shape == (n - 1, 4)
 
     assert np.all(
-        np.logical_and(all_values[:, 1:] <= np.pi, all_values[:, 1:] >= -np.pi,)
+        np.logical_and(
+            all_values[:, 1:] <= np.pi,
+            all_values[:, 1:] >= -np.pi,
+        )
     ), "Angle values outside of expected [-pi, pi] range"
     return all_values
 
@@ -367,7 +370,7 @@ def create_new_chain(
             ):
                 v = sample_val_from_dset(angle)
             else:
-                continue
+                raise ValueError
             assert -np.pi <= v <= np.pi, f"{angle} is out of range with value {v}"
             ric.set_angle(angle, v / np.pi * 180)
 
@@ -380,7 +383,7 @@ def create_new_chain(
             ):
                 d = sample_val_from_dset(dist)
             else:
-                continue
+                raise ValueError
 
             if np.isclose(d, 0):
                 continue
