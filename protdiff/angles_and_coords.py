@@ -440,6 +440,7 @@ def create_new_chain_nerf(
             res_name="GLY",
             atom_name="N",
             element="N",
+            occupancy=1.0,
         )
         atom2 = struc.Atom(
             ca_coord,
@@ -449,6 +450,7 @@ def create_new_chain_nerf(
             res_name="GLY",
             atom_name="CA",
             element="C",
+            occupancy=1.0,
         )
         atom3 = struc.Atom(
             c_coord,
@@ -458,6 +460,7 @@ def create_new_chain_nerf(
             res_name="GLY",
             atom_name="C",
             element="C",
+            occupancy=1.0,
         )
         atoms.extend([atom1, atom2, atom3])
     full_structure = struc.array(atoms)
