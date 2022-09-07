@@ -1,4 +1,4 @@
-description: CATH canonical angles with zero centering and increased timesteps
+description: CATH canonical angles with zero centering and increased timesteps, shortened sequence length
 
 target:
   service: sing  # Target service platform
@@ -31,10 +31,10 @@ code:
   local_dir: $CONFIG_DIR/..  # elative to config file directory
 
 jobs:
-- name: cath_canonical_angles_linear_warmup_zero_centered_500_steps  # Unique name for each job
+- name: cath_canonical_angles_linear_warmup_zero_centered_500_steps_short_seq  # Unique name for each job
   sku: 16G4-V100 # 16G4-P100 = 16GB memory (these may be more free), 4 GPU P100 (16GB VRAM); G1 = any 1 GPU, 8C1 = 8 GB ram, 1 core; 80G1-A100 = A100 GPU, run amlt target list singularity -v
   priority: high
   sla_tier: premium
   command:
   - tar -xzf data/cath/cath-dataset-nonredundant-S40.pdb.tgz -C data/cath
-  - python bin/train.py config_jsons/full_run_canonical_angles_only_zero_centered_more_timesteps.json -o $$AMLT_OUTPUT_DIR/results
+  - python bin/train.py config_jsons/full_run_canonical_angles_only_zero_centered_1000_timesteps_reduced_len.json -o $$AMLT_OUTPUT_DIR/results

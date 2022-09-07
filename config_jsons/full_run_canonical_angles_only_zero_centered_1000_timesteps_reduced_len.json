@@ -11,7 +11,7 @@
     "variance_scale": 1.0,
     "time_encoding": "gaussian_fourier",
     "implementation": "huggingface_encoder",
-    "position_embedding_type": "absolute",
+    "position_embedding_type": "relative_key",
     "num_hidden_layers": 12,
     "hidden_size": 384,
     "intermediate_size": 768,
