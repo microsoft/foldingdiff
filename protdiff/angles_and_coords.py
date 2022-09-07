@@ -22,9 +22,7 @@ from biotite.structure.io.pdb import PDBFile
 import torch
 from torch.utils.data import Dataset
 
-import pnerf  # Pytorch based
-import nerf  # from medium
-import mynerf  # self implementation
+import nerf
 
 
 def pdb_to_pic(pdb_file: str, pic_file: str):
@@ -417,7 +415,7 @@ def create_new_chain_nerf(
     assert all([a in dists_and_angles.columns for a in angles_to_set])
     dihedral_values = dists_and_angles[angles_to_set].values
 
-    nerf_builder = mynerf.NERFBuilder(
+    nerf_builder = nerf.NERFBuilder(
         phi_dihedrals=dists_and_angles["phi"],
         psi_dihedrals=dists_and_angles["psi"],
         omega_dihedrals=dists_and_angles["omega"],
