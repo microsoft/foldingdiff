@@ -72,40 +72,21 @@ class NERFBuilder:
 
         # The first value of phi at the N terminus is not defined
         # The last value of psi and omega at the C terminus are not defined
-        for i, (phi, psi, omega) in enumerate(
-            zip(self.phi[1:], self.psi[:-1], self.omega[:-1])
-        ):
-            # Procedure
+        for phi, psi, omega in zip(self.phi[1:], self.psi[:-1], self.omega[:-1]):
+            # Procedure for placing N-CA-C
             # Place the next N atom, which requires the C-N bond length/angle, and the psi dihedral
-            n_coords = place_dihedral(
-                retval[-3],
-                retval[-2],
-                retval[-1],
-                bond_angle=self.bond_angles[("C", "N")],
-                bond_length=self.bond_lengths[("C", "N")],
-                torsion_angle=psi,
-            )
-            retval.append(n_coords)
             # Place the alpha carbon, which requires the N-CA bond length/angle, and the omega dihedral
-            ca_coords = place_dihedral(
-                retval[-3],
-                retval[-2],
-                retval[-1],
-                bond_angle=self.bond_angles[("N", "CA")],
-                bond_length=self.bond_lengths[("N", "CA")],
-                torsion_angle=omega,
-            )
-            retval.append(ca_coords)
             # Place the carbon, which requires the the CA-C bond length/angle, and the phi dihedral
-            c_coords = place_dihedral(
-                retval[-3],
-                retval[-2],
-                retval[-1],
-                bond_angle=self.bond_angles[("CA", "C")],
-                bond_length=self.bond_lengths[("CA", "C")],
-                torsion_angle=phi,
-            )
-            retval.append(c_coords)
+            for bond, dih in zip(self.bond_lengths.keys(), [psi, omega, phi]):
+                coords = place_dihedral(
+                    retval[-3],
+                    retval[-2],
+                    retval[-1],
+                    bond_angle=self.bond_angles[bond],
+                    bond_length=self.bond_lengths[bond],
+                    torsion_angle=dih,
+                )
+                retval.append(coords)
 
         return np.array(retval)
 
