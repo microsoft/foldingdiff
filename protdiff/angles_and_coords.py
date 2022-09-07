@@ -24,6 +24,7 @@ from torch.utils.data import Dataset
 
 import pnerf  # Pytorch based
 import nerf  # from medium
+import mynerf  # self implementation
 
 
 def pdb_to_pic(pdb_file: str, pic_file: str):
@@ -435,6 +436,14 @@ def create_new_chain_nerf(
         nerf_builder = nerf.NeRF()
         coords = nerf_builder.compute_positions(dihedral_values.flatten())
 
+    elif backend == "mynerf":
+        nerf_builder = mynerf.NERFBuilder(
+            phi_dihedrals=dists_and_angles["phi"],
+            psi_dihedrals=dists_and_angles["psi"],
+            omega_dihedrals=dists_and_angles["omega"],
+        )
+        coords = nerf_builder.cartesian_coords
+
     else:
         raise ValueError(f"Unknown backend: {backend}")
     # assert coords.shape == (
@@ -490,14 +499,20 @@ def test_generation(
     """
     Test the generation of a new chain
     """
-    # sampled_coords = sample_coords(reference_fname)
+    import tmalign
+
+    test = PDBFile.read(reference_fname)
+    print(test.get_structure())
 
     vals = canonical_distances_and_dihedrals(reference_fname)
     print(vals.iloc[:10])
 
-    create_new_chain_nerf("test.pdb", vals)
+    create_new_chain_nerf("test.pdb", vals, backend="mynerf")
     new_vals = canonical_distances_and_dihedrals("test.pdb")
     print(new_vals[:10])
+
+    score = tmalign.run_tmalign("test.pdb", reference_fname)
+    print(score)
 
 
 if __name__ == "__main__":
