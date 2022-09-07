@@ -216,6 +216,14 @@ def canonical_distances_and_dihedrals(
                 [(i, i + 1) for i in range(3, len(backbone_atoms), 3)] + [(0, 0)]
             )
             assert len(idx) == len(calc_angles["phi"])
+        elif d == "CA:C":
+            # We start reconstructing with a fixed initial residue so we do not need
+            # to predict or record the initial distance. Additionally, we pad with a
+            # null value at the end.
+            idx = np.array(
+                [(i + 1, i + 2) for i in range(3, len(backbone_atoms), 3)] + [(0, 0)]
+            )
+            assert len(idx) == len(calc_angles["phi"])
         else:
             raise ValueError(f"Unrecognized distance: {d}")
         calc_angles[d] = struc.index_distance(backbone_atoms, indices=idx)
@@ -295,6 +303,8 @@ def create_new_chain_nerf(
             nerf_build_kwargs["bond_len_c_n"] = dists_and_angles[d]
         elif d == "N:CA":
             nerf_build_kwargs["bond_len_n_ca"] = dists_and_angles[d]
+        elif d == "CA:C":
+            nerf_build_kwargs['bond_len_ca_c'] = dists_and_angles[d]
         else:
             raise ValueError(f"Unrecognized distance: {d}")
 

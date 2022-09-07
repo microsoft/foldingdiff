@@ -16,9 +16,8 @@ import numpy as np
 
 
 N_CA_LENGTH = 1.46  # Check, approxiamtely right
-CA_C_LENGTH = 1.54
+CA_C_LENGTH = 1.54  # Check, approximately right
 C_N_LENGTH = 1.34  # Check, approximately right
-C_O_LENGTH = 1.43
 
 # Taken from initial coords from 1CRN, which is a THR
 N_INIT = np.array([17.047, 14.099, 3.625])
