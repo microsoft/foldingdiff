@@ -186,7 +186,7 @@ def canonical_distances_and_dihedrals(
         if a == "tau" or a == "N:CA:C":
             # tau = N - CA - C internal angles
             idx = np.array(
-                [list(range(i, i + 3)) for i in range(0, len(backbone_atoms), 3)]
+                [list(range(i, i + 3)) for i in range(3, len(backbone_atoms), 3)] + [(0, 0, 0)]
             )
         elif a == "CA:C:1N":  # Same as C-N angle in nerf
             # This measures an angle between two residues. Due to the way we build
