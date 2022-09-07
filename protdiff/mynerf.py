@@ -8,14 +8,15 @@ https://benjamin-computer.medium.com/protein-loops-in-tensorflow-a-i-bio-part-2-
 import numpy as np
 
 
-def place_dihedral(a, b, c, bond_angle, bond_length, torsion_angle):
+def place_dihedral(a: np.ndarray, b:np.ndarray, c: np.ndarray, bond_angle:float, bond_length:float, torsion_angle:float) -> np.ndarray:
     """
     Place the point d such that the bond angle, length, and torsion angle are satisfied
+    with the series a, b, c, d.
     """
+    assert a.ndim == b.ndim == c.ndim == 1
+    unit_vec = lambda x: x / np.linalg.norm(x)
     ab = b - a
-    bc = c - b
-    bcn = bc / np.linalg.norm(bc)
-    # numpy is row major
+    bc = unit_vec(c - b)
     d = np.array(
         [
             -bond_length * np.cos(bond_angle),
@@ -23,15 +24,11 @@ def place_dihedral(a, b, c, bond_angle, bond_length, torsion_angle):
             bond_length * np.sin(torsion_angle) * np.sin(bond_angle),
         ]
     )
-    n = np.cross(ab, bcn)
-    n /= np.linalg.norm(n)
-    nbc = np.cross(n, bcn)
-    m = np.array(
-        [[bcn[0], nbc[0], n[0]], [bcn[1], nbc[1], n[1]], [bcn[2], nbc[2], n[2]]]
-    )
+    n = unit_vec(np.cross(ab, bc))
+    nbc = np.cross(n, bc)
+    m = np.stack([bc, nbc, n]).T
     d = m.dot(d)
-    d = d + c
-    return d
+    return d + c
 
 
 if __name__ == "__main__":

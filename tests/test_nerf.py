@@ -35,20 +35,20 @@ class TestDihedralPlacement(unittest.TestCase):
 
     def test_randomized(self):
         """Simple test using randomized values"""
-        a, b, c, d = self.rng.uniform(low=-5, high=5, size=(4, 3))
-        print(a, b, c, d)
-        calc_d = nerf.place_dihedral(
-            a,
-            b,
-            c,
-            angle_between(d - c, b - c),
-            dist_between(c, d),
-            dihedral(a, b, c, d),
-        )
-        self.assertTrue(np.allclose(d, calc_d), f"Mismatched: {d} != {calc_d}")
+        for _ in range(5):
+            a, b, c, d = self.rng.uniform(low=-5, high=5, size=(4, 3))
+            calc_d = nerf.place_dihedral(
+                a,
+                b,
+                c,
+                angle_between(d - c, b - c),
+                dist_between(c, d),
+                dihedral(a, b, c, d),
+            )
+            self.assertTrue(np.allclose(d, calc_d), f"Mismatched: {d} != {calc_d}")
 
 
-def angle_between(v1, v2):
+def angle_between(v1, v2) -> float:
     """Gets the angle between u and v"""
     # https://stackoverflow.com/questions/2827393/angles-between-two-n-dimensional-vectors-in-python
     unit_vector = lambda vector: vector / np.linalg.norm(vector)
