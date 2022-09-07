@@ -49,7 +49,7 @@ class NERFBuilder:
         self.omega = omega_dihedrals.squeeze()
 
         # We start with coordinates for N --> CA --> C so the next atom we add
-        # is the next N. Therefore, the first angle we need is the
+        # is the next N. Therefore, the first angle we need is the C --> N bond
         self.bond_lengths = {
             ("C", "N"): bond_len_c_n,
             ("N", "CA"): bond_len_n_ca,
@@ -60,10 +60,7 @@ class NERFBuilder:
             ("N", "CA"): bond_angle_n_ca,
             ("CA", "C"): bond_angle_ca_c,
         }
-        if init_coords is not None:
-            self.init_coords = [c for c in init_coords]
-        else:
-            raise NotImplementedError
+        self.init_coords = [c for c in init_coords]
 
         self.bonds = itertools.cycle(self.bond_angles.keys())
 
@@ -100,7 +97,7 @@ class NERFBuilder:
         if isinstance(v, float):
             return v
         return v[idx]
-    
+
     def _get_bond_angle(self, bond: Tuple[str, str], idx: int):
         """Get the ith bond angle"""
         v = self.bond_angles[bond]
