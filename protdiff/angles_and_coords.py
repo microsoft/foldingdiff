@@ -200,7 +200,7 @@ def canonical_distances_and_dihedrals(
 
     # Get any additional distances
     for d in distances:
-        if d == "0C:1N":
+        if (d == "0C:1N") or (d == "C:1N"):
             # Since this is measuring the distance between pairs of residues, there
             # is one fewer such measurement than the total number of residues like
             # for dihedrals. Therefore, we pad this with a null 0 value at the end.
@@ -208,6 +208,14 @@ def canonical_distances_and_dihedrals(
                 [(i + 2, i + 3) for i in range(0, len(backbone_atoms) - 3, 3)]
                 + [(0, 0)]
             )
+        elif d == "N:CA":
+            # We start resconstructing with a fixed initial residue so we do not need
+            # to predict or record the initial distance. Additionally we pad with a
+            # null value at the end
+            idx = np.array(
+                [(i, i + 1) for i in range(3, len(backbone_atoms), 3)] + [(0, 0)]
+            )
+            assert len(idx) == len(calc_angles["phi"])
         else:
             raise ValueError(f"Unrecognized distance: {d}")
         calc_angles[d] = struc.index_distance(backbone_atoms, indices=idx)
@@ -284,10 +292,14 @@ def create_new_chain_nerf(
     for d in dists_to_set:
         assert d in dists_and_angles.columns
         if d == "0C:1N":
-            nerf_build_kwargs['bond_len_c_n'] = dists_and_angles[d]
+            nerf_build_kwargs["bond_len_c_n"] = dists_and_angles[d]
+        elif d == "N:CA":
+            nerf_build_kwargs["bond_len_n_ca"] = dists_and_angles[d]
+        else:
+            raise ValueError(f"Unrecognized distance: {d}")
 
     nerf_builder = nerf.NERFBuilder(**nerf_build_kwargs)
-    coords = nerf_builder.cartesian_coords
+    coords = nerf_builder.centered_cartesian_coords
 
     assert coords.shape == (
         int(dists_and_angles.shape[0] * 3),

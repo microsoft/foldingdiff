@@ -15,9 +15,9 @@ from typing import *
 import numpy as np
 
 
-N_CA_LENGTH = 1.46
+N_CA_LENGTH = 1.46  # Check, approxiamtely right
 CA_C_LENGTH = 1.54
-C_N_LENGTH = 1.34
+C_N_LENGTH = 1.34  # Check, approximately right
 C_O_LENGTH = 1.43
 
 # Taken from initial coords from 1CRN, which is a THR
@@ -90,6 +90,12 @@ class NERFBuilder:
                 retval.append(coords)
 
         return np.array(retval)
+
+    @cached_property
+    def centered_cartesian_coords(self) -> np.ndarray:
+        """Returns the centered coords"""
+        means = self.cartesian_coords.mean(axis=0)
+        return self.cartesian_coords - means
 
     def _get_bond_length(self, bond: Tuple[str, str], idx: int):
         """Get the ith bond distance"""
