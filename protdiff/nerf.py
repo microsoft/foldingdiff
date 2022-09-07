@@ -1,5 +1,7 @@
 """
 NERF!
+Note that this was designed with compatibility with biotite, NOT biopython!
+These two packages use different conventions for where NaNs are placed in dihedrals
 
 References:
 https://benjamin-computer.medium.com/protein-loops-in-tensorflow-a-i-bio-part-2-f1d802ef8300
@@ -36,9 +38,9 @@ class NERFBuilder:
         omega_dihedrals: np.ndarray,
         bond_len_n_ca: Union[float, np.ndarray] = N_CA_LENGTH,
         bond_len_ca_c: Union[float, np.ndarray] = CA_C_LENGTH,
-        bond_len_c_n: Union[float, np.ndarray] = C_N_LENGTH,
+        bond_len_c_n: Union[float, np.ndarray] = C_N_LENGTH,  # 0C:1N distance
         bond_angle_n_ca: Union[float, np.ndarray] = 121 / 180 * np.pi,
-        bond_angle_ca_c: Union[float, np.ndarray] = 109 / 180 * np.pi,
+        bond_angle_ca_c: Union[float, np.ndarray] = 109 / 180 * np.pi,  # aka tau
         bond_angle_c_n: Union[float, np.ndarray] = 115 / 180 * np.pi,
         init_coords: np.ndarray = [N_INIT, CA_INIT, C_INIT],
     ) -> None:
@@ -72,7 +74,9 @@ class NERFBuilder:
 
         # The first value of phi at the N terminus is not defined
         # The last value of psi and omega at the C terminus are not defined
-        for phi, psi, omega in zip(self.phi[1:], self.psi[:-1], self.omega[:-1]):
+        for i, (phi, psi, omega) in enumerate(
+            zip(self.phi[1:], self.psi[:-1], self.omega[:-1])
+        ):
             # Procedure for placing N-CA-C
             # Place the next N atom, which requires the C-N bond length/angle, and the psi dihedral
             # Place the alpha carbon, which requires the N-CA bond length/angle, and the omega dihedral
@@ -82,13 +86,27 @@ class NERFBuilder:
                     retval[-3],
                     retval[-2],
                     retval[-1],
-                    bond_angle=self.bond_angles[bond],
-                    bond_length=self.bond_lengths[bond],
+                    bond_angle=self._get_bond_angle(bond, i),
+                    bond_length=self._get_bond_length(bond, i),
                     torsion_angle=dih,
                 )
                 retval.append(coords)
 
         return np.array(retval)
+
+    def _get_bond_length(self, bond: Tuple[str, str], idx: int):
+        """Get the ith bond distance"""
+        v = self.bond_lengths[bond]
+        if isinstance(v, float):
+            return v
+        return v[idx]
+    
+    def _get_bond_angle(self, bond: Tuple[str, str], idx: int):
+        """Get the ith bond angle"""
+        v = self.bond_angles[bond]
+        if isinstance(v, float):
+            return v
+        return v[idx]
 
 
 def place_dihedral(
