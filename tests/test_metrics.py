@@ -92,3 +92,12 @@ class TestWrappedMean(unittest.TestCase):
         x = self.rng.normal(loc=-0.5, scale=0.25, size=100000)
         m = cm.wrapped_mean(x)
         self.assertAlmostEqual(m, -0.5, places=2)
+
+    def test_with_nan(self):
+        """Test that nan values do not affect calculation"""
+        x = self.rng.normal(loc=-0.5, scale=0.25, size=100000)
+        m = cm.wrapped_mean(x)
+
+        x[:100] = np.nan
+        m_with_nan = cm.wrapped_mean(x)
+        self.assertAlmostEqual(m, m_with_nan, places=2)

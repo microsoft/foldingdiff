@@ -89,5 +89,5 @@ def wrapped_mean(x: np.ndarray, axis=None) -> float:
     sin_x = np.sin(x)
     cos_x = np.cos(x)
 
-    retval = np.arctan2(np.mean(sin_x, axis=axis), np.mean(cos_x, axis=axis))
+    retval = np.arctan2(np.nanmean(sin_x, axis=axis), np.nanmean(cos_x, axis=axis))
     return retval
