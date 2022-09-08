@@ -741,7 +741,7 @@ class NoisedAnglesDataset(Dataset):
         return noise
 
     def __getitem__(
-        self, index: int, use_t_val: Optional[int] = None
+        self, index: int, use_t_val: Optional[int] = None, ignore_zero_center: bool = False
     ) -> Dict[str, torch.Tensor]:
         """
         Gets the i-th item in the dataset and adds noise
@@ -759,9 +759,9 @@ class NoisedAnglesDataset(Dataset):
             assert (
                 item_index * self.timesteps + time_index == index
             ), f"Unexpected indices for {index} -- {item_index} {time_index}"
-            item = self.dset.__getitem__(item_index)
+            item = self.dset.__getitem__(item_index, ignore_zero_center=ignore_zero_center)
         else:
-            item = self.dset.__getitem__(index)
+            item = self.dset.__getitem__(index, ignore_zero_center=ignore_zero_center)
 
         # If wrapped dset returns a dictionary then we extract the item to noise
         if self.dset_key is not None:
