@@ -353,6 +353,7 @@ def create_new_chain_nerf(
             element="N",
             occupancy=1.0,
             hetero=False,
+            b_factor=5.0,
         )
         atom2 = struc.Atom(
             ca_coord,
@@ -364,6 +365,7 @@ def create_new_chain_nerf(
             element="C",
             occupancy=1.0,
             hetero=False,
+            b_factor=5.0,
         )
         atom3 = struc.Atom(
             c_coord,
@@ -375,6 +377,7 @@ def create_new_chain_nerf(
             element="C",
             occupancy=1.0,
             hetero=False,
+            b_factor=5.0,
         )
         atoms.extend([atom1, atom2, atom3])
     full_structure = struc.array(atoms)
@@ -397,15 +400,17 @@ def test_generation(
     test = PDBFile.read(reference_fname)
     print(test.get_structure())
 
-    vals_old = canonical_distances_and_dihedrals_old_pdb(reference_fname)
-    print(vals_old.iloc[:10])
-
     vals = canonical_distances_and_dihedrals(reference_fname)
     print(vals.iloc[:10])
 
-    # create_new_chain_nerf("test.pdb", vals)
-    # new_vals = canonical_distances_and_dihedrals("test.pdb")
-    # print(new_vals[:10])
+    create_new_chain_nerf(
+        "test.pdb",
+        vals,
+        angles_to_set=["phi", "psi", "omega", "tau"],
+        dists_to_set=["0C:1N"],
+    )
+    new_vals = canonical_distances_and_dihedrals("test.pdb")
+    print(new_vals[:10])
 
     # score = tmalign.run_tmalign("test.pdb", reference_fname)
     # print(score)
