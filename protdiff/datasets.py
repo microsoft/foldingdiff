@@ -254,11 +254,9 @@ class CathCanonicalAnglesDataset(Dataset):
         min_length: int = 40,  # Set to 0 to disable
         trim_strategy: Literal["leftalign", "randomcrop"] = "leftalign",
         toy: int = 0,
-        shift_to_zero_twopi: bool = False,
         zero_center: bool = False,  # Center the features to have 0 mean
     ) -> None:
         super().__init__()
-        assert not shift_to_zero_twopi, "No reason to shift to zero twopi"
         self.trim_strategy = trim_strategy
         self.pad = pad
         self.min_length = min_length
@@ -655,7 +653,6 @@ class NoisedAnglesDataset(Dataset):
         beta_schedule: beta_schedules.SCHEDULES = "linear",
         nonangular_variance: float = 1.0,
         angular_variance: float = 1.0,
-        shift_to_zero_twopi: bool = False,
     ) -> None:
         super().__init__()
         self.dset = dset
@@ -669,15 +666,6 @@ class NoisedAnglesDataset(Dataset):
 
         self.nonangular_var_scale = nonangular_variance
         self.angular_var_scale = angular_variance
-
-        self.shift_to_zero_twopi = shift_to_zero_twopi
-        if hasattr(self.dset, "shift_angles_zero_twopi"):
-            assert (
-                self.shift_to_zero_twopi == self.dset.shift_to_zero_twopi
-            ), "Mismatched shift_to_zero_twopi"
-            logging.info(
-                f"Checked shift_to_zero_twopi between noiser and underlying dset -- both {self.shift_to_zero_twopi}"
-            )
 
         self.timesteps = timesteps
         self.schedule = beta_schedule
@@ -746,9 +734,6 @@ class NoisedAnglesDataset(Dataset):
         noise[..., angular_idx] = utils.modulo_with_wrapped_range(
             noise[..., angular_idx], -np.pi, np.pi
         )
-        if self.shift_to_zero_twopi:
-            # Add pi
-            noise[..., angular_idx] += np.pi
 
         return noise
 
@@ -814,15 +799,10 @@ class NoisedAnglesDataset(Dataset):
         # The underlying vals are already shifted, and noise is already shifted
         # All we need to do is ensure we stay on the corresponding manifold
         angular_idx = np.where(self.dset.feature_is_angular[self.dset_key])[0]
-        if self.shift_to_zero_twopi:
-            noised_vals[:, angular_idx] = utils.modulo_with_wrapped_range(
-                noised_vals[:, angular_idx], 0, 2 * np.pi
-            )
-        else:
-            # Wrap around the correct range
-            noised_vals[:, angular_idx] = utils.modulo_with_wrapped_range(
-                noised_vals[:, angular_idx], -np.pi, np.pi
-            )
+        # Wrap around the correct range
+        noised_vals[:, angular_idx] = utils.modulo_with_wrapped_range(
+            noised_vals[:, angular_idx], -np.pi, np.pi
+        )
 
         retval = {
             "corrupted": noised_vals,
