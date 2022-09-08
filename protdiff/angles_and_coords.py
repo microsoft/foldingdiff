@@ -382,6 +382,12 @@ def create_new_chain_nerf(
         atoms.extend([atom1, atom2, atom3])
     full_structure = struc.array(atoms)
 
+    # Add bonds
+    full_structure.bonds = struc.BondList(full_structure.array_length())
+    indices = list(range(full_structure.array_length()))
+    for a, b in zip(indices[:-1], indices[1:]):
+        full_structure.bonds.add_bond(a, b, bond_type=struc.BondType.SINGLE)
+
     sink = PDBFile()
     sink.set_structure(full_structure)
     sink.write(out_fname)
