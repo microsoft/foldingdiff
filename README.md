@@ -14,6 +14,16 @@ conda env create -f environment.yml
 
 Note that you do not need to have this set up if you are _only_ submitting jobs to the cluster.
 
+## Downloading data
+
+We requires some data files not packaged on Git due to their large size. To download these, do the following:
+
+```bash
+# Download the CATH dataset
+cd data  # Ensure that you are in the data subdirectory within the codebase
+./download_cath.sh
+```
+
 ## Tests
 Tests are implemented through a mixture of doctests and unittests. To run unittests, run:
 
