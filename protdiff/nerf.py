@@ -59,7 +59,9 @@ class NERFBuilder:
             ("N", "CA"): bond_angle_n_ca,
             ("CA", "C"): bond_angle_ca_c,
         }
-        self.init_coords = [c for c in init_coords]
+        self.init_coords = [c.squeeze() for c in init_coords]
+        assert len(self.init_coords) == 3, f"Requires 3 initial coords for N-Ca-C but got {len(self.init_coords)}"
+        assert all([c.size == 3 for c in self.init_coords]), "Initial coords should be 3-dimensional"
 
         self.bonds = itertools.cycle(self.bond_angles.keys())
 
