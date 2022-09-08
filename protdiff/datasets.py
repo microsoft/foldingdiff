@@ -457,10 +457,10 @@ class CathCanonicalAnglesDataset(Dataset):
             0
         ]
         assert utils.tolerant_comparison_check(
-            angles, ">=", -np.pi
+            angles[:, angular_idx], ">=", -np.pi
         ), f"Illegal value: {np.min(angles[:, angular_idx])}"
         assert utils.tolerant_comparison_check(
-            angles, "<=", np.pi
+            angles[:, angular_idx], "<=", np.pi
         ), f"Illegal value: {np.max(angles[:, angular_idx])}"
         angles = torch.from_numpy(angles).float()
 
