@@ -10,12 +10,36 @@ As the maintainer of this project, please make a few updates:
 - Understanding the security reporting process in SECURITY.MD
 - Remove this section from the README
 
+## Installation
+The required conda environment is defined within the `environment.yml` file. To set this up, make
+sure you have conda (or mamba) installed and run:
+
+```bash
+conda env create -f environment.yml
+```
+
+Note that you do not need to have this set up if you are _only_ submitting jobs to the cluster.
+
 ## Tests
 Tests are implemented through a mixture of doctests and unittests. To run unittests, run:
 
 ```bash
 python -m unittest -v
 ```
+
+## Singularity/amulet
+To run on singularity/amulet, first install amulet following the instructions at https://amulet-docs.azurewebsites.net/main/setup.html. This should leave you with a conda environment named `amlt8`. Note that this environment should be _separate_ from the environment that is required to actually run model. To run training on singularity, run:
+
+```bash
+conda activate amlt8  # Activate the conda env.
+amlt run -y scripts/amlt.yaml -o results
+```
+
+Within this `amlt.yaml` file, the python command contains a pointer to a config json file. Edit the path indicated here to
+use a different configuration for training.
+
+Note rearding the structure of the `amlt.yaml` file: installing packages via conda is very slow on the Singularity cluster, so
+we recreate the same set of packages installed via pip instead of relying on conda.
 
 ## Contributing
 
