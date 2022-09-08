@@ -302,7 +302,7 @@ def create_new_chain_nerf(
     angles_to_set: List[str] = ["phi", "psi", "omega"],
     dists_to_set: List[str] = [],
     center_coords: bool = True,
-) -> None:
+) -> str:
     """Create a new chain using NERF to convert to cartesian coordinates"""
     # Check that we are at least setting the dihedrals
     required_dihedrals = ["phi", "psi", "omega"]
@@ -343,6 +343,9 @@ def create_new_chain_nerf(
         if center_coords
         else nerf_builder.cartesian_coords
     )
+    if np.any(np.isnan(coords)):
+        logging.warning(f"Found NaN values, not writing pdb file {out_fname}")
+        return ""
 
     assert coords.shape == (
         int(dists_and_angles.shape[0] * 3),
@@ -409,6 +412,7 @@ def create_new_chain_nerf(
     sink = PDBFile()
     sink.set_structure(full_structure)
     sink.write(out_fname)
+    return out_fname
 
 
 def test_generation(
