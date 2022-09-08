@@ -18,6 +18,7 @@ from sequence_models import pdb_utils
 
 import biotite.structure as struc
 from biotite.structure.io.pdb import PDBFile
+from biotite.structure.io.pdbx import PDBxFile
 
 import torch
 from torch.utils.data import Dataset
@@ -387,6 +388,13 @@ def create_new_chain_nerf(
     indices = list(range(full_structure.array_length()))
     for a, b in zip(indices[:-1], indices[1:]):
         full_structure.bonds.add_bond(a, b, bond_type=struc.BondType.SINGLE)
+
+    # Annotate secondary structure using CA coordinates
+    # https://www.biotite-python.org/apidoc/biotite.structure.annotate_sse.html
+    # https://academic.oup.com/bioinformatics/article/13/3/291/423201
+    # a = alpha helix, b = beta sheet, c = coil
+    # ss = struc.annotate_sse(full_structure, "A")
+    # full_structure.set_annotation("secondary_structure_psea", ss)
 
     sink = PDBFile()
     sink.set_structure(full_structure)
