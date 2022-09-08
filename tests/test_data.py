@@ -59,7 +59,12 @@ class TestCathCanonicalAnglesOnly(unittest.TestCase):
 
     def setUp(self) -> None:
         self.pad = 512
-        self.dset = datasets.CathCanonicalAnglesOnlyDataset(pad=self.pad)
+        self.dset = datasets.CathCanonicalAnglesOnlyDataset(
+            pad=self.pad, zero_center=False
+        )
+        self.zero_centered_dataset = datasets.CathCanonicalAnglesOnlyDataset(
+            pad=self.pad, zero_center=True
+        )
 
     def test_return_keys(self):
         """Test that returned dictionary has expected keys"""
@@ -115,3 +120,32 @@ class TestCathCanonicalAnglesOnly(unittest.TestCase):
             v1 = x1[k1]
             v2 = x2[k1]
             self.assertTrue(torch.allclose(v1, v2))
+
+    def test_repeated_query_zero_center(self):
+        """Test that repeated query is consistent if we are using zero centering"""
+        x1 = self.zero_centered_dataset[0]
+        x2 = self.zero_centered_dataset[0]
+
+        for k1 in x1.keys():
+            v1 = x1[k1]
+            v2 = x2[k1]
+            self.assertTrue(torch.allclose(v1, v2))
+
+
+class TestNoisedDataset(unittest.TestCase):
+    """
+    Tests for noised angles dataset
+    """
+
+    def setUp(self) -> None:
+        self.pad = 128
+        self.clean_dset = datasets.CathCanonicalAnglesOnlyDataset(
+            pad=self.pad, zero_center=True, trim_strategy="leftalign"
+        )
+        self.noised_dset = datasets.NoisedAnglesDataset(self.clean_dset)
+
+    def test_repeated_query(self):
+        """Test that repeating a query results in the same *unnoised* start"""
+        x = self.noised_dset[1]["angles"]
+        y = self.noised_dset[1]["angles"]
+        self.assertTrue(torch.allclose(x, y))

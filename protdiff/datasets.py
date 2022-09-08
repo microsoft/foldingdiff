@@ -41,7 +41,10 @@ from angles_and_coords import (
 from custom_metrics import kl_from_empirical, wrapped_mean
 import utils
 
-ANGLES_DEFINITIONS = Literal['canonical', 'canonical-full-angles', 'canonical-minimal-angles']
+ANGLES_DEFINITIONS = Literal[
+    "canonical", "canonical-full-angles", "canonical-minimal-angles"
+]
+
 
 class CathConsecutiveAnglesDataset(Dataset):
     """
@@ -411,7 +414,7 @@ class CathCanonicalAnglesDataset(Dataset):
             assert (
                 self.means.shape[0] == angles.shape[1]
             ), f"Mismatched shapes: {self.means.shape} != {angles.shape}"
-            angles -= self.means
+            angles = angles - self.means
 
             # The distance features all contain a single ":"
             colon_count = np.array([c.count(":") for c in angles.columns])
@@ -763,9 +766,9 @@ class NoisedAnglesDataset(Dataset):
         # If wrapped dset returns a dictionary then we extract the item to noise
         if self.dset_key is not None:
             assert isinstance(item, dict)
-            vals = item[self.dset_key]
+            vals = item[self.dset_key].clone()
         else:
-            vals = item
+            vals = item.clone()
         assert isinstance(
             vals, torch.Tensor
         ), f"Using dset_key {self.dset_key} - expected tensor but got {type(vals)}"
