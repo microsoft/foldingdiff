@@ -1,5 +1,7 @@
 # Protein diffusion
 
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+
 We present a diffusion model for generating novel protein backbone structures.
 
 ## Installation
