@@ -3,6 +3,7 @@ Unit tests for NERF conversion of internal coordinates to cartesian coordinates
 """
 
 import os, sys
+import tempfile
 import unittest
 
 import numpy as np
@@ -13,7 +14,9 @@ SRC_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "protdiff")
 assert os.path.isdir(SRC_DIR)
 sys.path.append(SRC_DIR)
 
-import mynerf as nerf
+import nerf
+import angles_and_coords as ac
+import tmalign
 
 
 class TestDihedralPlacement(unittest.TestCase):
@@ -46,6 +49,60 @@ class TestDihedralPlacement(unittest.TestCase):
                 dihedral(a, b, c, d),
             )
             self.assertTrue(np.allclose(d, calc_d), f"Mismatched: {d} != {calc_d}")
+
+
+class TestBackboneReconstruction(unittest.TestCase):
+    """
+    Test that we can successfully reconstruct the backbone of a simple protein
+    """
+
+    def setUp(self) -> None:
+        self.pdb_file = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data/1CRN.pdb"
+        )
+        assert os.path.isfile(self.pdb_file)
+
+        self.exhaustive_angles = ["phi", "psi", "omega", "tau", "CA:C:1N", "C:1N:1CA"]
+        self.exhaustive_dists = ["0C:1N", "N:CA", "CA:C"]
+
+        self.minimal_angles = ["phi", "psi", "omega"]
+        self.minimal_dists = []
+
+    def test_full_reconstruction(self):
+        """Test that we can get the same structure back"""
+        angles = ac.canonical_distances_and_dihedrals(
+            self.pdb_file,
+            distances=self.exhaustive_dists,
+            angles=self.exhaustive_angles,
+        )
+        with tempfile.TemporaryDirectory() as dirname:
+            out_fname = os.path.join(dirname, "temp.pdb")
+            ac.create_new_chain_nerf(
+                out_fname,
+                angles,
+                angles_to_set=self.exhaustive_angles,
+                dists_to_set=self.exhaustive_dists,
+            )
+            score = tmalign.run_tmalign(self.pdb_file, out_fname)
+        self.assertAlmostEqual(1.0, score)
+
+    def test_minimal_reconstruction(self):
+        """Test that we can get a close enough structure back with fewer angles"""
+        angles = ac.canonical_distances_and_dihedrals(
+            self.pdb_file,
+            distances=self.minimal_dists,
+            angles=self.minimal_angles,
+        )
+        with tempfile.TemporaryDirectory() as dirname:
+            out_fname = os.path.join(dirname, "temp.pdb")
+            ac.create_new_chain_nerf(
+                out_fname,
+                angles,
+                angles_to_set=self.minimal_angles,
+                dists_to_set=self.minimal_dists,
+            )
+            score = tmalign.run_tmalign(self.pdb_file, out_fname)
+        self.assertGreater(score, 0.5)
 
 
 def angle_between(v1, v2) -> float:
