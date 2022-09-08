@@ -21,6 +21,7 @@ dependencies:
   - conda-forge::gitpython
   - conda-forge::biopython=1.79
   - conda-forge::py3dmol
+  - conda-forge::biotite=0.34
   - bioconda::tmalign
   - pip
     - sequence-models
