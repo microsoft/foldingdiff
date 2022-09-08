@@ -82,6 +82,26 @@ class TestBackboneReconstruction(unittest.TestCase):
                 angles,
                 angles_to_set=self.exhaustive_angles,
                 dists_to_set=self.exhaustive_dists,
+                center_coords=False,
+            )
+            score = tmalign.run_tmalign(self.pdb_file, out_fname)
+        self.assertAlmostEqual(1.0, score)
+    
+    def test_full_reconstruction_with_centering(self):
+        """Test that we can get the same structure back with centering"""
+        angles = ac.canonical_distances_and_dihedrals(
+            self.pdb_file,
+            distances=self.exhaustive_dists,
+            angles=self.exhaustive_angles,
+        )
+        with tempfile.TemporaryDirectory() as dirname:
+            out_fname = os.path.join(dirname, "temp.pdb")
+            ac.create_new_chain_nerf(
+                out_fname,
+                angles,
+                angles_to_set=self.exhaustive_angles,
+                dists_to_set=self.exhaustive_dists,
+                center_coords=True,
             )
             score = tmalign.run_tmalign(self.pdb_file, out_fname)
         self.assertAlmostEqual(1.0, score)

@@ -186,7 +186,8 @@ def canonical_distances_and_dihedrals(
         if a == "tau" or a == "N:CA:C":
             # tau = N - CA - C internal angles
             idx = np.array(
-                [list(range(i, i + 3)) for i in range(3, len(backbone_atoms), 3)] + [(0, 0, 0)]
+                [list(range(i, i + 3)) for i in range(3, len(backbone_atoms), 3)]
+                + [(0, 0, 0)]
             )
         elif a == "CA:C:1N":  # Same as C-N angle in nerf
             # This measures an angle between two residues. Due to the way we build
@@ -197,7 +198,8 @@ def canonical_distances_and_dihedrals(
             )
         elif a == "C:1N:1CA":
             idx = np.array(
-                [(i + 2, i + 3, i + 4) for i in range(0, len(backbone_atoms) - 3, 3)] + [(0, 0, 0)]
+                [(i + 2, i + 3, i + 4) for i in range(0, len(backbone_atoms) - 3, 3)]
+                + [(0, 0, 0)]
             )
         else:
             raise ValueError(f"Unrecognized angle: {a}")
@@ -288,7 +290,8 @@ def create_new_chain_nerf(
     dists_and_angles: pd.DataFrame,
     angles_to_set: List[str] = ["phi", "psi", "omega"],
     dists_to_set: List[str] = [],
-):
+    center_coords: bool = True,
+) -> None:
     """Create a new chain using NERF to convert to cartesian coordinates"""
     # Check that we are at least setting the dihedrals
     required_dihedrals = ["phi", "psi", "omega"]
@@ -306,9 +309,9 @@ def create_new_chain_nerf(
         if a == "tau" or a == "N:CA:C":
             nerf_build_kwargs["bond_angle_ca_c"] = dists_and_angles[a]
         elif a == "CA:C:1N":
-            nerf_build_kwargs['bond_angle_c_n'] = dists_and_angles[a]
+            nerf_build_kwargs["bond_angle_c_n"] = dists_and_angles[a]
         elif a == "C:1N:1CA":
-            nerf_build_kwargs['bond_angle_n_ca'] = dists_and_angles[a]
+            nerf_build_kwargs["bond_angle_n_ca"] = dists_and_angles[a]
         else:
             raise ValueError(f"Unrecognized angle: {a}")
 
@@ -324,7 +327,11 @@ def create_new_chain_nerf(
             raise ValueError(f"Unrecognized distance: {d}")
 
     nerf_builder = nerf.NERFBuilder(**nerf_build_kwargs)
-    coords = nerf_builder.centered_cartesian_coords
+    coords = (
+        nerf_builder.centered_cartesian_coords
+        if center_coords
+        else nerf_builder.cartesian_coords
+    )
 
     assert coords.shape == (
         int(dists_and_angles.shape[0] * 3),
