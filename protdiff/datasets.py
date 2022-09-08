@@ -27,10 +27,7 @@ LOCAL_DATA_DIR = Path(
 assert LOCAL_DATA_DIR.is_dir(), f"Data directory {LOCAL_DATA_DIR} does not exist"
 
 CATH_DIR = LOCAL_DATA_DIR / "cath"
-assert CATH_DIR.is_dir(), f"CATH directory {CATH_DIR} does not exist"
-
 ALPHAFOLD_DIR = LOCAL_DATA_DIR / "alphafold"
-assert ALPHAFOLD_DIR.is_dir(), f"Alphafold directory {ALPHAFOLD_DIR} does not exist"
 
 
 import beta_schedules
@@ -89,7 +86,7 @@ class CathConsecutiveAnglesDataset(Dataset):
         toy: Union[bool, int] = False,
     ) -> None:
         super().__init__()
-        assert os.path.isdir(CATH_DIR), f"Expected CATH dir at {CATH_DIR}"
+        assert CATH_DIR.is_dir(), f"Expected CATH dir at {CATH_DIR}"
         # Determine limit on reading based on toy argument
         item_limit = None
         if toy is None:
@@ -529,9 +526,7 @@ class AlphafoldConsecutiveAnglesDataset(Dataset):
         toy: bool = False,
     ) -> None:
         super().__init__()
-        assert os.path.isdir(
-            ALPHAFOLD_DIR
-        ), f"Expected AlphaFold data dir at {ALPHAFOLD_DIR}"
+        assert ALPHAFOLD_DIR.is_dir(), f"Expected AlphaFold data dir at {ALPHAFOLD_DIR}"
         self.pad = pad
         self.shift_to_zero_twpi = shift_to_zero_twopi
 
