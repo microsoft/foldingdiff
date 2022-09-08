@@ -417,6 +417,9 @@ class CathCanonicalAnglesDataset(Dataset):
             CathCanonicalAnglesDataset.feature_is_angular["angles"]
         ), f"Mismatched shapes for angles: {angles.shape[1]} != {len(CathCanonicalAnglesDataset.feature_is_angular['angles'])}"
 
+        # Replace nan values with zero
+        np.nan_to_num(angles, copy=False, nan=0)
+
         # Create attention mask. 0 indicates masked
         l = min(self.pad, angles.shape[0])
         attn_mask = torch.zeros(size=(self.pad,))
@@ -453,8 +456,12 @@ class CathCanonicalAnglesDataset(Dataset):
         angular_idx = np.where(CathCanonicalAnglesDataset.feature_is_angular["angles"])[
             0
         ]
-        assert np.min(angles[:, angular_idx]) >= -np.pi
-        assert np.max(angles[:, angular_idx]) <= np.pi
+        assert (
+            np.min(angles[:, angular_idx]) >= -np.pi
+        ), f"Illegal value: {np.min(angles[:, angular_idx])}"
+        assert (
+            np.max(angles[:, angular_idx]) <= np.pi
+        ), f"Illegal value: {np.max(angles[:, angular_idx])}"
         angles = torch.from_numpy(angles).float()
 
         retval = {
