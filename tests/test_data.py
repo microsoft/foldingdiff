@@ -33,7 +33,7 @@ class TestCathCanonical(unittest.TestCase):
     def test_num_feature(self):
         """Test that we have the expected number of features"""
         d = self.dset[0]
-        self.assertEqual(d["angles"].shape[1], 5)
+        self.assertEqual(d["angles"].shape[1], 9)
 
     def test_shapes(self):
         """Test that the returned tensors have expected shapes"""
@@ -69,7 +69,7 @@ class TestCathCanonicalAnglesOnly(unittest.TestCase):
     def test_num_features(self):
         """Test that we return the expected number of features and have correctly removed distance"""
         d = self.dset[1]
-        self.assertEqual(d["angles"].shape[1], 4)
+        self.assertEqual(d["angles"].shape[1], 6)
 
     def test_all_angular(self):
         """Test that the dataset is all angular features and that this is properly registered"""
