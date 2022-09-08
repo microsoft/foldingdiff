@@ -41,6 +41,7 @@ from angles_and_coords import (
 from custom_metrics import kl_from_empirical, wrapped_mean
 import utils
 
+ANGLES_DEFINITIONS = Literal['canonical', 'canonical-full-angles', 'canonical-minimal-angles']
 
 class CathConsecutiveAnglesDataset(Dataset):
     """
@@ -226,8 +227,22 @@ class CathCanonicalAnglesDataset(Dataset):
     All angles should be given between [-pi, pi]
     """
 
-    feature_names = {"angles": ["0C:1N", "phi", "psi", "omega", "tau"]}
-    feature_is_angular = {"angles": [False, True, True, True, True]}
+    feature_names = {
+        "angles": [
+            "0C:1N",
+            "N:CA",
+            "CA:C",
+            "phi",
+            "psi",
+            "omega",
+            "tau",
+            "CA:C:1N",
+            "C:1N:1CA",
+        ]
+    }
+    feature_is_angular = {
+        "angles": [False, False, False, True, True, True, True, True, True]
+    }
     cache_fname = os.path.join(
         os.path.dirname(os.path.abspath(__file__)), "cache_canonical_structures.pkl"
     )
@@ -492,11 +507,14 @@ class CathCanonicalAnglesDataset(Dataset):
 
 class CathCanonicalAnglesOnlyDataset(CathCanonicalAnglesDataset):
     """
-    Returns the canonical dihedral angles in CATH, and notably NOT returning distance.
+    Building on the CATH dataset, return the 3 canonical dihedrals and the 3
+    non-dihedral angles. Notably, this does not return distance.
+    Dihedrals: phi, psi, omega
+    Non-dihedral angles: tau, CA:C:1N, C:1N:1CA
     """
 
-    feature_names = {"angles": ["phi", "psi", "omega", "tau"]}
-    feature_is_angular = {"angles": [True, True, True, True]}
+    feature_names = {"angles": ["phi", "psi", "omega", "tau", "CA:C:1N", "C:1N:1CA"]}
+    feature_is_angular = {"angles": [True, True, True, True, True, True]}
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -534,9 +552,16 @@ class CathCanonicalAnglesOnlyDataset(CathCanonicalAnglesDataset):
         return return_dict
 
 
-class CathCanonicalDihedralsOnlyDataset(CathCanonicalAnglesOnlyDataset):
-    feature_names = {"angles": ["phi", "psi"]}
-    feature_is_angular = {"angles": [True, True]}
+class CathCanonicalMinimalAnglesDataset(CathCanonicalAnglesOnlyDataset):
+    """
+    The minimal set of angles we can model and still have a reasonable protein
+    reconstruction is:
+    * Dihedrals: phi, psi, omega
+    * Non-dihedrals: tau
+    """
+
+    feature_names = {"angles": ["phi", "psi", "omega", "tau"]}
+    feature_is_angular = {"angles": [True, True, True, True]}
 
 
 class AlphafoldConsecutiveAnglesDataset(Dataset):

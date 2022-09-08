@@ -103,12 +103,7 @@ def plot_kl_divergence(train_dset, plots_folder: Path) -> None:
 
 
 def get_train_valid_test_sets(
-    angles_definitions: Literal[
-        "rosetta",
-        "canonical",
-        "canonical_angles_only",
-        "canonical_dihedrals_only",
-    ] = "rosetta",  # Keep this default at rosetta for compatibility
+    angles_definitions: datasets.ANGLES_DEFINITIONS = "canonical-full-angles",
     max_seq_len: int = 512,
     min_seq_len: int = 0,
     seq_trim_strategy: Literal["leftalign", "randomcrop"] = "leftalign",
@@ -132,10 +127,9 @@ def get_train_valid_test_sets(
     ), f"Invalid value for single_angle_debug: {single_angle_debug}"
 
     clean_dset_class = {
-        "rosetta": datasets.CathConsecutiveAnglesDataset,
         "canonical": datasets.CathCanonicalAnglesDataset,
-        "canonical_angles_only": datasets.CathCanonicalAnglesOnlyDataset,
-        "canonical_dihedrals_only": datasets.CathCanonicalDihedralsOnlyDataset,
+        "canonical-full-angles": datasets.CathCanonicalAnglesOnlyDataset,
+        "canonical-minimal-angles": datasets.CathCanonicalMinimalAnglesDataset,
     }[angles_definitions]
     logging.info(f"Clean dataset class: {clean_dset_class}")
 
