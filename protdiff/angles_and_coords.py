@@ -25,6 +25,12 @@ from torch.utils.data import Dataset
 
 import nerf
 
+EXHAUSTIVE_ANGLES = ["phi", "psi", "omega", "tau", "CA:C:1N", "C:1N:1CA"]
+EXHAUSTIVE_DISTS = ["0C:1N", "N:CA", "CA:C"]
+
+MINIMAL_ANGLES = ["phi", "psi", "omega"]
+MINIMAL_DISTS = []
+
 
 def pdb_to_pic(pdb_file: str, pic_file: str):
     """
@@ -163,8 +169,8 @@ def trrosetta_angles_from_pdb(
 
 def canonical_distances_and_dihedrals(
     fname: str,
-    distances: List[str] = ["0C:1N"],
-    angles: List[str] = ["phi", "psi", "omega", "tau"],
+    distances: List[str] = MINIMAL_DISTS,
+    angles: List[str] = MINIMAL_ANGLES,
 ) -> Optional[pd.DataFrame]:
     """Parse the pdb file for the given values"""
     assert os.path.isfile(fname)
@@ -175,8 +181,12 @@ def canonical_distances_and_dihedrals(
     source_struct = source.get_structure()[0]
 
     # First get the dihedrals
-    phi, psi, omega = struc.dihedral_backbone(source_struct)
-    calc_angles = {"phi": phi, "psi": psi, "omega": omega}
+    try:
+        phi, psi, omega = struc.dihedral_backbone(source_struct)
+        calc_angles = {"phi": phi, "psi": psi, "omega": omega}
+    except struc.BadStructureError:
+        logging.warning(f"{fname} contains a malformed structure - skipping")
+        return None
 
     # Get any additional angles
     non_dihedral_angles = [a for a in angles if a not in calc_angles]
@@ -208,9 +218,9 @@ def canonical_distances_and_dihedrals(
 
     # At this point we've only looked at dihedral and angles; check value range
     for k, v in calc_angles.items():
-        assert (
-            np.nanmin(v) >= -np.pi and np.nanmax(v) <= np.pi
-        ), f"Illegal values for {k}"
+        if not (np.nanmin(v) >= -np.pi and np.nanmax(v) <= np.pi):
+            logging.warning(f"Illegal values for {k} in {fname} -- skipping")
+            return None
 
     # Get any additional distances
     for d in distances:
