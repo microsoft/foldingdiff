@@ -19,8 +19,8 @@ def extract(a, t, x_shape):
 
 def num_to_groups(num: int, divisor: int) -> List[int]:
     """
-    Generates a list of ints of value at most divisor that sums to 
-    
+    Generates a list of ints of value at most divisor that sums to
+
     >>> num_to_groups(18, 16)
     [16, 2]
     >>> num_to_groups(33, 8)
@@ -95,8 +95,12 @@ def modulo_with_wrapped_range(
         assert torch.all(retval[notnan_idx] >= range_min)
         assert torch.all(retval[notnan_idx] < range_max)
     else:
-        assert np.all(np.nanmin(retval) >= range_min)
-        assert np.all(np.nanmax(retval) <= range_max)
+        assert np.all(
+            np.nanmin(retval) >= range_min
+        ), f"Illegal value: {np.nanmin(retval)} < {range_min}"
+        assert np.all(
+            np.nanmax(retval) <= range_max
+        ), f"Illegal value: {np.nanmax(retval)} > {range_max}"
     return retval
 
 
