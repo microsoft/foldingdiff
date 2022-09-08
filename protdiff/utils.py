@@ -54,17 +54,19 @@ def tolerant_comparison_check(values, cmp: Literal[">=", "<="], v):
     False
     >>> tolerant_comparison_check(-np.array([1.1, 1.1]), ">=", -1.0)
     False
+    >>> tolerant_comparison_check(-3.1415927410125732, ">=", -np.pi)
+    True
     """
     if cmp == ">=":  # v is a lower bound
         minval = np.nanmin(values)
         diff = minval - v
-        if np.isclose(diff, 0):
+        if np.isclose(diff, 0, atol=1e-5):
             return True  # Passes
         return diff > 0
     elif cmp == "<=":
         maxval = np.nanmax(values)
         diff = maxval - v
-        if np.isclose(diff, 0):
+        if np.isclose(diff, 0, atol=1e-5):
             return True
         return diff < 0
     else:
