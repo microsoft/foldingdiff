@@ -299,11 +299,25 @@ def sample_coords(
 def create_new_chain_nerf(
     out_fname: str,
     dists_and_angles: pd.DataFrame,
-    angles_to_set: List[str] = ["phi", "psi", "omega"],
-    dists_to_set: List[str] = [],
+    angles_to_set: Optional[List[str]] = None,
+    dists_to_set: Optional[List[str]] = None,
     center_coords: bool = True,
 ) -> str:
     """Create a new chain using NERF to convert to cartesian coordinates"""
+    if angles_to_set is None and dists_to_set is None:
+        angles_to_set, dists_to_set = [], []
+        for c in dists_and_angles.columns:
+            # Distances are always specified using one : separating two atoms
+            # Angles are defined either as : separating 3+ atoms, or as names
+            if c.count(":") == 1:
+                dists_to_set.append(c)
+            else:
+                angles_to_set.append(c)
+        logging.debug(f"Auto-determined setting {dists_to_set, angles_to_set}")
+    else:
+        assert angles_to_set is not None
+        assert dists_to_set is not None
+
     # Check that we are at least setting the dihedrals
     required_dihedrals = ["phi", "psi", "omega"]
     assert all([a in angles_to_set for a in required_dihedrals])
