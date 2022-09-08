@@ -456,11 +456,11 @@ class CathCanonicalAnglesDataset(Dataset):
         angular_idx = np.where(CathCanonicalAnglesDataset.feature_is_angular["angles"])[
             0
         ]
-        assert (
-            np.min(angles[:, angular_idx]) >= -np.pi
+        assert utils.tolerant_comparison_check(
+            angles, ">=", -np.pi
         ), f"Illegal value: {np.min(angles[:, angular_idx])}"
-        assert (
-            np.max(angles[:, angular_idx]) <= np.pi
+        assert utils.tolerant_comparison_check(
+            angles, "<=", np.pi
         ), f"Illegal value: {np.max(angles[:, angular_idx])}"
         angles = torch.from_numpy(angles).float()
 

@@ -35,6 +35,42 @@ def num_to_groups(num: int, divisor: int) -> List[int]:
     return arr
 
 
+def tolerant_comparison_check(values, cmp: Literal[">=", "<="], v):
+    """
+    Compares values in a way that is tolerant of numerical precision
+    >>> tolerant_comparison_check(np.array([1.1, 1.1]), ">=", 1.0)
+    True
+    >>> tolerant_comparison_check(np.array([1.1, 1.1]), "<=", 1.0)
+    False
+    >>> tolerant_comparison_check(np.array([1.1, 1.1]), "<=", 1.2)
+    True
+    >>> tolerant_comparison_check(np.array([1.1, 1.1]), ">=", 1.2)
+    False
+    >>> tolerant_comparison_check(-np.array([1.1, 1.1]), ">=", -1.2)
+    True
+    >>> tolerant_comparison_check(-np.array([1.1, 1.1]), "<=", -1.0)
+    True
+    >>> tolerant_comparison_check(-np.array([1.1, 1.1]), "<=", -1.2)
+    False
+    >>> tolerant_comparison_check(-np.array([1.1, 1.1]), ">=", -1.0)
+    False
+    """
+    if cmp == ">=":  # v is a lower bound
+        minval = np.nanmin(values)
+        diff = minval - v
+        if np.isclose(diff, 0):
+            return True  # Passes
+        return diff > 0
+    elif cmp == "<=":
+        maxval = np.nanmax(values)
+        diff = maxval - v
+        if np.isclose(diff, 0):
+            return True
+        return diff < 0
+    else:
+        raise ValueError(f"Illegal comparator: {cmp}")
+
+
 def broadcast_mod(x: torch.Tensor, m: Union[float, torch.Tensor]) -> torch.Tensor:
     """
     Perform modulo on x % m while broadcasting. values in m that are 0 are ignored.
