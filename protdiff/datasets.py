@@ -913,41 +913,6 @@ class SingleNoisedAngleAndTimeDataset(SingleNoisedAngleDataset):
         return super().__str__() + f" at timestep {self.selected_timestep}"
 
 
-class GaussianDistUniformAnglesNoisedDataset(NoisedAnglesDataset):
-    """
-    Same as NoisedAnglesDataset but with uniform noise for the angles. Importantly, we keep
-    the Gaussian noise for the distances.
-    """
-
-    def sample_noise_adaptive(self, vals: torch.Tensor) -> torch.Tensor:
-        """Sample Gaussian AND uniform noise for the dist and angles, respectively"""
-        assert self.modulo is not None, "Must provide modulo for uniform noise"
-        assert self.noise_by_modulo, "Must noise using modulo for uniform noise"
-
-        assert (
-            vals.shape[1] == 4
-        ), f"Expected vals to have shape (seqlen, 4) but got {vals.shape}"
-        g_noise = torch.randn((vals.shape[0], 1))
-        uni_noise = torch.rand((vals.shape[0], vals.shape[1] - 1))
-        noise = torch.cat([g_noise, uni_noise], dim=1)
-        assert (
-            noise.shape == vals.shape
-        ), f"Expected noise to have shape {vals.shape} but got {noise.shape}"
-
-        # Modulo is being used -- shift noise
-        assert self.modulo is not None
-        try:
-            scales = torch.tensor([1 if m == 0 else m for m in self.modulo])
-            logging.debug(f"Scaling by {scales}")
-            # Scaling the first column, which is the Gaussian noise, by 1 doesn't matter
-            assert scales[0] == 1.0
-            noise = noise * scales
-        except TypeError:
-            noise = noise * self.modulo
-
-        return noise
-
-
 class SynNoisedByPositionDataset(Dataset):
     """
     SYNTHETIC NOISE FOR DEBUGGING AND TESTING

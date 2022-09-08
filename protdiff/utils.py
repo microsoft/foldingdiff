@@ -73,38 +73,6 @@ def tolerant_comparison_check(values, cmp: Literal[">=", "<="], v):
         raise ValueError(f"Illegal comparator: {cmp}")
 
 
-def broadcast_mod(x: torch.Tensor, m: Union[float, torch.Tensor]) -> torch.Tensor:
-    """
-    Perform modulo on x % m while broadcasting. values in m that are 0 are ignored.
-    >>> broadcast_mod(torch.arange(24).reshape(2, 3, 4), torch.tensor([5, 7, 9, 11]))
-    tensor([[[0, 1, 2, 3],
-             [4, 5, 6, 7],
-             [3, 2, 1, 0]],
-    <BLANKLINE>
-            [[2, 6, 5, 4],
-             [1, 3, 0, 8],
-             [0, 0, 4, 1]]])
-    >>> broadcast_mod(torch.arange(24).reshape(2, 3, 4), torch.tensor([0, 7, 9, 11]))
-    tensor([[[ 0,  1,  2,  3],
-             [ 4,  5,  6,  7],
-             [ 8,  2,  1,  0]],
-    <BLANKLINE>
-            [[12,  6,  5,  4],
-             [16,  3,  0,  8],
-             [20,  0,  4,  1]]])
-    """
-    if isinstance(m, float):
-        assert m != 0
-        return torch.remainder(x, m)
-    m = m.to(x.device)
-    # m is a tensor so we need to broadcast
-    # https://pytorch.org/docs/stable/generated/torch.Tensor.expand.html#torch.Tensor.expand
-    m_clipped = m.clamp(min=1)
-    moddded = torch.remainder(x, m_clipped.expand(*x.shape))
-    retval = torch.where(m == 0, x, moddded)
-    return retval
-
-
 def modulo_with_wrapped_range(
     vals, range_min: float = -np.pi, range_max: float = np.pi
 ):
