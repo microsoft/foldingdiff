@@ -35,6 +35,8 @@ from angles_and_coords import (
     canonical_distances_and_dihedrals,
     coords_to_trrosetta_angles,
     trrosetta_angles_from_pdb,
+    EXHAUSTIVE_ANGLES,
+    EXHAUSTIVE_DISTS,
 )
 from custom_metrics import kl_from_empirical, wrapped_mean
 import utils
@@ -224,7 +226,7 @@ class CathCanonicalAnglesDataset(Dataset):
     All angles should be given between [-pi, pi]
     """
 
-    feature_names = {"angles": ["bond_dist", "phi", "psi", "omega", "tau"]}
+    feature_names = {"angles": ["0C:1N", "phi", "psi", "omega", "tau"]}
     feature_is_angular = {"angles": [False, True, True, True, True]}
     cache_fname = os.path.join(
         os.path.dirname(os.path.abspath(__file__)), "cache_canonical_structures.pkl"
@@ -250,6 +252,13 @@ class CathCanonicalAnglesDataset(Dataset):
         fnames = glob.glob(os.path.join(CATH_DIR, "dompdb", "*"))
         assert fnames, f"No files found in {CATH_DIR}/dompdb"
 
+        # Compute all the angles
+        pfunc = functools.partial(
+            canonical_distances_and_dihedrals,
+            distances=EXHAUSTIVE_DISTS,
+            angles=EXHAUSTIVE_ANGLES,
+        )
+
         # self.structures should be a list of dicts with keys (angles, fname)
         # Always compute for toy; do not save
         if toy:
@@ -258,7 +267,7 @@ class CathCanonicalAnglesDataset(Dataset):
             fnames = fnames[:toy]
 
             logging.info(f"Loading toy dataset of {toy} structures")
-            struct_arrays = [canonical_distances_and_dihedrals(f) for f in fnames]
+            struct_arrays = [pfunc(f) for f in fnames]
             self.structures = []
             for fname, s in zip(fnames, struct_arrays):
                 if s is None:
@@ -271,9 +280,7 @@ class CathCanonicalAnglesDataset(Dataset):
             # Generate dihedral angles
             # https://biopython.org/docs/1.76/api/Bio.PDB.PDBParser.html
             pool = multiprocessing.Pool(processes=multiprocessing.cpu_count())
-            struct_arrays = pool.map(
-                canonical_distances_and_dihedrals, fnames, chunksize=250
-            )
+            struct_arrays = pool.map(pfunc, fnames, chunksize=250)
             pool.close()
             pool.join()
 
@@ -385,21 +392,30 @@ class CathCanonicalAnglesDataset(Dataset):
             raise IndexError("Index out of range")
 
         angles = self.structures[index]["angles"]
-        assert angles is not None
-        assert angles.shape[1] == len(
-            CathCanonicalAnglesDataset.feature_is_angular["angles"]
-        )
-        angular_idx = np.where(CathCanonicalAnglesDataset.feature_is_angular["angles"])[
-            0
-        ]
 
         # If given, offset the angles with mean
         if self.means is not None and not ignore_zero_center:
-            assert self.means.shape[0] == angles.shape[1]
+            assert (
+                self.means.shape[0] == angles.shape[1]
+            ), f"Mismatched shapes: {self.means.shape} != {angles.shape}"
             angles -= self.means
-            angles[:, angular_idx] = utils.modulo_with_wrapped_range(
-                angles[:, angular_idx], -np.pi, np.pi
+
+            # The distance features all contain a single ":"
+            colon_count = np.array([c.count(":") for c in angles.columns])
+            # WARNING this uses a very hacky way to find the angles
+            angular_idx = np.where(colon_count != 1)[0]
+            angles.iloc[:, angular_idx] = utils.modulo_with_wrapped_range(
+                angles.iloc[:, angular_idx], -np.pi, np.pi
             )
+
+        # Subset angles to ones we are actaully using as features
+        angles = angles.loc[
+            :, CathCanonicalAnglesDataset.feature_names["angles"]
+        ].values
+        assert angles is not None
+        assert angles.shape[1] == len(
+            CathCanonicalAnglesDataset.feature_is_angular["angles"]
+        ), f"Mismatched shapes for angles: {angles.shape[1]} != {len(CathCanonicalAnglesDataset.feature_is_angular['angles'])}"
 
         # Create attention mask. 0 indicates masked
         l = min(self.pad, angles.shape[0])
@@ -434,6 +450,9 @@ class CathCanonicalAnglesDataset(Dataset):
         # Create position IDs
         position_ids = torch.arange(start=0, end=self.pad, step=1, dtype=torch.long)
 
+        angular_idx = np.where(CathCanonicalAnglesDataset.feature_is_angular["angles"])[
+            0
+        ]
         assert np.min(angles[:, angular_idx]) >= -np.pi
         assert np.max(angles[:, angular_idx]) <= np.pi
         angles = torch.from_numpy(angles).float()
