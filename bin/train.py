@@ -270,9 +270,7 @@ def train(
     # Controls output
     results_dir: str = "./results",
     # Controls data loading and noising process
-    angles_definitions: Literal[
-        "rosetta", "canonical", "canonical_angles_only", "canonical_dihedrals_only"
-    ] = "canonical",
+    angles_definitions: datasets.ANGLES_DEFINITIONS = "canonical",
     max_seq_len: int = 512,
     min_seq_len: int = 0,  # 0 means no filtering based on min sequence length
     trim_strategy: Literal["leftalign", "randomcrop"] = "leftalign",

@@ -1,5 +1,5 @@
 {
-    "angles_definitions": "canonical_angles_only",
+    "angles_definitions": "canonical-full-angles",
     "zero_center": true,
     "timesteps": 1000,
     "max_seq_len": 128,
