@@ -258,6 +258,7 @@ class CathCanonicalAnglesDataset(Dataset):
         trim_strategy: Literal["leftalign", "randomcrop"] = "leftalign",
         toy: int = 0,
         zero_center: bool = False,  # Center the features to have 0 mean
+        use_cache: bool = False,  # Use/build cached computations of dihedrals and angles
     ) -> None:
         super().__init__()
         self.trim_strategy = trim_strategy
@@ -289,7 +290,8 @@ class CathCanonicalAnglesDataset(Dataset):
                 if s is None:
                     continue
                 self.structures.append({"angles": s, "fname": fname})
-        elif not os.path.exists(self.cache_fname):
+        elif not use_cache or not os.path.exists(self.cache_fname):
+            # No cache yet or not using cache
             logging.info(
                 f"Computing full dataset of {len(fnames)} with {multiprocessing.cpu_count()} threads"
             )
@@ -307,9 +309,10 @@ class CathCanonicalAnglesDataset(Dataset):
                     continue
                 self.structures.append({"angles": s, "fname": fname})
             # Write the output to a file for faster loading next time
-            logging.info(f"Saving full dataset to {self.cache_fname}")
-            with open(self.cache_fname, "wb") as sink:
-                pickle.dump(self.structures, sink)
+            if use_cache:
+                logging.info(f"Saving full dataset to cache at {self.cache_fname}")
+                with open(self.cache_fname, "wb") as sink:
+                    pickle.dump(self.structures, sink)
         else:
             logging.info(f"Loading cached full dataset from {self.cache_fname}")
             with open(self.cache_fname, "rb") as source:
