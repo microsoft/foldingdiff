@@ -3,6 +3,7 @@ Utility functions for plotting
 """
 import os, sys
 import re
+from pathlib import Path
 from typing import Optional, Sequence, Union
 
 from tqdm.auto import tqdm
@@ -19,8 +20,8 @@ from astropy.visualization.mpl_normalize import ImageNormalize
 import torch
 from torch.utils.data import Dataset
 
-PLOT_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "plots")
-assert os.path.isdir(PLOT_DIR)
+PLOT_DIR = Path(os.path.join(os.path.dirname(os.path.dirname(__file__)), "plots"))
+assert PLOT_DIR.is_dir()
 
 
 def plot_joint_kde(
