@@ -1,8 +1,5 @@
 """
 Code to convert from angles between residues to XYZ coordinates. 
-
-Based on: 
-https://github.com/biopython/biopython/blob/master/Bio/PDB/ic_rebuild.py
 """
 import os
 import logging
@@ -13,16 +10,10 @@ import warnings
 import numpy as np
 import pandas as pd
 
-from Bio import PDB
-from Bio.PDB import PICIO, ic_rebuild
 from sequence_models import pdb_utils
 
 import biotite.structure as struc
 from biotite.structure.io.pdb import PDBFile
-from biotite.structure.io.pdbx import PDBxFile
-
-import torch
-from torch.utils.data import Dataset
 
 import nerf
 
@@ -31,47 +22,6 @@ EXHAUSTIVE_DISTS = ["0C:1N", "N:CA", "CA:C"]
 
 MINIMAL_ANGLES = ["phi", "psi", "omega"]
 MINIMAL_DISTS = []
-
-
-def pdb_to_pic(pdb_file: str, pic_file: str):
-    """
-    Convert the PDB file to a PIC file
-    """
-    parser = PDB.PDBParser(QUIET=True)
-    s = parser.get_structure("pdb", pdb_file)
-    chains = [c for c in s.get_chains()]
-    if len(chains) > 1:
-        raise NotImplementedError
-    chain = chains.pop()  # type Bio.PDB.Chain.Chain
-    # print(chain.__dict__.keys())
-
-    # Convert to relative angles
-    # Calculate dihedrals, angles, bond lengths (internal coordinates) for Atom data
-    # Generates atomArray through init_edra
-    chain.atom_to_internal_coordinates()
-
-    for res in chain.internal_coord.ordered_aa_ic_list:
-        # Look at only analines because that's what we generate
-        if res.residue.get_resname() != "ALA":
-            continue
-        # print("REF", res, type(res))
-        # print(res.dihedra.keys())
-
-    with open(pic_file, "w") as sink:
-        PICIO.write_PIC(chain, sink)
-
-
-def pic_to_pdb(pic_file: str, pdb_file: str):
-    """
-    Read int he PIC file and convert to a PDB file
-    """
-    with open(pic_file) as source:
-        f = PICIO.read_PIC(source)
-    f.internal_to_atom_coordinates()
-
-    io = PDB.PDBIO()
-    io.set_structure(f)
-    io.save(pdb_file)
 
 
 def coords_to_trrosetta_angles(
@@ -256,47 +206,6 @@ def canonical_distances_and_dihedrals(
         calc_angles[d] = struc.index_distance(backbone_atoms, indices=idx)
 
     return pd.DataFrame({k: calc_angles[k].squeeze() for k in distances + angles})
-
-
-def sample_coords(
-    fname: str,
-    subset_residues: Optional[Collection[str]] = None,
-    query_atoms: List[str] = ["N", "CA", "C", "O", "CB"],
-) -> List[pd.DataFrame]:
-    """
-    Sample the atomic coordinates of Alanine atoms. Return a list of dataframes each containing these
-    coordinates.
-
-    We use this to help figure out where to initialize atoms when creating a new chain
-    """
-    atomic_coords = []
-
-    parser = PDB.PDBParser(QUIET=True)
-    s = parser.get_structure("", fname)
-    for chain in s.get_chains():
-        residues = [
-            r for r in chain.get_residues() if r.get_resname() not in ("HOH", "NA")
-        ]
-
-        for res in residues:
-            if subset_residues is not None and res.get_resname() not in subset_residues:
-                continue
-            coords = {}
-            for atom in res.get_atoms():
-                coords[atom.get_name()] = atom.get_coord()
-            all_atoms_present = True
-
-            for atom in query_atoms:
-                if atom not in coords:
-                    logging.debug(f"{atom} not found in {res.get_resname()}")
-                    all_atoms_present = False
-                    break
-
-            if all_atoms_present:
-                atomic_coords.append(
-                    pd.DataFrame([coords[k] for k in query_atoms], index=query_atoms)
-                )
-    return atomic_coords
 
 
 def create_new_chain_nerf(

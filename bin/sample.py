@@ -246,7 +246,9 @@ def main():
         pd.DataFrame(s, columns=train_dset.feature_names["angles"])
         for s in final_sampled
     ]
-    pdb_files = write_preds_pdb_folder(sampled_dfs, all_ft_train_dset, outdir / "sampled_pdb")
+    pdb_files = write_preds_pdb_folder(
+        sampled_dfs, all_ft_train_dset, outdir / "sampled_pdb"
+    )
 
     logging.info(f"Done writing main outputs! Calculating tm scores...")
     all_tm_scores = {}
@@ -256,6 +258,7 @@ def main():
         all_tm_scores[samp_name] = tm_score
     with open(outdir / "tm_scores.json", "w") as sink:
         json.dump(all_tm_scores, sink, indent=4)
+
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)

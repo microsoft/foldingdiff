@@ -296,7 +296,6 @@ class CathCanonicalAnglesDataset(Dataset):
                 f"Computing full dataset of {len(fnames)} with {multiprocessing.cpu_count()} threads"
             )
             # Generate dihedral angles
-            # https://biopython.org/docs/1.76/api/Bio.PDB.PDBParser.html
             pool = multiprocessing.Pool(processes=multiprocessing.cpu_count())
             struct_arrays = pool.map(pfunc, fnames, chunksize=250)
             pool.close()
