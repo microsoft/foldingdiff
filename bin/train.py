@@ -10,6 +10,7 @@ from pathlib import Path
 import multiprocessing
 import argparse
 import functools
+from datetime import datetime
 from typing import *
 
 import git
@@ -539,5 +540,7 @@ def main():
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
+    curr_time = datetime.now().strftime("%y%m%d_%H%M%S")
+    logging.basicConfig(level=logging.INFO, filename=f"training_{curr_time}.log")
+
     main()
