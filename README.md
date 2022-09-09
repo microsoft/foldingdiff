@@ -5,6 +5,8 @@
 We present a diffusion model for generating novel protein backbone structures.
 
 ## Installation
+This software is written in Python, notably using PyTorch, PyTorch Ligthing, and the HuggingFace
+transformers library.
 The required conda environment is defined within the `environment.yml` file. To set this up, make
 sure you have conda (or mamba) installed and run:
 
@@ -24,6 +26,17 @@ if you are running this on Singularity (as they are uploaded). To download these
 cd data  # Ensure that you are in the data subdirectory within the codebase
 ./download_cath.sh
 ```
+
+## Sampling protein backbones
+
+To sample protein backbones, use the script `bin/sample.py`. An example command to do this is as follows.
+
+```bash
+python ~/protdiff/bin/sample.py ../projects/models/full_angles/results/ --num 512 --device cuda:3
+```
+
+This will run the model contained in the `results` folder and generate 512 sequences of varying lengths.
+Not specifying a device will default to the first device `cuda:0`; use `--device cpu` to run on CPU.
 
 ## Tests
 Tests are implemented through a mixture of doctests and unittests. To run unittests, run:
