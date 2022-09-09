@@ -127,6 +127,7 @@ def get_train_valid_test_sets(
     syn_noiser: str = "",
     single_angle_debug: int = -1,  # Noise and return a single angle. -1 to disable, 1-3 for omega/theta/phi
     single_time_debug: bool = False,  # Noise and return a single time
+    train_only: bool = False,
 ) -> Tuple[Dataset, Dataset, Dataset]:
     """
     Get the dataset objects to use for train/valid/test
@@ -144,6 +145,8 @@ def get_train_valid_test_sets(
     }[angles_definitions]
     logging.info(f"Clean dataset class: {clean_dset_class}")
 
+    splits = ["train"] if train_only else ["train", "validation", "test"]
+    logging.info(f"Creating data splits: {splits}")
     clean_dsets = [
         clean_dset_class(
             split=s,
@@ -153,13 +156,14 @@ def get_train_valid_test_sets(
             zero_center=zero_center,
             toy=toy,
         )
-        for s in ["train", "validation", "test"]
+        for s in splits
     ]
+    assert len(clean_dsets) == len(splits)
     # Set the training set mean to the validation set mean
-    if clean_dsets[0].means is not None:
+    if len(clean_dsets) > 1 and clean_dsets[0].means is not None:
         logging.info(f"Updating valid/test mean offset to {clean_dsets[0].means}")
-        clean_dsets[1].means = clean_dsets[0].means
-        clean_dsets[2].means = clean_dsets[0].means
+        for i in range(1, len(clean_dsets)):
+            clean_dsets[i].means = clean_dsets[0].means
 
     if syn_noiser != "":
         if syn_noiser == "halfhalf":
@@ -192,13 +196,18 @@ def get_train_valid_test_sets(
         )
         for i, ds in enumerate(clean_dsets)
     ]
-    for dsname, ds in zip(["train", "val", "test"], noised_dsets):
+    for dsname, ds in zip(splits, noised_dsets):
         logging.info(f"{dsname}: {ds}")
 
     # Lot an example of the data
     logging.debug(f"Example clean vals:  {noised_dsets[0][0]['angles']}")
     logging.debug(f"Example noised vals: {noised_dsets[0][0]['corrupted']}")
     logging.debug(f"Example noise:       {noised_dsets[0][0]['known_noise']}")
+
+    # Pad with None values
+    if len(noised_dsets) < 3:
+        noised_dsets = noised_dsets + [None] * int(3 - len(noised_dsets))
+    assert len(noised_dsets) == 3
 
     return tuple(noised_dsets)
 
