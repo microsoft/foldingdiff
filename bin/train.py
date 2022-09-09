@@ -91,8 +91,6 @@ def plot_kl_divergence(train_dset, plots_folder: Path) -> None:
     for i, (ft_name, ax) in enumerate(zip(train_dset.feature_names["angles"], axes)):
         ax.plot(np.arange(n_timesteps), kl_at_timesteps[:, i], label=ft_name)
         ax.axhline(0, color="grey", linestyle="--", alpha=0.5)
-        if "_" not in ft_name:
-            ft_name += f" $\{ft_name}$"
         ax.set(title=ft_name)
         if i == 0:
             ax.set(ylabel="KL divergence")
