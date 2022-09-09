@@ -16,7 +16,8 @@ Note that you do not need to have this set up if you are _only_ submitting jobs 
 
 ## Downloading data
 
-We requires some data files not packaged on Git due to their large size. To download these, do the following:
+We requires some data files not packaged on Git due to their large size. These are required to be downloaded locally even
+if you are running this on Singularity (as they are uploaded). To download these, do the following:
 
 ```bash
 # Download the CATH dataset
