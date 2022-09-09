@@ -56,7 +56,7 @@ def build_datasets(
         toy=training_args["subset"],
         angles_definitions=training_args["angles_definitions"],
         zero_center=training_args["zero_center"],
-        train_only = True,
+        train_only=True,
     )
 
     train_dset, valid_dset, test_dset = get_train_valid_test_sets(**dset_args)
@@ -64,6 +64,7 @@ def build_datasets(
         f"Training dset contains features: {train_dset.feature_names} - angular {train_dset.feature_is_angular}"
     )
     return train_dset, valid_dset, test_dset
+
 
 def write_preds_pdb_folder(
     final_sampled: Sequence[pd.DataFrame],
@@ -136,7 +137,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--legacy", action="store_true", help="Use legacy model loading code"
     )
-    parser.add_argument("--skiptm", action="store_true", help="Skip calculation of TM scores against training set")
+    parser.add_argument(
+        "--skiptm",
+        action="store_true",
+        help="Skip calculation of TM scores against training set",
+    )
     parser.add_argument("--seed", type=int, default=SEED, help="Random seed")
     parser.add_argument("--device", type=str, default="cuda:0", help="Device to use")
     return parser
@@ -228,9 +233,7 @@ def main():
         pd.DataFrame(s, columns=train_dset.feature_names["angles"])
         for s in final_sampled
     ]
-    pdb_files = write_preds_pdb_folder(
-        sampled_dfs, outdir / "sampled_pdb"
-    )
+    pdb_files = write_preds_pdb_folder(sampled_dfs, outdir / "sampled_pdb")
 
     if not args.skiptm:
         logging.info(f"Done writing main outputs! Calculating tm scores...")
