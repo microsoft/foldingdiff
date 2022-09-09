@@ -37,4 +37,4 @@ jobs:
   sla_tier: premium
   command:
   - tar -xzf data/cath/cath-dataset-nonredundant-S40.pdb.tgz -C data/cath
-  - python bin/train.py config_jsons/full_run_canonical_angles_only_zero_centered_1000_timesteps_reduced_len.json -o $$AMLT_OUTPUT_DIR/results
+  - python bin/train.py config_jsons/full_run_canonical_angles_only_zero_centered_1000_timesteps_reduced_len.json -o $$AMLT_OUTPUT_DIR/results --dryrun  
