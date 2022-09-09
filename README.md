@@ -16,6 +16,25 @@ conda env create -f environment.yml
 
 Note that you do not need to have this set up if you are _only_ submitting jobs to the cluster.
 
+## Training models
+
+To train a model on the CATH dataset, use the script at `bin/train.py` in combination with one of the
+json config files under `config_jsons` (or write your own). An example usage of this is as follows:
+
+```bash
+python bin/train.py config_jsons/full_run_canonical_angles_only_zero_centered_1000_timesteps_reduced_len.json
+```
+
+The output of the model will be in the `results` folder with the following major files present:
+
+```
+results/
+    - config.json           # Contains the config file for the huggingface BERT model itself
+    - logs/                 # Contains the logs from training
+    - models/               # Contains model checkpoints. By default we store the best 5 models by validation loss and the best 5 by training loss
+    - training_args.json    # Full set of arguments, can be used to reproduce run
+```
+
 ## Downloading data
 
 We requires some data files not packaged on Git due to their large size. These are required to be downloaded locally even
