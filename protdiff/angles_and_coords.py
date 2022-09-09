@@ -215,7 +215,10 @@ def create_new_chain_nerf(
     dists_to_set: Optional[List[str]] = None,
     center_coords: bool = True,
 ) -> str:
-    """Create a new chain using NERF to convert to cartesian coordinates"""
+    """
+    Create a new chain using NERF to convert to cartesian coordinates. Returns
+    the path to the newly create file if successful, empty string if fails.
+    """
     if angles_to_set is None and dists_to_set is None:
         angles_to_set, dists_to_set = [], []
         for c in dists_and_angles.columns:
