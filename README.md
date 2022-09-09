@@ -56,6 +56,7 @@ python ~/protdiff/bin/sample.py ../projects/models/full_angles/results/ --num 51
 
 This will run the model contained in the `results` folder and generate 512 sequences of varying lengths.
 Not specifying a device will default to the first device `cuda:0`; use `--device cpu` to run on CPU.
+You may want to append the `--skiptm` argument to the above command if you wish to skip the very time-consuming calculation of TM scores against training set; doing so takes about ~1min per generated example on a 128-core machine running fully parallelized. 
 
 ## Tests
 Tests are implemented through a mixture of doctests and unittests. To run unittests, run:
@@ -65,7 +66,9 @@ python -m unittest -v
 ```
 
 ## Singularity/amulet
-To run on singularity/amulet, first install amulet following the instructions at https://amulet-docs.azurewebsites.net/main/setup.html. This should leave you with a conda environment named `amlt8`. Note that this environment should be _separate_ from the environment that is required to actually run model. To run training on singularity, run:
+To run on singularity/amulet, make sure you have already downloaded the CATH dataset (see instructions above). If you do not have amulet installed, folow the instructions at https://amulet-docs.azurewebsites.net/main/setup.html. This should leave you with a conda environment named `amlt8`. Note that this environment should be _separate_ from the environment for the diffusion model itself. Note that you do _not_ need to create the given `environment.yml` to submit to amulet/singularity; the environment for running the code is separately set up within the Singularity compute cluster.
+
+With these two requirements, to run training on singularity, run:
 
 ```bash
 conda activate amlt8  # Activate the conda env.
