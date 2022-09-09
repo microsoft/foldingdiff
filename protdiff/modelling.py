@@ -29,6 +29,11 @@ from transformers.optimization import get_linear_schedule_with_warmup
 import losses
 import utils
 
+LR_SCHEDULE = Literal["OneCycleLR", "LinearWarmup"]
+TIME_ENCODING = Literal["gaussian_fourier", "sinusoidal"]
+LOSS_KEYS = Literal["l1", "smooth_l1"]
+DECODER_HEAD = Literal["mlp", "linear"]
+
 
 class GaussianFourierProjection(nn.Module):
     """
@@ -140,7 +145,9 @@ class BertEmbeddings(nn.Module):
         # position_ids (1, len position emb) is contiguous in memory and exported when serialized
 
     def forward(
-        self, input_embeds: torch.Tensor, position_ids: torch.LongTensor,
+        self,
+        input_embeds: torch.Tensor,
+        position_ids: torch.LongTensor,
     ) -> torch.Tensor:
         assert position_ids is not None, "`position_ids` must be defined"
         embeddings = input_embeds
@@ -222,16 +229,16 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         config,
         ft_is_angular: List[bool] = [False, True, True, True],
         ft_names: Optional[List[str]] = None,
-        time_encoding: Literal["gaussian_fourier", "sinusoidal"] = "gaussian_fourier",
-        decoder: Literal["linear", "mlp"] = "mlp",
+        time_encoding: TIME_ENCODING = "gaussian_fourier",
+        decoder: DECODER_HEAD = "mlp",
         lr: float = 5e-5,
-        loss: Union[Callable, Literal["l1", "smooth_l1"]] = "smooth_l1",
+        loss: Union[Callable, LOSS_KEYS] = "smooth_l1",
         l2: float = 0.0,
         l1: float = 0.0,
         circle_reg: float = 0.0,
         epochs: int = 1,
         steps_per_epoch: int = 250,  # Dummy value
-        lr_scheduler: Optional[Literal["OneCycleLR", "LinearWarmup"]] = None,
+        lr_scheduler: Optional[LR_SCHEDULE] = None,
         write_preds_to_dir: Optional[str] = None,
     ) -> None:
         """
@@ -470,7 +477,11 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         if position_ids is None:
             # [1, seq_length]
             position_ids = (
-                torch.arange(seq_length,).expand(batch_size, -1).type_as(timestep)
+                torch.arange(
+                    seq_length,
+                )
+                .expand(batch_size, -1)
+                .type_as(timestep)
             )
 
         # pl.utilities.rank_zero_debug(
@@ -661,7 +672,9 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         Return optimizer. Limited support for some optimizers
         """
         optim = torch.optim.AdamW(
-            self.parameters(), lr=self.learning_rate, weight_decay=self.l2_lambda,
+            self.parameters(),
+            lr=self.learning_rate,
+            weight_decay=self.l2_lambda,
         )
         retval = {"optimizer": optim}
         if self.lr_scheduler:

@@ -41,9 +41,7 @@ from angles_and_coords import (
 from custom_metrics import kl_from_empirical, wrapped_mean
 import utils
 
-ANGLES_DEFINITIONS = Literal[
-    "canonical", "canonical-full-angles", "canonical-minimal-angles"
-]
+TRIM_STRATEGIES = Literal["leftalign", "randomcrop"]
 
 
 class CathConsecutiveAnglesDataset(Dataset):
@@ -255,7 +253,7 @@ class CathCanonicalAnglesDataset(Dataset):
         split: Optional[Literal["train", "test", "validation"]] = None,
         pad: int = 512,
         min_length: int = 40,  # Set to 0 to disable
-        trim_strategy: Literal["leftalign", "randomcrop"] = "leftalign",
+        trim_strategy: TRIM_STRATEGIES = "leftalign",
         toy: int = 0,
         zero_center: bool = False,  # Center the features to have 0 mean
         use_cache: bool = False,  # Use/build cached computations of dihedrals and angles
@@ -743,7 +741,10 @@ class NoisedAnglesDataset(Dataset):
         return noise
 
     def __getitem__(
-        self, index: int, use_t_val: Optional[int] = None, ignore_zero_center: bool = False
+        self,
+        index: int,
+        use_t_val: Optional[int] = None,
+        ignore_zero_center: bool = False,
     ) -> Dict[str, torch.Tensor]:
         """
         Gets the i-th item in the dataset and adds noise
@@ -761,7 +762,9 @@ class NoisedAnglesDataset(Dataset):
             assert (
                 item_index * self.timesteps + time_index == index
             ), f"Unexpected indices for {index} -- {item_index} {time_index}"
-            item = self.dset.__getitem__(item_index, ignore_zero_center=ignore_zero_center)
+            item = self.dset.__getitem__(
+                item_index, ignore_zero_center=ignore_zero_center
+            )
         else:
             item = self.dset.__getitem__(index, ignore_zero_center=ignore_zero_center)
 
