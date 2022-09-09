@@ -689,6 +689,11 @@ class NoisedAnglesDataset(Dataset):
         """Pass through feature is angular property of wrapped dset"""
         return self.dset.feature_is_angular
 
+    @property
+    def pad(self):
+        """Pas through the pad property of wrapped dset"""
+        return self.dset.pad
+
     def __str__(self) -> str:
         return f"NoisedAnglesDataset wrapping {self.dset} with {len(self)} examples with {self.schedule}-{self.timesteps} with variance scales {self.nonangular_var_scale} and {self.angular_var_scale}"
 
