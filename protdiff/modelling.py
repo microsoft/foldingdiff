@@ -336,6 +336,7 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
     def from_dir(
         cls,
         dirname: str,
+        ft_is_angular: Optional[Sequence[bool]] = None,
         load_weights: bool = True,
         legacy: bool = False,
         idx: int = -1,
@@ -352,13 +353,13 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
             train_args = json.load(source)
         config = BertConfig.from_json_file(os.path.join(dirname, "config.json"))
 
-        n_angular = (
-            4
-            if "angles_definitions" in train_args
-            and train_args["angles_definitions"] == "canonical"
-            else 3
-        )
-        ft_is_angular = [False] + [True] * n_angular
+        if ft_is_angular is None:
+            ft_is_angular = {
+                "canonical": [False, False, False, True, True, True, True, True, True],
+                "canonical-full-angles": [True, True, True, True, True, True],
+                "canonical-minimal-angles": [True, True, True, True],
+            }[train_args["angles_definitions"]]
+            logging.info(f"Auto constructed ft_is_angular: {ft_is_angular}")
 
         model_args = dict(
             config=config,
