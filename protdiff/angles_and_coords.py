@@ -138,7 +138,7 @@ def canonical_distances_and_dihedrals(
         phi, psi, omega = struc.dihedral_backbone(source_struct)
         calc_angles = {"phi": phi, "psi": psi, "omega": omega}
     except struc.BadStructureError:
-        logging.warning(f"{fname} contains a malformed structure - skipping")
+        logging.debug(f"{fname} contains a malformed structure - skipping")
         return None
 
     # Get any additional angles
