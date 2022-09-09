@@ -27,9 +27,8 @@ from transformers.activations import get_activation
 from transformers.optimization import get_linear_schedule_with_warmup
 
 import losses
-import utils
 
-LR_SCHEDULE = Literal["OneCycleLR", "LinearWarmup"]
+LR_SCHEDULE = Optional[Literal["OneCycleLR", "LinearWarmup"]]
 TIME_ENCODING = Literal["gaussian_fourier", "sinusoidal"]
 LOSS_KEYS = Literal["l1", "smooth_l1"]
 DECODER_HEAD = Literal["mlp", "linear"]
@@ -238,7 +237,7 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         circle_reg: float = 0.0,
         epochs: int = 1,
         steps_per_epoch: int = 250,  # Dummy value
-        lr_scheduler: Optional[LR_SCHEDULE] = None,
+        lr_scheduler: LR_SCHEDULE = None,
         write_preds_to_dir: Optional[str] = None,
     ) -> None:
         """

@@ -311,7 +311,7 @@ def train(
     min_epochs: Optional[int] = None,
     max_epochs: int = 10000,
     early_stop_patience: int = 0,  # Set to 0 to disable early stopping
-    lr_scheduler: Optional[modelling.LR_SCHEDULE] = None,
+    lr_scheduler: modelling.LR_SCHEDULE = None,
     use_swa: bool = False,  # Stochastic weight averaging can improve training genearlization
     # Misc. and debugging
     multithread: bool = True,
