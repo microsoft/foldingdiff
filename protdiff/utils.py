@@ -1,11 +1,13 @@
 """
 Misc shared utility functions
 """
+import os
+import glob
+import hashlib
 import logging
 from typing import *
 
 import numpy as np
-import torch
 
 
 def extract(a, t, x_shape):
@@ -108,6 +110,18 @@ def update_dict_nonnull(d: Dict[str, Any], vals: Dict[str, Any]) -> Dict[str, An
         else:
             d[k] = v
     return d
+
+
+def md5_all_py_files(dirname: str) -> str:
+    """Create a single md5 sum for all given files"""
+    # https://stackoverflow.com/questions/36099331/how-to-grab-all-files-in-a-folder-and-get-their-md5-hash-in-python
+    fnames = glob.glob(os.path.join(dirname, "*.py"))
+    hash_md5 = hashlib.md5()
+    for fname in sorted(fnames):
+        with open(fname, "rb") as f:
+            for chunk in iter(lambda: f.read(2**20), b""):
+                hash_md5.update(chunk)
+    return hash_md5.hexdigest()
 
 
 if __name__ == "__main__":
