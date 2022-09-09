@@ -8,6 +8,7 @@ import os
 import logging
 import pickle
 from typing import *
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -174,6 +175,8 @@ def canonical_distances_and_dihedrals(
 ) -> Optional[pd.DataFrame]:
     """Parse the pdb file for the given values"""
     assert os.path.isfile(fname)
+    warnings.filterwarnings("ignore", ".*elements were guessed from atom_.*")
+    warnings.filterwarnings("ignore", ".*invalid value encountered in true_div.*")
     source = PDBFile.read(str(fname))
     if source.get_model_count() > 1:
         return None
