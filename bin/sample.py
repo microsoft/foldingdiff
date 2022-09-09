@@ -125,7 +125,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "model",
         type=str,
-        help="Path to model directory. Should contain training_args.json",
+        help="Path to model directory. Should contain training_args.json, config.json, and models folder at a minimum.",
     )
     parser.add_argument(
         "--outdir", "-o", type=str, default=os.getcwd(), help="Path to output directory"
