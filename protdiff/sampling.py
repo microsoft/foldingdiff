@@ -134,7 +134,7 @@ def sample(
         noise = train_dset.sample_noise(
             torch.zeros((batch, train_dset.pad, model.n_inputs), dtype=torch.float32)
         )
-        lengths = [train_dset.dset.sample_length() for _ in range(batch)]
+        lengths = [train_dset.sample_length() for _ in range(batch)]
 
         # Produces (timesteps, batch_size, seq_len, n_ft)
         sampled = p_sample_loop(

@@ -694,6 +694,9 @@ class NoisedAnglesDataset(Dataset):
         """Pas through the pad property of wrapped dset"""
         return self.dset.pad
 
+    def sample_length(self, *args, **kwargs):
+        return self.dset.sample_length(*args, **kwargs)
+
     def __str__(self) -> str:
         return f"NoisedAnglesDataset wrapping {self.dset} with {len(self)} examples with {self.schedule}-{self.timesteps} with variance scales {self.nonangular_var_scale} and {self.angular_var_scale}"
 
