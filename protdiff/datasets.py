@@ -256,7 +256,7 @@ class CathCanonicalAnglesDataset(Dataset):
         trim_strategy: TRIM_STRATEGIES = "leftalign",
         toy: int = 0,
         zero_center: bool = False,  # Center the features to have 0 mean
-        use_cache: bool = False,  # Use/build cached computations of dihedrals and angles
+        use_cache: bool = True,  # Use/build cached computations of dihedrals and angles
     ) -> None:
         super().__init__()
         self.trim_strategy = trim_strategy
