@@ -539,6 +539,9 @@ def main():
 
 if __name__ == "__main__":
     curr_time = datetime.now().strftime("%y%m%d_%H%M%S")
-    logging.basicConfig(level=logging.INFO, filename=f"training_{curr_time}.log")
+    logging.basicConfig(level=logging.INFO, handlers=[
+        logging.FileHandler(f"training_{curr_time}.log"),
+        logging.StreamHandler()
+    ])
 
     main()
