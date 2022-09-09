@@ -13,6 +13,8 @@ import pandas as pd
 from matplotlib import pyplot as plt
 import seaborn as sns
 
+from tqdm.auto import tqdm
+
 import torch
 
 # Import data loading code from main training script
@@ -147,7 +149,8 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main():
+def main() -> None:
+    """Run the script"""
     parser = build_parser()
     args = parser.parse_args()
 
@@ -238,7 +241,7 @@ def main():
     if not args.skiptm:
         logging.info(f"Done writing main outputs! Calculating tm scores...")
         all_tm_scores = {}
-        for i, fname in enumerate(pdb_files):
+        for i, fname in tqdm(enumerate(pdb_files)):
             samp_name = os.path.splitext(os.path.basename(fname))[0]
             tm_score = tmalign.max_tm_across_refs(fname, train_dset.dset.filenames)
             all_tm_scores[samp_name] = tm_score
