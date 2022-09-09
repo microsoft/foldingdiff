@@ -38,22 +38,6 @@ def num_to_groups(num: int, divisor: int) -> List[int]:
 def tolerant_comparison_check(values, cmp: Literal[">=", "<="], v):
     """
     Compares values in a way that is tolerant of numerical precision
-    >>> tolerant_comparison_check(np.array([1.1, 1.1]), ">=", 1.0)
-    True
-    >>> tolerant_comparison_check(np.array([1.1, 1.1]), "<=", 1.0)
-    False
-    >>> tolerant_comparison_check(np.array([1.1, 1.1]), "<=", 1.2)
-    True
-    >>> tolerant_comparison_check(np.array([1.1, 1.1]), ">=", 1.2)
-    False
-    >>> tolerant_comparison_check(-np.array([1.1, 1.1]), ">=", -1.2)
-    True
-    >>> tolerant_comparison_check(-np.array([1.1, 1.1]), "<=", -1.0)
-    True
-    >>> tolerant_comparison_check(-np.array([1.1, 1.1]), "<=", -1.2)
-    False
-    >>> tolerant_comparison_check(-np.array([1.1, 1.1]), ">=", -1.0)
-    False
     >>> tolerant_comparison_check(-3.1415927410125732, ">=", -np.pi)
     True
     """
