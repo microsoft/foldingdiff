@@ -245,7 +245,7 @@ class CathCanonicalAnglesDataset(Dataset):
         "angles": [False, False, False, True, True, True, True, True, True]
     }
     cache_fname = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), "cache_canonical_structures.pkl"
+        os.path.dirname(os.path.abspath(__file__)), f"{utils.md5_all_py_files(os.path.dirname(__file__))}_cache_canonical_structures.pkl"
     )
 
     def __init__(

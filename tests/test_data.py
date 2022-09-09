@@ -23,7 +23,8 @@ class TestCathCanonical(unittest.TestCase):
     def setUp(self) -> None:
         # Setup the dataset
         self.pad = 512
-        self.dset = datasets.CathCanonicalAnglesDataset(pad=self.pad)
+        # Use caching to avoid recomputing the whole dataset each time
+        self.dset = datasets.CathCanonicalAnglesDataset(pad=self.pad, use_cache=True)
 
     def test_return_keys(self):
         """Test that returned dictionary has expected keys"""
