@@ -332,7 +332,7 @@ def train(
     cpu_only: bool = False,
     ngpu: int = -1,  # -1 for all GPUs
     write_valid_preds: bool = False,  # Write validation predictions to disk at each epoch
-    dryrun: bool = False,  # Disable some frills for a fast run to see that we can train
+    dryrun: bool = False,  # Disable some frills for a fast run to just train
 ):
     """Main training loop"""
     # Record the args given to the function before we create more vars
