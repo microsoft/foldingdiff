@@ -59,6 +59,8 @@ class GaussianFourierProjection(nn.Module):
         """
         if x.ndim > 1:
             x = x.squeeze()
+        elif x.ndim < 1:
+            x = x.unsqueeze(0)
         x_proj = x[:, None] * self.W[None, :] * 2 * torch.pi
         embed = torch.cat([torch.sin(x_proj), torch.cos(x_proj)], dim=-1)
         return embed
