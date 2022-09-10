@@ -10,6 +10,8 @@ import multiprocessing
 import logging
 from typing import List
 
+import numpy as np
+
 
 def run_tmalign(query: str, reference: str, fast: bool = False) -> float:
     """
@@ -27,7 +29,13 @@ def run_tmalign(query: str, reference: str, fast: bool = False) -> float:
     cmd = f"{exec} {query} {reference}"
     if fast:
         cmd += " -fast"
-    output = subprocess.check_output(cmd, shell=True)
+    try:
+        output = subprocess.check_output(cmd, shell=True)
+    except subprocess.CalledProcessError:
+        logging.warning(f"Tmalign failed on {query}|{reference}, returning NaN")
+        return np.nan
+
+    # Parse the outpu
     score_lines = []
     for line in output.decode().split("\n"):
         if line.startswith("TM-score"):
@@ -57,11 +65,11 @@ def max_tm_across_refs(
     )
     args = [(query, ref, fast) for ref in references]
     pool = multiprocessing.Pool(n_threads)
-    values = pool.starmap(run_tmalign, args, chunksize=chunksize)
+    values = list(pool.starmap(run_tmalign, args, chunksize=chunksize))
     pool.close()
     pool.join()
 
-    return max(values)
+    return np.nanmax(values)
 
 
 def main():
