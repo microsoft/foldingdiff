@@ -243,7 +243,7 @@ def main() -> None:
     pdb_files = write_preds_pdb_folder(sampled_dfs, outdir / "sampled_pdb")
 
     if not args.skiptm:
-        logging.info(f"Done writing main outputs! Calculating tm scores...")
+        logging.info(f"Done writing main outputs! Calculating tm scores with {args.tmthreads} threads...")
         all_tm_scores = {}
         for i, fname in tqdm(enumerate(pdb_files)):
             samp_name = os.path.splitext(os.path.basename(fname))[0]
