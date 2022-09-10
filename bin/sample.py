@@ -2,6 +2,7 @@
 Script to sample from a trained diffusion model
 """
 import os, sys
+import multiprocessing
 import argparse
 import logging
 import json
@@ -146,6 +147,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--seed", type=int, default=SEED, help="Random seed")
     parser.add_argument("--device", type=str, default="cuda:0", help="Device to use")
+    parser.add_argument(
+        "--tmthreads", type=int, default=int(multiprocessing.cpu_count() / 2)
+    )
     return parser
 
 
@@ -243,7 +247,11 @@ def main() -> None:
         all_tm_scores = {}
         for i, fname in tqdm(enumerate(pdb_files)):
             samp_name = os.path.splitext(os.path.basename(fname))[0]
-            tm_score = tmalign.max_tm_across_refs(fname, train_dset.dset.filenames)
+            tm_score = tmalign.max_tm_across_refs(
+                fname,
+                train_dset.dset.filenames,
+                n_threads=args.tmthreads,
+            )
             all_tm_scores[samp_name] = tm_score
         with open(outdir / "tm_scores.json", "w") as sink:
             json.dump(all_tm_scores, sink, indent=4)
