@@ -72,16 +72,19 @@ def build_datasets(
 def write_preds_pdb_folder(
     final_sampled: Sequence[pd.DataFrame],
     outdir: str,
+    basename_prefix: str = "generated_",
 ) -> List[str]:
     """
     Write the predictions as pdb files in the given folder along with information regarding the
     tm_score for each prediction. Returns the list of files written.
     """
     os.makedirs(outdir, exist_ok=True)
-    logging.info(f"Writing sampled anlges as PDB files to {outdir}")
+    logging.info(f"Writing sampled angles as PDB files to {outdir}")
     retval = []
     for i, samp in enumerate(final_sampled):
-        fname = create_new_chain_nerf(os.path.join(outdir, f"generated_{i}.pdb"), samp)
+        fname = create_new_chain_nerf(
+            os.path.join(outdir, f"{basename_prefix}{i}.pdb"), samp
+        )
         assert fname
         retval.append(fname)
     return retval
@@ -138,7 +141,9 @@ def build_parser() -> argparse.ArgumentParser:
         "--num", "-n", type=int, default=512, help="Number of examples to generate"
     )
     parser.add_argument(
-        "--legacy", action="store_true", help="Use legacy model loading code"
+        "--fullhistory",
+        action="store_true",
+        help="Store full history, not just final structure",
     )
     parser.add_argument(
         "--skiptm",
@@ -178,7 +183,7 @@ def main() -> None:
     alpha_beta_values.keys()
 
     # Load the dataset based on training args
-    train_dset, valid_dset, test_dset = build_datasets(training_args)
+    train_dset, *_ = build_datasets(training_args)
     # Fetch values for training distribution
     select_by_attn = lambda x: x["angles"][x["attn_mask"] != 0]
     train_values = [
@@ -200,7 +205,7 @@ def main() -> None:
     )
 
     # Load the model
-    model = modelling.BertForDiffusion.from_dir(args.model, legacy=args.legacy).to(
+    model = modelling.BertForDiffusion.from_dir(args.model).to(
         torch.device(args.device)
     )
 
@@ -208,16 +213,47 @@ def main() -> None:
     torch.manual_seed(args.seed)
     sampled = sampling.sample(model, train_dset, n=args.num)
     final_sampled = [s[-1] for s in sampled]
-    final_sampled_stacked = np.vstack(final_sampled)
+    sampled_dfs = [
+        pd.DataFrame(s, columns=train_dset.feature_names["angles"])
+        for s in final_sampled
+    ]
 
-    # Write the raw sampled items to np files
+    # Write the raw sampled items to csv files
     sampled_angles_folder = outdir / "sampled_angles"
     os.makedirs(sampled_angles_folder, exist_ok=True)
     logging.info(f"Writing sampled angles to {sampled_angles_folder}")
-    for i, s in enumerate(sampled):
-        np.save(sampled_angles_folder / f"generated_{i}.npy", s)
+    for i, s in enumerate(sampled_dfs):
+        s.to_csv(sampled_angles_folder / f"generated_{i}.csv.gz")
+    # Write the sampled angles as pdb files
+    pdb_files = write_preds_pdb_folder(sampled_dfs, outdir / "sampled_pdb")
+
+    # If full history is specified, create a separate directory and write those files
+    if args.fullhistory:
+        # Write the angles
+        full_history_angles_dir = sampled_angles_folder / "sample_history"
+        os.makedirs(full_history_angles_dir)
+        full_history_pdb_dir = outdir / "sampled_pdb/sample_history"
+        os.makedirs(full_history_pdb_dir)
+        # sampled is a list of np arrays
+        for i, sampled_series in enumerate(sampled):
+            snapshot_dfs = [
+                pd.DataFrame(snapshot, columns=train_dset.feature_names["angles"])
+                for snapshot in sampled_series
+            ]
+            # Write the angles
+            ith_angle_dir = full_history_angles_dir / f"generated_{i}"
+            os.makedirs(ith_angle_dir, exist_ok=True)
+            for timestep, snapshot_df in enumerate(snapshot_dfs):
+                snapshot_df.to_csv(
+                    ith_angle_dir / f"generated_{i}_timestep_{timestep}.csv.gz"
+                )
+            # Write the pdb files
+            ith_pdb_dir = full_history_pdb_dir / f"generated_{i}"
+            write_preds_pdb_folder(snapshot_dfs, ith_pdb_dir, basename_prefix=f"generated_{i}_timestep_")
 
     # Generate histograms of sampled angles
+    # For calculating angle distributions
+    final_sampled_stacked = np.vstack(final_sampled)
     for i, ft_name in enumerate(train_dset.feature_names["angles"]):
         orig_values = train_values_stacked[:, i]
         samp_values = final_sampled_stacked[:, i]
@@ -235,15 +271,10 @@ def main() -> None:
         fname=plotdir / "ramachandran_generated.pdf",
     )
 
-    # Write the sampled angles as pdb files
-    sampled_dfs = [
-        pd.DataFrame(s, columns=train_dset.feature_names["angles"])
-        for s in final_sampled
-    ]
-    pdb_files = write_preds_pdb_folder(sampled_dfs, outdir / "sampled_pdb")
-
     if not args.skiptm:
-        logging.info(f"Done writing main outputs! Calculating tm scores with {args.tmthreads} threads...")
+        logging.info(
+            f"Done writing main outputs! Calculating tm scores with {args.tmthreads} threads..."
+        )
         all_tm_scores = {}
         for i, fname in tqdm(enumerate(pdb_files)):
             samp_name = os.path.splitext(os.path.basename(fname))[0]
