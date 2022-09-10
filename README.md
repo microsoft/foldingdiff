@@ -55,8 +55,32 @@ python ~/protdiff/bin/sample.py ../projects/models/full_angles/results/ --num 51
 ```
 
 This will run the model contained in the `results` folder and generate 512 sequences of varying lengths.
-Not specifying a device will default to the first device `cuda:0`; use `--device cpu` to run on CPU.
-You may want to append the `--skiptm` argument to the above command if you wish to skip the very time-consuming calculation of TM scores against training set; doing so takes about ~1min per generated example on a 128-core machine running fully parallelized. 
+Not specifying a device will default to the first device `cuda:0`; use `--device cpu` to run on CPU. This will create the following directory structure in the diretory where it is run:
+
+```
+some_dir/
+    - plots/            # Contains plots comparing the distribution of training/generated angles
+    - sampled_angles/   # Contains .npy files with the angles we have sampled
+    - sampled_pdb/      # Contains the .pdb files resulting from converting the sampled angles to cartesian coordinates
+```
+
+### Self-consistency TM scores
+
+After generating sequences, we automatically calculate TM-scores to evaluate the simliarity of the generated sequences and the original sequences. You may want to append the `--skiptm` argument to the above command if you wish to skip the very time-consuming calculation of TM scores against training set; doing so takes about ~1min per generated example on a 128-core machine running fully parallelized. 
+
+## Generating residues for protein backbones
+
+One way to evaluate the quality of generated backbones is via their "designability". This refers to whether or not we can design an amino acid chain that will fold into the designed backbone. To evaluate this, we use the ESM inverse folding model to generate residues that are predicted to fold into our generated backbone, and use AlphaFold to check whether that generated sequence actually does fold into a structure comparable to our backbone. 
+
+### Inverse folding with ESM
+
+We use a different conda environment for this step; see https://colab.research.google.com/github/facebookresearch/esm/blob/main/examples/inverse_folding/notebook.ipynb for setup details. After this, we `cd` into the folder that contains the `sampled_pdb` directory created by the prior step, and run:
+
+```bash
+python ~/protdiff/bin/pdb_to_residues_esm.py sampled_pdb -o esm_residues
+```
+
+This creates a new folder, `esm_residues` that contains 10 potential residues for each of the pdb files contained in `sampled_pdb`.
 
 ## Tests
 Tests are implemented through a mixture of doctests and unittests. To run unittests, run:
