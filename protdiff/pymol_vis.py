@@ -3,6 +3,7 @@ Code to visualize with pymol
 """
 import os
 import re
+import multiprocessing as mp
 import argparse
 import tempfile
 from typing import *
@@ -43,11 +44,9 @@ def images_to_gif_from_args(args):
     get_int_tuple = lambda s: tuple(int(i) for i in re.findall(r"[0-9]+", s))
     sorted_inputs = sorted(args.input, key=get_int_tuple)
     with tempfile.TemporaryDirectory() as tempdir:
-        image_filenames = []
-        for i, fname in tqdm(enumerate(sorted_inputs)):
-            assert os.path.isfile(fname)
-            outname = pdb2png(fname, os.path.join(tempdir, f"pdb_file_{i}.png"))
-            image_filenames.append(outname)
+        arg_tuples = [(fname, os.path.join(tempdir, f"pdb_file_{i}.png")) for i, fname in enumerate(sorted_inputs)]
+        pool = mp.Pool(int(mp.cpu_count() / 2))
+        image_filenames = list(pool.starmap(pdb2png, arg_tuples, chunksize=5))
         gif = images_to_gif(image_filenames, args.output)
 
 
