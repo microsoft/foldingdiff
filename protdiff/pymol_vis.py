@@ -1,5 +1,8 @@
 """
 Code to visualize with pymol
+
+Example usage:
+python ~/protdiff/protdiff/pymol_vis.py pdb2gif -i projects/generated/generation-with-history/sampled_pdb/sample_history/generated_0/*.pdb -o generated_0.gif
 """
 import os
 import re
