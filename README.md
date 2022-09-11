@@ -4,7 +4,7 @@
 
 We present a diffusion model for generating novel protein backbone structures.
 
-![](plots/generated_0_optimized.gif)
+![](plots/generated_0.gif)
 
 ## Installation
 This software is written in Python, notably using PyTorch, PyTorch Ligthing, and the HuggingFace
