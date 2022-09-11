@@ -31,11 +31,23 @@ def pdb2png_from_args(args):
     pdb2png(args.input, args.output)
 
 
-def images_to_gif(images: Collection[str], fname: str) -> str:
+def images_to_gif(
+    images: Collection[str], fname: str, pause_on_last: bool = True, loop: bool = True
+) -> str:
     """Create a gif from the given images, returns output filename"""
     # https://stackoverflow.com/questions/753190/programmatically-generate-video-or-animated-gif-in-python
     images_read = [imageio.imread(f) for f in images]
-    imageio.mimsave(fname, images_read)
+    # Show each frame for 0.05 seconds, and the last one for 10 seconds
+    frametimes = [0.05] * len(images)
+    if pause_on_last:
+        frametimes[-1] = 10.0
+    imageio.mimsave(
+        fname,
+        images_read,
+        duration=frametimes,
+        subrectangles=True,
+        loop=0 if loop else 1,  # 0 = loop indefinitely, 1 = loop once
+    )
     return fname
 
 
@@ -44,7 +56,10 @@ def images_to_gif_from_args(args):
     get_int_tuple = lambda s: tuple(int(i) for i in re.findall(r"[0-9]+", s))
     sorted_inputs = sorted(args.input, key=get_int_tuple)
     with tempfile.TemporaryDirectory() as tempdir:
-        arg_tuples = [(fname, os.path.join(tempdir, f"pdb_file_{i}.png")) for i, fname in enumerate(sorted_inputs)]
+        arg_tuples = [
+            (fname, os.path.join(tempdir, f"pdb_file_{i}.png"))
+            for i, fname in enumerate(sorted_inputs)
+        ]
         pool = mp.Pool(int(mp.cpu_count() / 2))
         image_filenames = list(pool.starmap(pdb2png, arg_tuples, chunksize=5))
         gif = images_to_gif(image_filenames, args.output)
