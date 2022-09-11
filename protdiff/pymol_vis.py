@@ -5,6 +5,7 @@ Example usage:
 python ~/protdiff/protdiff/pymol_vis.py pdb2gif -i projects/generated/generation-with-history/sampled_pdb/sample_history/generated_0/*.pdb -o generated_0.gif
 """
 import os
+import glob
 import re
 import multiprocessing as mp
 import argparse
@@ -32,6 +33,20 @@ def pdb2png(pdb_fname: str, png_fname: str) -> str:
 def pdb2png_from_args(args):
     """Wrapper for the above to handle CLI args"""
     pdb2png(args.input, args.output)
+
+
+def pdb2png_dir_from_args(args):
+    """Wrapper to call pdb2png in parallel from CLI args"""
+    os.makedirs(args.output, exist_ok=True)
+    input_fnames = glob.glob(os.path.join(args.input, "*.pdb"))
+    arg_tuples = [
+        (fname, os.path.join(args.output, os.path.basename(fname)))
+        for fname in input_fnames
+    ]
+    pool = mp.Pool(mp.cpu_count())
+    pool.starmap_async(pdb2png, arg_tuples, chunksize=5)
+    pool.close()
+    pool.join()
 
 
 def images_to_gif(
@@ -99,6 +114,27 @@ def build_parser():
         "-o", "--output", type=str, required=True, help="Output file to write"
     )
     png_parser.set_defaults(func=pdb2png_from_args)
+
+    # For converting an entire batch of PDBs to PNG files
+    png_batch_parser = subparsers.add_parser(
+        "pdb2png_batch",
+        help="Convert a folder containing PDB files to a folder of PNG files",
+    )
+    png_batch_parser.add_argument(
+        "-i",
+        "--input",
+        type=str,
+        required=True,
+        help="Directory containing *.pdb files",
+    )
+    png_batch_parser.add_argument(
+        "-o",
+        "--output",
+        type=str,
+        required=True,
+        help="Directory to write *.png files to",
+    )
+    png_batch_parser.set_defaults(func=pdb2png_dir_from_args)
 
     return parser
 
