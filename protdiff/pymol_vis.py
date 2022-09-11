@@ -78,7 +78,7 @@ def images_to_gif_from_args(args):
             (fname, os.path.join(tempdir, f"pdb_file_{i}.png"))
             for i, fname in enumerate(sorted_inputs)
         ]
-        pool = mp.Pool(int(mp.cpu_count() / 2))
+        pool = mp.Pool(mp.cpu_count())
         image_filenames = list(pool.starmap(pdb2png, arg_tuples, chunksize=5))
         gif = images_to_gif(image_filenames, args.output)
 
