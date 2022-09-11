@@ -9,6 +9,8 @@ from typing import *
 import imageio
 import pymol
 
+from tqdm.auto import tqdm
+
 
 def pdb2png(pdb_fname: str, png_fname: str) -> str:
     """Convert the pdb file into a png, returns output filename"""
@@ -17,6 +19,7 @@ def pdb2png(pdb_fname: str, png_fname: str) -> str:
     pymol.cmd.show("cartoon")
     pymol.cmd.set("ray_opaque_background", 0)
     pymol.cmd.png(png_fname, ray=1, dpi=600)
+    pymol.cmd.delete("*")  # So we dont' draw multiple images at once
     return png_fname
 
 
@@ -37,7 +40,7 @@ def images_to_gif_from_args(args):
     """Wrapper for the above to handle CLI args"""
     with tempfile.TemporaryDirectory() as tempdir:
         image_filenames = []
-        for i, fname in enumerate(args.input):
+        for i, fname in tqdm(enumerate(args.input)):
             assert os.path.isfile(fname)
             outname = pdb2png(fname, os.path.join(tempdir, f"pdb_file_{i}.png"))
             image_filenames.append(outname)
