@@ -22,5 +22,3 @@ dependencies:
   - conda-forge::py3dmol
   - conda-forge::biotite=0.34
   - bioconda::tmalign
-  - pip
-    - sequence-models

@@ -14,6 +14,8 @@ sure you have conda (or mamba) installed and run:
 
 ```bash
 conda env create -f environment.yml
+conda activate protdiff
+pip install sequence-models  # Installed separately, doesn't play nice with conda env create
 ```
 
 Note that you do not need to have this set up if you are _only_ submitting jobs to the cluster.
