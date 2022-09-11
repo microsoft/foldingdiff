@@ -2,6 +2,7 @@
 Code to visualize with pymol
 """
 import os
+import re
 import argparse
 import tempfile
 from typing import *
@@ -17,6 +18,7 @@ def pdb2png(pdb_fname: str, png_fname: str) -> str:
     # https://gist.github.com/bougui505/11401240
     pymol.cmd.load(pdb_fname)
     pymol.cmd.show("cartoon")
+    pymol.cmd.color("green")
     pymol.cmd.set("ray_opaque_background", 0)
     pymol.cmd.png(png_fname, ray=1, dpi=600)
     pymol.cmd.delete("*")  # So we dont' draw multiple images at once
@@ -38,9 +40,11 @@ def images_to_gif(images: Collection[str], fname: str) -> str:
 
 def images_to_gif_from_args(args):
     """Wrapper for the above to handle CLI args"""
+    get_int_tuple = lambda s: tuple(int(i) for i in re.findall(r"[0-9]+", s))
+    sorted_inputs = sorted(args.input, key=get_int_tuple)
     with tempfile.TemporaryDirectory() as tempdir:
         image_filenames = []
-        for i, fname in tqdm(enumerate(args.input)):
+        for i, fname in tqdm(enumerate(sorted_inputs)):
             assert os.path.isfile(fname)
             outname = pdb2png(fname, os.path.join(tempdir, f"pdb_file_{i}.png"))
             image_filenames.append(outname)
