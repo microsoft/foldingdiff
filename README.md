@@ -4,6 +4,8 @@
 
 We present a diffusion model for generating novel protein backbone structures.
 
+![](plots/generated_0_optimized.gif)
+
 ## Installation
 This software is written in Python, notably using PyTorch, PyTorch Ligthing, and the HuggingFace
 transformers library.
@@ -70,7 +72,7 @@ After generating sequences, we automatically calculate TM-scores to evaluate the
 
 ### Visualizing "folding" process
 
-The above sampling code can also be run with the ``--fullhistory`` flag to write an additional subdirectory `sample_history` under each of the `sampled_angles` and `sampled_pdb` folders that contain pdb/csv files coresponding to each timestep in the sampling process. The pdb files, for example, can then be passed into the script under `protdiff/pymol_vis.py` to generate a gif of the folding process. An example command to do this is:
+The above sampling code can also be run with the ``--fullhistory`` flag to write an additional subdirectory `sample_history` under each of the `sampled_angles` and `sampled_pdb` folders that contain pdb/csv files coresponding to each timestep in the sampling process. The pdb files, for example, can then be passed into the script under `protdiff/pymol_vis.py` to generate a gif of the folding process (as shown above). An example command to do this is:
 
 ```bash
 python ~/protdiff/protdiff/pymol_vis.py pdb2gif -i sampled_pdb/sample_history/generated_0/*.pdb -o generated_0.gif
