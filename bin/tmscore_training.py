@@ -1,6 +1,8 @@
 """
 Compute the maximum TM score against training set
 """
+# NOTE this is a thin wrapper around function called in sample.py
+
 import logging
 import os, sys
 import re

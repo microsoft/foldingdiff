@@ -129,7 +129,7 @@ def compute_training_tm_scores(
     nthreads: int = multiprocessing.cpu_count(),
 ):
     logging.info(
-        f"Done writing main outputs! Calculating tm scores with {nthreads} threads..."
+        f"Calculating tm scores with {nthreads} threads..."
     )
     all_tm_scores = {}
     for i, fname in tqdm(enumerate(pdb_files), total=len(pdb_files)):
