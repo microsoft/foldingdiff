@@ -122,6 +122,28 @@ def plot_distribution_overlap(
     fig.savefig(fname, bbox_inches="tight")
 
 
+def compute_training_tm_scores(
+    pdb_files: Collection[str],
+    train_dset,
+    outdir: Path,
+    nthreads: int = multiprocessing.cpu_count(),
+):
+    logging.info(
+        f"Done writing main outputs! Calculating tm scores with {nthreads} threads..."
+    )
+    all_tm_scores = {}
+    for i, fname in tqdm(enumerate(pdb_files)):
+        samp_name = os.path.splitext(os.path.basename(fname))[0]
+        tm_score = tmalign.max_tm_across_refs(
+            fname,
+            train_dset.dset.filenames,
+            n_threads=nthreads,
+        )
+        all_tm_scores[samp_name] = tm_score
+    with open(outdir / "tm_scores.json", "w") as sink:
+        json.dump(all_tm_scores, sink, indent=4)
+
+
 def build_parser() -> argparse.ArgumentParser:
     """
     Build CLI parser
@@ -249,7 +271,9 @@ def main() -> None:
                 )
             # Write the pdb files
             ith_pdb_dir = full_history_pdb_dir / f"generated_{i}"
-            write_preds_pdb_folder(snapshot_dfs, ith_pdb_dir, basename_prefix=f"generated_{i}_timestep_")
+            write_preds_pdb_folder(
+                snapshot_dfs, ith_pdb_dir, basename_prefix=f"generated_{i}_timestep_"
+            )
 
     # Generate histograms of sampled angles
     # For calculating angle distributions
@@ -272,20 +296,7 @@ def main() -> None:
     )
 
     if not args.skiptm:
-        logging.info(
-            f"Done writing main outputs! Calculating tm scores with {args.tmthreads} threads..."
-        )
-        all_tm_scores = {}
-        for i, fname in tqdm(enumerate(pdb_files)):
-            samp_name = os.path.splitext(os.path.basename(fname))[0]
-            tm_score = tmalign.max_tm_across_refs(
-                fname,
-                train_dset.dset.filenames,
-                n_threads=args.tmthreads,
-            )
-            all_tm_scores[samp_name] = tm_score
-        with open(outdir / "tm_scores.json", "w") as sink:
-            json.dump(all_tm_scores, sink, indent=4)
+        compute_training_tm_scores(pdb_files, train_dset, outdir=outdir)
 
 
 if __name__ == "__main__":
