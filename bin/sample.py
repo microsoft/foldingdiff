@@ -136,7 +136,7 @@ def compute_training_tm_scores(
         samp_name = os.path.splitext(os.path.basename(fname))[0]
         tm_score = tmalign.max_tm_across_refs(
             fname,
-            train_dset.dset.filenames,
+            train_dset.filenames,
             n_threads=nthreads,
         )
         all_tm_scores[samp_name] = tm_score

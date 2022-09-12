@@ -694,6 +694,11 @@ class NoisedAnglesDataset(Dataset):
     def pad(self):
         """Pas through the pad property of wrapped dset"""
         return self.dset.pad
+    
+    @property
+    def filenames(self):
+        """Pass through the filenames property of the wrapped dset"""
+        return self.dset.filenames
 
     def sample_length(self, *args, **kwargs):
         return self.dset.sample_length(*args, **kwargs)
