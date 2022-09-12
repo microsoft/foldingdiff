@@ -46,7 +46,7 @@ def write_fasta(sequences: Dict[str, str], out_fname: str):
                 sink.write(segment + "\n")
 
 
-def run_omegafold(input_fasta: str, outdir: str, gpu: int) -> str:
+def run_omegafold(input_fasta: str, outdir: str, gpu: int):
     """
     Runs omegafold on the given fasta file
     """
