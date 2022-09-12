@@ -132,7 +132,7 @@ def compute_training_tm_scores(
         f"Done writing main outputs! Calculating tm scores with {nthreads} threads..."
     )
     all_tm_scores = {}
-    for i, fname in tqdm(enumerate(pdb_files)):
+    for i, fname in tqdm(enumerate(pdb_files), total=len(pdb_files)):
         samp_name = os.path.splitext(os.path.basename(fname))[0]
         tm_score = tmalign.max_tm_across_refs(
             fname,
