@@ -4,6 +4,7 @@ Short and easy wrapper for TMalign
 
 import os
 import re
+import itertools
 import shutil
 import subprocess
 import multiprocessing
@@ -54,20 +55,24 @@ def max_tm_across_refs(
     n_threads: int = multiprocessing.cpu_count(),
     fast: bool = True,
     chunksize: int = 10,
+    parallel: bool = True,
 ) -> float:
     """
     Compare the query against each of the references in parallel and return the maximum score
     This is typically a lot of comparisons so we run with fast set to True by default
     """
-    n_threads = min(n_threads, len(references))
     logging.debug(
         f"Matching against {len(references)} references using {n_threads} workers with fast={fast}"
     )
     args = [(query, ref, fast) for ref in references]
-    pool = multiprocessing.Pool(n_threads)
-    values = list(pool.starmap(run_tmalign, args, chunksize=chunksize))
-    pool.close()
-    pool.join()
+    if parallel:
+        n_threads = min(n_threads, len(references))
+        pool = multiprocessing.Pool(n_threads)
+        values = list(pool.starmap(run_tmalign, args, chunksize=chunksize))
+        pool.close()
+        pool.join()
+    else:
+        values = itertools.starmap(run_tmalign, args)
 
     return np.nanmax(values)
 
