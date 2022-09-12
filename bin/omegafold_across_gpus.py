@@ -30,6 +30,10 @@ def read_fasta(fname: str) -> Dict[str, str]:
                 curr_v = ""
             else:
                 curr_v += line.strip()
+    # Write the last sequence
+    assert curr_k
+    assert curr_v
+    retval[curr_k] = curr_v
     return retval
 
 
