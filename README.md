@@ -4,9 +4,10 @@
 
 We present a diffusion model for generating novel protein backbone structures.
 
-![](plots/generated_0.gif)
+![Animation of diffusion model protein folds over timesteps](plots/generated_0.gif)
 
 ## Installation
+
 This software is written in Python, notably using PyTorch, PyTorch Ligthing, and the HuggingFace
 transformers library.
 The required conda environment is defined within the `environment.yml` file. To set this up, make
@@ -70,7 +71,7 @@ some_dir/
 
 ### Self-consistency TM scores
 
-After generating sequences, we automatically calculate TM-scores to evaluate the simliarity of the generated sequences and the original sequences. You may want to append the `--skiptm` argument to the above command if you wish to skip the very time-consuming calculation of TM scores against training set; doing so takes about ~1min per generated example on a 128-core machine running fully parallelized. 
+After generating sequences, we automatically calculate TM-scores to evaluate the simliarity of the generated sequences and the original sequences. You may want to append the `--skiptm` argument to the above command if you wish to skip the very time-consuming calculation of TM scores against training set; doing so takes about ~1min per generated example on a 128-core machine running fully parallelized.
 
 ### Visualizing "folding" process
 
@@ -80,15 +81,15 @@ The above sampling code can also be run with the ``--fullhistory`` flag to write
 python ~/protdiff/protdiff/pymol_vis.py pdb2gif -i sampled_pdb/sample_history/generated_0/*.pdb -o generated_0.gif
 ```
 
-**Note** this script lives separately from other plotting code because it depends on PyMOL; feel free to install/activate your own installation of PyMOL for this. 
+**Note** this script lives separately from other plotting code because it depends on PyMOL; feel free to install/activate your own installation of PyMOL for this.
 
 ## Generating residues for protein backbones
 
-One way to evaluate the quality of generated backbones is via their "designability". This refers to whether or not we can design an amino acid chain that will fold into the designed backbone. To evaluate this, we use the ESM inverse folding model to generate residues that are predicted to fold into our generated backbone, and use AlphaFold to check whether that generated sequence actually does fold into a structure comparable to our backbone. 
+One way to evaluate the quality of generated backbones is via their "designability". This refers to whether or not we can design an amino acid chain that will fold into the designed backbone. To evaluate this, we use the ESM inverse folding model to generate residues that are predicted to fold into our generated backbone, and use AlphaFold to check whether that generated sequence actually does fold into a structure comparable to our backbone.
 
 ### Inverse folding with ESM
 
-We use a different conda environment for this step; see https://colab.research.google.com/github/facebookresearch/esm/blob/main/examples/inverse_folding/notebook.ipynb for setup details. We found that the following command works on our machine:
+We use a different conda environment for this step; see <https://colab.research.google.com/github/facebookresearch/esm/blob/main/examples/inverse_folding/notebook.ipynb> for setup details. We found that the following command works on our machine:
 
 ```bash
 mamba create -n inverse python=3.9 pytorch cudatoolkit pyg -c pytorch -c conda-forge -c pyg
@@ -106,6 +107,7 @@ python ~/protdiff/bin/pdb_to_residues_esm.py sampled_pdb -o esm_residues
 This creates a new folder, `esm_residues` that contains 10 potential residues for each of the pdb files contained in `sampled_pdb`.
 
 ## Tests
+
 Tests are implemented through a mixture of doctests and unittests. To run unittests, run:
 
 ```bash
@@ -113,7 +115,8 @@ python -m unittest -v
 ```
 
 ## Singularity/amulet
-To run on singularity/amulet, make sure you have already downloaded the CATH dataset (see instructions above). If you do not have amulet installed, folow the instructions at https://amulet-docs.azurewebsites.net/main/setup.html. This should leave you with a conda environment named `amlt8`. Note that this environment should be _separate_ from the environment for the diffusion model itself. Note that you do _not_ need to create the given `environment.yml` to submit to amulet/singularity; the environment for running the code is separately set up within the Singularity compute cluster.
+
+To run on singularity/amulet, make sure you have already downloaded the CATH dataset (see instructions above). If you do not have amulet installed, folow the instructions at <https://amulet-docs.azurewebsites.net/main/setup.html>. This should leave you with a conda environment named `amlt8`. Note that this environment should be _separate_ from the environment for the diffusion model itself. Note that you do _not_ need to create the given `environment.yml` to submit to amulet/singularity; the environment for running the code is separately set up within the Singularity compute cluster.
 
 With these two requirements, to run training on singularity, run:
 
@@ -132,7 +135,7 @@ we recreate the same set of packages installed via pip instead of relying on con
 
 This project welcomes contributions and suggestions.  Most contributions require you to agree to a
 Contributor License Agreement (CLA) declaring that you have the right to, and actually do, grant us
-the rights to use your contribution. For details, visit https://cla.opensource.microsoft.com.
+the rights to use your contribution. For details, visit <https://cla.opensource.microsoft.com>.
 
 When you submit a pull request, a CLA bot will automatically determine whether you need to provide
 a CLA and decorate the PR appropriately (e.g., status check, comment). Simply follow the instructions
@@ -144,8 +147,8 @@ contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additio
 
 ## Trademarks
 
-This project may contain trademarks or logos for projects, products, or services. Authorized use of Microsoft 
-trademarks or logos is subject to and must follow 
+This project may contain trademarks or logos for projects, products, or services. Authorized use of Microsoft
+trademarks or logos is subject to and must follow
 [Microsoft's Trademark & Brand Guidelines](https://www.microsoft.com/en-us/legal/intellectualproperty/trademarks/usage/general).
 Use of Microsoft trademarks or logos in modified versions of this project must not cause confusion or imply Microsoft sponsorship.
 Any use of third-party trademarks or logos are subject to those third-party's policies.
