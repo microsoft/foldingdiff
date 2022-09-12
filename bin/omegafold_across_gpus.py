@@ -48,8 +48,13 @@ def run_omegafold(input_fasta: str, outdir: str, gpu: int) -> str:
     """
     logging.info(f"Running omegafold on {input_fasta} > {outdir} with gpu {gpu}")
     assert shutil.which("omegafold")
-    cmd = f"omegafold {input_fasta} {outdir} --device cuda:{gpu}"
-    output = subprocess.call(cmd, shell=True)
+    cmd = f"CUDA_VISIBLE_DEVICES={gpu} omegafold {input_fasta} {outdir} --device cuda:0"
+
+    bname = os.path.splitext(os.path.basename(input_fasta))[0]
+    with open(
+        os.path.join(outdir, f"omegafold_{bname}_gpu_{gpu}.stdout"), "wb"
+    ) as sink:
+        output = subprocess.call(cmd, shell=True, stdout=sink)
 
 
 def build_parser() -> argparse.ArgumentParser:
