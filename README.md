@@ -88,7 +88,13 @@ One way to evaluate the quality of generated backbones is via their "designabili
 
 ### Inverse folding with ESM
 
-We use a different conda environment for this step; see https://colab.research.google.com/github/facebookresearch/esm/blob/main/examples/inverse_folding/notebook.ipynb for setup details. After this, we `cd` into the folder that contains the `sampled_pdb` directory created by the prior step, and run:
+We use a different conda environment for this step; see https://colab.research.google.com/github/facebookresearch/esm/blob/main/examples/inverse_folding/notebook.ipynb for setup details. We found that the following command works on our machine:
+
+```bash
+mamba create -n inverse python=3.9 pytorch cudatoolkit pyg -c pytorch -c conda-forge -c pyg
+```
+
+After this, we `cd` into the folder that contains the `sampled_pdb` directory created by the prior step, and run:
 
 ```bash
 python ~/protdiff/bin/pdb_to_residues_esm.py sampled_pdb -o esm_residues
