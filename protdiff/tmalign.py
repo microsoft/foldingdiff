@@ -72,7 +72,7 @@ def max_tm_across_refs(
         pool.close()
         pool.join()
     else:
-        values = itertools.starmap(run_tmalign, args)
+        values = list(itertools.starmap(run_tmalign, args))
 
     return np.nanmax(values)
 
