@@ -11,7 +11,7 @@ We present a diffusion model for generating novel protein backbone structures.
 This software is written in Python, notably using PyTorch, PyTorch Ligthing, and the HuggingFace
 transformers library.
 The required conda environment is defined within the `environment.yml` file. To set this up, make
-sure you have conda (or mamba) installed and run:
+sure you have conda (or [mamba](https://mamba.readthedocs.io/en/latest/index.html)) installed and run:
 
 ```bash
 conda env create -f environment.yml
@@ -83,9 +83,9 @@ python ~/protdiff/protdiff/pymol_vis.py pdb2gif -i sampled_pdb/sample_history/ge
 
 **Note** this script lives separately from other plotting code because it depends on PyMOL; feel free to install/activate your own installation of PyMOL for this.
 
-## Generating residues for protein backbones
+## Evaluating designability of generated backbones
 
-One way to evaluate the quality of generated backbones is via their "designability". This refers to whether or not we can design an amino acid chain that will fold into the designed backbone. To evaluate this, we use the ESM inverse folding model to generate residues that are predicted to fold into our generated backbone, and use AlphaFold to check whether that generated sequence actually does fold into a structure comparable to our backbone.
+One way to evaluate the quality of generated backbones is via their "designability". This refers to whether or not we can design an amino acid chain that will fold into the designed backbone. To evaluate this, we use the ESM inverse folding model to generate residues that are predicted to fold into our generated backbone, and use OmegaFold to check whether that generated sequence actually does fold into a structure comparable to our backbone. (While prior backbone design works have used AlphaFold2 for their designability evaluations, this was previously done without providing AlphaFold with MSA information; OmegaFold is designed from the ground up to use sequence only, and is therefore better suited for this use case.)
 
 ### Inverse folding with ESM
 
@@ -105,6 +105,21 @@ python ~/protdiff/bin/pdb_to_residues_esm.py sampled_pdb -o esm_residues
 ```
 
 This creates a new folder, `esm_residues` that contains 10 potential residues for each of the pdb files contained in `sampled_pdb`.
+
+### Structural prediction with OmegaFold
+
+We use [OmegaFold](https://github.com/HeliXonProtein/OmegaFold) to fold the amino acid sequences produced above. After creating a separate conda environment and following the authors' instructions for installing OmegaFold, we use the following script to split our input amino acid fasta files across GPUs for inference, and subsequently calculate the self-consistency TM (scTM) scores.
+
+```bash
+# Combine all the fasta files into a single file
+cat esm_residues/generated_*_esm_residues_*.fasta > esm_residues/generated_all.fasta
+# Fold each fasta, spreading the work over GPUs 0 and 1
+python ~/projects/protdiff/bin/omegafold_across_gpus.py esm_residues/generated_all.fasta -g 0 1
+# Calculate the scTM scores; parallelizes across all CPUs
+python ~/projects/protdiff/bin/omegafold_self_tm.py  # Requires no arguments
+```
+
+After executing these commands, the final command produces a json file of all scmtm scores, as well as a pdf file containing a histogram of the score distribution.
 
 ## Tests
 
