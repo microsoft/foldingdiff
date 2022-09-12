@@ -92,6 +92,9 @@ We use a different conda environment for this step; see https://colab.research.g
 
 ```bash
 mamba create -n inverse python=3.9 pytorch cudatoolkit pyg -c pytorch -c conda-forge -c pyg
+conda activate inverse
+mamba install -c conda-forge biotite
+pip install git+https://github.com/facebookresearch/esm.git
 ```
 
 After this, we `cd` into the folder that contains the `sampled_pdb` directory created by the prior step, and run:
