@@ -41,7 +41,7 @@ import plotting
 import utils
 import custom_metrics as cm
 
-
+assert torch.cuda.is_available(), "Requires CUDA to train"
 # reproducibility
 torch.manual_seed(6489)
 # torch.use_deterministic_algorithms(True)
