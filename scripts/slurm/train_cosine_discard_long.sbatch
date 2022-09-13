@@ -16,4 +16,4 @@
 conda activate /home/groups/jamesz/wukevin/envs/protdiff
 # Change to a directory for model to be output to
 cd /home/groups/jamesz/wukevin/projects/protdiff_models/full_angles_discard_long
-python /home/groups/jamesz/wukevin/projects/protdiff/bin/train.py /home/groups/jamesz/wukevin/projects/protdiff/config_jsons/cath_full_angles_cosine_discard_long.json
+python /home/groups/jamesz/wukevin/projects/protdiff/bin/train.py /home/groups/jamesz/wukevin/projects/protdiff/config_jsons/cath_full_angles_cosine_discard_long.json --dryrun
