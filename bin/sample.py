@@ -195,9 +195,10 @@ def main() -> None:
     train_values_stacked = torch.cat(train_values, dim=0).cpu().numpy()
 
     # Plot ramachandran plot for the training distribution
+    # Default figure size is 6.4x4.8 inches
     phi_idx = train_dset.feature_names["angles"].index("phi")
     psi_idx = train_dset.feature_names["angles"].index("psi")
-    plotting.plot_joint_kde(
+    train_ram = plotting.plot_joint_kde(
         train_values_stacked[:5000, phi_idx],
         train_values_stacked[:5000, psi_idx],
         xlabel="$\phi$",
@@ -205,6 +206,40 @@ def main() -> None:
         title="Ramachandran plot, training",
         fname=plotdir / "ramachandran_train.pdf",
     )
+    train_ram_ax = train_ram.axes[0]
+    # https://matplotlib.org/stable/tutorials/text/annotations.html
+    ram_annot_arrows = dict(facecolor="black", shrink=0.05, headwidth=6.0, width=1.5)
+    train_ram_ax.annotate(
+        r"$\alpha$ helix, LH",
+        xy=(1.2, 0.5),
+        xycoords="data",
+        xytext=(2.0, 1.2),
+        textcoords="data",
+        arrowprops=ram_annot_arrows,
+        horizontalalignment="left",
+        verticalalignment="center",
+    )
+    train_ram_ax.annotate(
+        r"$\alpha$ helix, RH",
+        xy=(-1.1, -0.6),
+        xycoords="data",
+        xytext=(-1.9, -1.9),
+        textcoords="data",
+        arrowprops=ram_annot_arrows,
+        horizontalalignment="right",
+        verticalalignment="center",
+    )
+    train_ram_ax.annotate(
+        r"$\beta$ sheet",
+        xy=(-1.67, 2.25),
+        xycoords="data",
+        xytext=(-0.9, 3.75),
+        textcoords="data",
+        arrowprops=ram_annot_arrows,
+        horizontalalignment="left",
+        verticalalignment="center",
+    )
+    train_ram.savefig(plotdir / "ramachandran_train_annot.pdf", bbox_inches="tight")
 
     # Load the model
     model = modelling.BertForDiffusion.from_dir(args.model).to(
