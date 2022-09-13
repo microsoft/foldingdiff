@@ -719,7 +719,7 @@ def main():
     import datasets
     from torch.utils.data import default_collate
 
-    clean_dset = datasets.CathConsecutiveAnglesDataset(toy=True)
+    clean_dset = datasets.CathCanonicalAnglesDataset(toy=True)
     noised_dset = datasets.NoisedAnglesDataset(clean_dset, "angles")
     for k, v in noised_dset[0].items():
         print(k, v.shape)

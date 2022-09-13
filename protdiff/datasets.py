@@ -33,8 +33,6 @@ ALPHAFOLD_DIR = LOCAL_DATA_DIR / "alphafold"
 import beta_schedules
 from angles_and_coords import (
     canonical_distances_and_dihedrals,
-    coords_to_trrosetta_angles,
-    trrosetta_angles_from_pdb,
     EXHAUSTIVE_ANGLES,
     EXHAUSTIVE_DISTS,
 )
@@ -42,183 +40,6 @@ from custom_metrics import kl_from_empirical, wrapped_mean
 import utils
 
 TRIM_STRATEGIES = Literal["leftalign", "randomcrop", "discard"]
-
-
-class CathConsecutiveAnglesDataset(Dataset):
-    """
-    Represent proteins as their constituent angles instead of 3D coordinates
-
-    The three angles phi, psi, and omega determine the backbone structure.
-    Omega is typically fixed ~180 degrees in most cases.
-
-    By default the angles are given in range of [-pi, pi] but we want to shift
-    these to [0, 2pi] so we can have easier modulo math. This behavior can be
-    toggled in shift_to_zero_twopi
-
-    Useful reading:
-    - https://proteinstructures.com/structure/ramachandran-plot/
-    - https://foldit.fandom.com/wiki/Backbone_angle
-    - http://www.cryst.bbk.ac.uk/PPS95/course/9_quaternary/3_geometry/torsion.html
-    - https://swissmodel.expasy.org/course/text/chapter1.htm
-    - https://www.nature.com/articles/s41598-020-76317-6
-    - https://userguide.mdanalysis.org/1.1.1/examples/analysis/structure/dihedrals.html
-
-    Source for data splits:
-    - https://www.mit.edu/~vgarg/GenerativeModelsForProteinDesign.pdf
-
-    For all domains in the CATH 4.2 40% non-redundant set of proteins, we obtained full chains up to length
-    500 and then randomly assigned their CATH topology classifications (CAT codes) to train, validation
-    and test sets at a targeted 80/10/10 split. Since each chain can contain multiple CAT codes, we first
-    removed any redundant entries from train and then from validation. Finally, we removed any chains
-    from the test set that had CAT overlap with train and removed chains from the validation set with
-    CAT overlap to train or test. This resulted in a dataset of 18024 chains in the training set, 608 chains
-    in the validation set, and 1120 chains in the test set.
-    """
-
-    feature_names = {
-        "angles": ["bond_dist", "omega", "theta", "phi"],
-    }
-    feature_is_angular = {
-        "angles": [False, True, True, True],
-    }
-
-    def __init__(
-        self,
-        split: Optional[Literal["train", "test", "validation"]] = None,
-        pad: int = 512,
-        shift_to_zero_twopi: bool = False,
-        toy: Union[bool, int] = False,
-    ) -> None:
-        super().__init__()
-        assert CATH_DIR.is_dir(), f"Expected CATH dir at {CATH_DIR}"
-        # Determine limit on reading based on toy argument
-        item_limit = None
-        if toy is None:
-            pass
-        elif isinstance(toy, bool) and toy:
-            item_limit = 150
-        elif isinstance(toy, int):
-            item_limit = toy
-        else:
-            raise ValueError(f"Unrecognized value for toy: {toy} (type {type(toy)})")
-
-        self.pad = pad
-        self.shift_to_zero_twopi = shift_to_zero_twopi
-        # json list file -- each line is a json
-        data_file = CATH_DIR / "chain_set.jsonl.gz"
-        assert os.path.isfile(data_file)
-        self.structures = []
-        with gzip.open(data_file) as source:
-            for i, line in enumerate(source):
-                structure = json.loads(line.strip())
-                self.structures.append(structure)
-                if item_limit and i >= item_limit:
-                    logging.warning(f"Truncating CATH to {item_limit} structures")
-                    break
-
-        # Get data split if given
-        self.split = split
-        if self.split is not None:
-            splitfile = CATH_DIR / "chain_set_splits.json"
-            with open(splitfile) as source:
-                data_splits = json.load(source)
-            assert split in data_splits.keys(), f"Unrecognized split: {split}"
-            # Subset self.structures to only the given names
-            orig_len = len(self.structures)
-            self.structures = [
-                s for s in self.structures if s["name"] in set(data_splits[self.split])
-            ]
-            logging.info(
-                f"Split {self.split} contains {len(self.structures)}/{orig_len} examples"
-            )
-
-        # Generate angles in parallel and attach them to corresponding structures
-        pool = multiprocessing.Pool(multiprocessing.cpu_count())
-        angles = pool.map(
-            coords_to_trrosetta_angles,
-            [d["coords"] for d in self.structures],
-            chunksize=250,
-        )
-        pool.close()
-        pool.join()
-        for s, a in zip(self.structures, angles):
-            s["angles"] = a
-
-        # Remove items with nan in angles/structures
-        orig_count = len(self.structures)
-        self.structures = [s for s in self.structures if s["angles"] is not None]
-        new_count = len(self.structures)
-        logging.info(f"Removed structures with nan {orig_count} -> {new_count}")
-
-        # Aggregate the lengths
-        self.all_lengths = [s["angles"].shape[0] for s in self.structures]
-        self._length_rng = np.random.default_rng(seed=6489)
-        logging.info(
-            f"Length of angles: {np.min(self.all_lengths)}-{np.max(self.all_lengths)}, mean {np.mean(self.all_lengths)}"
-        )
-
-    def sample_length(self, n: int = 1) -> Union[int, List[int]]:
-        """
-        Sample a observed length of a sequence
-        """
-        assert n > 0
-        if n == 1:
-            l = self._length_rng.choice(self.all_lengths)
-        else:
-            l = self._length_rng.choice(self.all_lengths, size=n, replace=True).tolist()
-        return l
-
-    def __str__(self) -> str:
-        return f"CathConsecutiveAnglesDataset {self.split} split with {len(self)} structures"
-
-    def __len__(self) -> int:
-        """Returns the length of this object"""
-        return len(self.structures)
-
-    def __getitem__(self, index: int) -> Dict[str, torch.Tensor]:
-        if not 0 <= index < len(self):
-            raise IndexError(index)
-
-        angles = self.structures[index]["angles"]
-        assert angles is not None
-        # Pad or trim to given length
-        l = min(self.pad, angles.shape[0])
-        attn_mask = torch.zeros(size=(self.pad,))
-        attn_mask[:l] = 1.0
-        assert sum(attn_mask) == l
-
-        # Perform padding
-        if angles.shape[0] < self.pad:
-            orig_shape = angles.shape
-            angles = np.pad(
-                angles,
-                ((0, self.pad - angles.shape[0]), (0, 0)),
-                mode="constant",
-                constant_values=0,
-            )
-            logging.debug(f"Padded {orig_shape} -> {angles.shape}")
-        elif angles.shape[0] > self.pad:
-            angles = angles[: self.pad]
-        assert angles.shape == (self.pad, 4)
-
-        # Shift to [0, 2pi] if configured as such
-        if self.shift_to_zero_twopi:
-            angles[:, 1:] += np.pi  # Shift from [-pi, pi] to [0, 2pi]
-            assert angles[:, 1:].min() >= 0
-            assert angles[:, 1:].max() < 2 * np.pi
-
-        position_ids = torch.arange(start=0, end=self.pad, step=1, dtype=torch.long)
-
-        angles = torch.from_numpy(angles).float()
-
-        retval = {
-            "angles": angles,
-            "attn_mask": attn_mask,
-            "position_ids": position_ids,
-        }
-        for k, v in self.feature_names.items():
-            assert retval[k].shape == (self.pad, len(v))
-        return retval
 
 
 class CathCanonicalAnglesDataset(Dataset):
@@ -1162,13 +983,6 @@ class ScoreMatchingNoisedAnglesDataset(Dataset):
 
 
 def main():
-    # dset = AlphafoldConsecutiveAnglesDataset(force_recompute_angles=False, toy=False)
-    # print(dset)
-    # dset = CathConsecutiveAnglesDataset(toy=10, split="train")
-    # noised_dset = SynNoisedMaskedOnlyDataset(dset, dset_key="angles",)
-    # print(len(noised_dset))
-    # print(noised_dset[0])
-
     dset = CathCanonicalAnglesDataset(pad=128, trim_strategy="discard", use_cache=False)
     noised_dset = NoisedAnglesDataset(dset, dset_key="angles")
     print(len(noised_dset))
