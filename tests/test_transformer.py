@@ -1,5 +1,6 @@
 import os, sys
 import unittest
+import tempfile
 
 import numpy as np
 import torch
@@ -163,6 +164,41 @@ class TestHuggingFaceBertModel(unittest.TestCase):
             torch.allclose(torch.flip(out, dims=(0,)), rev_out, atol=ATOL, rtol=RTOL),
             msg=f"Mismatch on reversal: {out[-2]} != {rev_out[1]}",
         )
+
+
+class TestTransformerLoadingSaving(unittest.TestCase):
+    """
+    Test the loading, saving, and then re-loading of transformer models.
+    """
+
+    def setUp(self) -> None:
+        self.orig_model_dir = os.path.join(
+            os.path.dirname(__file__), "mini_model_for_testing", "results"
+        )
+        assert os.path.isdir(self.orig_model_dir)
+
+    def test_saving_and_loading(self):
+        """Test that we can load, save, and reload model"""
+        with tempfile.TemporaryDirectory() as tempdir:
+            orig_model = modelling.BertForDiffusion.from_dir(
+                self.orig_model_dir, copy_to=tempdir
+            )
+            new_model = modelling.BertForDiffusion.from_dir(tempdir)
+
+        # https://discuss.pytorch.org/t/check-if-models-have-same-weights/4351
+        for p1, p2 in zip(orig_model.parameters(), new_model.parameters()):
+            self.assertAlmostEqual(p1.data.ne(p2.data).sum(), 0)
+
+    def test_loading_without_model_checkpoint(self):
+        """Test that loading ignores weights correctly"""
+        with tempfile.TemporaryDirectory() as tempdir:
+            orig_model = modelling.BertForDiffusion.from_dir(
+                self.orig_model_dir, copy_to=tempdir
+            )
+            new_model = modelling.BertForDiffusion.from_dir(tempdir, load_weights=False)
+
+        for p1, p2 in zip(orig_model.parameters(), new_model.parameters()):
+            self.assertNotEqual(p1.data.ne(p2.data).sum(), 0)
 
 
 if __name__ == "__main__":
