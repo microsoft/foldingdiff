@@ -87,35 +87,41 @@ def write_preds_pdb_folder(
 
 
 def plot_distribution_overlap(
-    train_values: np.ndarray, sampled_values: np.ndarray, ft_name: str, fname: str
+    train_values: np.ndarray,
+    sampled_values: np.ndarray,
+    ft_name: str,
+    fname: str = "",
+    ax=None,
 ):
     """
     Plot the distribution overlap between the training and sampled values
     """
     # Plot the distribution overlap
     logging.info(f"Plotting distribution overlap for {ft_name}")
-    fig, ax = plt.subplots(dpi=300)
-    sns.histplot(
+    if ax is None:
+        fig, ax = plt.subplots(dpi=300)
+    _n, bins, _pbatches = ax.hist(
         train_values,
         bins=40,
-        stat="proportion",
-        ax=ax,
+        density=True,
         label="Training",
         color="tab:blue",
         alpha=0.6,
+        edgecolor="black",
     )
-    sns.histplot(
+    ax.hist(
         sampled_values,
-        bins=40,
-        stat="proportion",
-        ax=ax,
+        bins=bins,
+        density=True,
         label="Sampled",
         color="tab:orange",
         alpha=0.6,
+        edgecolor="black",
     )
     ax.set(title=f"Sampled distribution - {ft_name}")
     ax.legend()
-    fig.savefig(fname, bbox_inches="tight")
+    if fname:
+        fig.savefig(fname, bbox_inches="tight")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -248,7 +254,7 @@ def main() -> None:
         orig_values = train_values_stacked[:, i]
         samp_values = final_sampled_stacked[:, i]
         plot_distribution_overlap(
-            orig_values, samp_values, ft_name, plotdir / f"dist_{ft_name}.pdf"
+            orig_values, samp_values, ft_name, fname=plotdir / f"dist_{ft_name}.pdf"
         )
 
     # Generate ramachandran plot for sampled angles
