@@ -109,10 +109,8 @@ This creates a new folder, `esm_residues` that contains 10 potential residues fo
 We use [OmegaFold](https://github.com/HeliXonProtein/OmegaFold) to fold the amino acid sequences produced above. After creating a separate conda environment and following the authors' instructions for installing OmegaFold, we use the following script to split our input amino acid fasta files across GPUs for inference, and subsequently calculate the self-consistency TM (scTM) scores.
 
 ```bash
-# Combine all the fasta files into a single file
-cat esm_residues/generated_*_esm_residues_*.fasta > esm_residues/generated_all.fasta
-# Fold each fasta, spreading the work over GPUs 0 and 1
-python ~/projects/protdiff/bin/omegafold_across_gpus.py esm_residues/generated_all.fasta -g 0 1
+# Fold each fasta, spreading the work over GPUs 0 and 1, outputs to omegafold_predictions folder
+python ~/projects/protdiff/bin/omegafold_across_gpus.py esm_residues/*.fasta -g 0 1
 # Calculate the scTM scores; parallelizes across all CPUs
 python ~/projects/protdiff/bin/omegafold_self_tm.py  # Requires no arguments
 ```
