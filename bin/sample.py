@@ -242,7 +242,8 @@ def main() -> None:
     train_ram.savefig(plotdir / "ramachandran_train_annot.pdf", bbox_inches="tight")
 
     # Load the model
-    model = modelling.BertForDiffusion.from_dir(args.model).to(
+    model_snapshot_dir = outdir / "model_snapshot"
+    model = modelling.BertForDiffusion.from_dir(args.model, copy_to=model_snapshot_dir).to(
         torch.device(args.device)
     )
 
