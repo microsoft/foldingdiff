@@ -7,7 +7,6 @@ import tempfile
 import unittest
 
 import numpy as np
-from sequence_models import pdb_utils
 from biotite.structure import dihedral
 
 SRC_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "protdiff")
