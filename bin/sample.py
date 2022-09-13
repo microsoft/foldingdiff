@@ -144,6 +144,13 @@ def build_parser() -> argparse.ArgumentParser:
         "--num", "-n", type=int, default=512, help="Number of examples to generate"
     )
     parser.add_argument(
+        "-b",
+        "--batchsize",
+        type=int,
+        default=512,
+        help="Batch size to use when sampling. 256 consumes ~2GB of GPU memory",
+    )
+    parser.add_argument(
         "--fullhistory",
         action="store_true",
         help="Store full history, not just final structure",
@@ -206,7 +213,7 @@ def main() -> None:
 
     # Perform sampling
     torch.manual_seed(args.seed)
-    sampled = sampling.sample(model, train_dset, n=args.num)
+    sampled = sampling.sample(model, train_dset, n=args.num, batch_size=args.batchsize)
     final_sampled = [s[-1] for s in sampled]
     sampled_dfs = [
         pd.DataFrame(s, columns=train_dset.feature_names["angles"])
@@ -251,7 +258,7 @@ def main() -> None:
     # Generate histograms of sampled angles -- separate plots, and a combined plot
     # For calculating angle distributions
     multi_fig, multi_axes = plt.subplots(
-        dpi=300, nrows=2, ncols=3, figsize=(16, 7), sharex=True
+        dpi=300, nrows=2, ncols=3, figsize=(14, 6), sharex=True
     )
     final_sampled_stacked = np.vstack(final_sampled)
     for i, ft_name in enumerate(train_dset.feature_names["angles"]):
