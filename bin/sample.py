@@ -2,7 +2,6 @@
 Script to sample from a trained diffusion model
 """
 import os, sys
-import multiprocessing
 import argparse
 import logging
 import json
@@ -13,8 +12,6 @@ import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 import seaborn as sns
-
-from tqdm.auto import tqdm
 
 import torch
 
@@ -28,9 +25,8 @@ import modelling
 import beta_schedules
 import sampling
 import plotting
-from datasets import NoisedAnglesDataset, CathCanonicalAnglesDataset
+from datasets import NoisedAnglesDataset
 from angles_and_coords import create_new_chain_nerf
-import tmalign
 
 # :)
 SEED = int(
@@ -122,28 +118,6 @@ def plot_distribution_overlap(
     fig.savefig(fname, bbox_inches="tight")
 
 
-def compute_training_tm_scores(
-    pdb_files: Collection[str],
-    train_dset,
-    outdir: Path,
-    nthreads: int = multiprocessing.cpu_count(),
-):
-    logging.info(
-        f"Calculating tm scores with {nthreads} threads..."
-    )
-    all_tm_scores = {}
-    for i, fname in tqdm(enumerate(pdb_files), total=len(pdb_files)):
-        samp_name = os.path.splitext(os.path.basename(fname))[0]
-        tm_score = tmalign.max_tm_across_refs(
-            fname,
-            train_dset.filenames,
-            n_threads=nthreads,
-        )
-        all_tm_scores[samp_name] = tm_score
-    with open(outdir / "tm_scores.json", "w") as sink:
-        json.dump(all_tm_scores, sink, indent=4)
-
-
 def build_parser() -> argparse.ArgumentParser:
     """
     Build CLI parser
@@ -167,16 +141,8 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Store full history, not just final structure",
     )
-    parser.add_argument(
-        "--skiptm",
-        action="store_true",
-        help="Skip calculation of TM scores against training set",
-    )
     parser.add_argument("--seed", type=int, default=SEED, help="Random seed")
     parser.add_argument("--device", type=str, default="cuda:0", help="Device to use")
-    parser.add_argument(
-        "--tmthreads", type=int, default=int(multiprocessing.cpu_count() / 2)
-    )
     return parser
 
 
@@ -294,9 +260,6 @@ def main() -> None:
         title="Ramachandran plot, generated",
         fname=plotdir / "ramachandran_generated.pdf",
     )
-
-    if not args.skiptm:
-        compute_training_tm_scores(pdb_files, train_dset, outdir=outdir)
 
 
 if __name__ == "__main__":

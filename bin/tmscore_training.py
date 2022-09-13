@@ -6,16 +6,40 @@ Compute the maximum TM score against training set
 import logging
 import os, sys
 import re
+import json
 from glob import glob
 from pathlib import Path
 import argparse
+from typing import *
+import multiprocessing as mp
 
-from sample import compute_training_tm_scores
-from datasets import CathCanonicalAnglesDataset
+from tqdm.auto import tqdm
 
 SRC_DIR = (Path(os.path.dirname(os.path.abspath(__file__))) / "../protdiff").resolve()
 assert SRC_DIR.is_dir()
 sys.path.append(str(SRC_DIR))
+from datasets import CathCanonicalAnglesDataset
+import tmalign
+
+
+def compute_training_tm_scores(
+    pdb_files: Collection[str],
+    train_dset,
+    outdir: Path,
+    nthreads: int = mp.cpu_count(),
+):
+    logging.info(f"Calculating tm scores with {nthreads} threads...")
+    all_tm_scores = {}
+    for i, fname in tqdm(enumerate(pdb_files), total=len(pdb_files)):
+        samp_name = os.path.splitext(os.path.basename(fname))[0]
+        tm_score = tmalign.max_tm_across_refs(
+            fname,
+            train_dset.filenames,
+            n_threads=nthreads,
+        )
+        all_tm_scores[samp_name] = tm_score
+    with open(outdir / "tm_scores.json", "w") as sink:
+        json.dump(all_tm_scores, sink, indent=4)
 
 
 def build_parser() -> argparse.ArgumentParser:
