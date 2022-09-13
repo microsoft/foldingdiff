@@ -3,8 +3,10 @@ Modelling
 """
 import os
 import re
+import shutil
 import time
 import glob
+from pathlib import Path
 import json
 import inspect
 import logging
@@ -340,9 +342,9 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         dirname: str,
         ft_is_angular: Optional[Sequence[bool]] = None,
         load_weights: bool = True,
-        legacy: bool = False,
         idx: int = -1,
         best_by: Literal["train", "valid"] = "valid",
+        copy_to: str = "",
         **kwargs,
     ) -> "BertForDiffusion":
         """
@@ -382,39 +384,33 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
             epoch_getter = lambda x: int(
                 re.findall(r"epoch=[0-9]+", os.path.basename(x)).pop().split("=")[-1]
             )
-            if legacy:
-                logging.info("Loading model assuming leacy file structure")
-                ckpt_names = sorted(
-                    glob.glob(
-                        os.path.join(
-                            dirname, "logs/lightning_logs/version_*/checkpoints/*.ckpt"
-                        )
-                    ),
-                    key=epoch_getter,
-                )
-                logging.info(f"Found {len(ckpt_names)} checkpoints")
-                ckpt_name = ckpt_names[idx]
-                logging.info(f"Loading weights from {ckpt_name}")
-                retval = cls.load_from_checkpoint(
-                    checkpoint_path=ckpt_name, **model_args
-                )
-            else:
-                logging.info("Loading model assuminsg new file structure")
-                subfolder = f"best_by_{best_by}"
-                # Sort checkpoints by epoch -- last item is latest epoch
-                ckpt_names = sorted(
-                    glob.glob(os.path.join(dirname, "models", subfolder, "*.ckpt")),
-                    key=epoch_getter,
-                )
-                logging.info(f"Found {len(ckpt_names)} checkpoints")
-                ckpt_name = ckpt_names[idx]
-                logging.info(f"Loading weights from {ckpt_name}")
-                retval = cls.load_from_checkpoint(
-                    checkpoint_path=ckpt_name, **model_args
-                )
+            subfolder = f"best_by_{best_by}"
+            # Sort checkpoints by epoch -- last item is latest epoch
+            ckpt_names = sorted(
+                glob.glob(os.path.join(dirname, "models", subfolder, "*.ckpt")),
+                key=epoch_getter,
+            )
+            logging.info(f"Found {len(ckpt_names)} checkpoints")
+            ckpt_name = ckpt_names[idx]
+            logging.info(f"Loading weights from {ckpt_name}")
+            retval = cls.load_from_checkpoint(checkpoint_path=ckpt_name, **model_args)
         else:
             retval = cls(**model_args)
             logging.info(f"Loaded unitialized model from {dirname}")
+
+        # If specified, copy out the requisite files to the given directory
+        if copy_to:
+            logging.info(f"Copying minimal model file set to: {copy_to}")
+            os.makedirs(copy_to, exist_ok=True)
+            copy_to = Path(copy_to)
+            with open(copy_to / "training_args.json", "w") as sink:
+                json.dump(train_args, sink)
+            config.save_pretrained(copy_to)
+            if load_weights:
+                # Create the direcotry structure
+                ckpt_dir = copy_to / "models" / subfolder
+                os.makedirs(ckpt_dir, exist_ok=True)
+                shutil.copyfile(ckpt_name, ckpt_dir / os.path.basename(ckpt_name))
 
         return retval
 
@@ -738,6 +734,6 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     # main()
     BertForDiffusion.from_dir(
-        "/home/t-kevinwu/projects/protein_diffusion/models_overfitted/overfit_omega_mlp_decoder",
-        n_inputs=1,
+        "/home/wukevin/projects/protdiff_results/models/results",
+        copy_to="temp",
     )

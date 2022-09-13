@@ -148,7 +148,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--batchsize",
         type=int,
         default=512,
-        help="Batch size to use when sampling. 256 consumes ~2GB of GPU memory",
+        help="Batch size to use when sampling. 256 consumes ~2GB of GPU memory, 512 ~3.5GB",
     )
     parser.add_argument(
         "--fullhistory",
