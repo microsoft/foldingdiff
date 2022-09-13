@@ -8,9 +8,7 @@ import functools
 import multiprocessing
 import os
 import glob
-import gzip
 import logging
-import json
 from pathlib import Path
 from typing import *
 
@@ -36,7 +34,7 @@ from angles_and_coords import (
     EXHAUSTIVE_ANGLES,
     EXHAUSTIVE_DISTS,
 )
-from custom_metrics import kl_from_empirical, wrapped_mean
+from custom_metrics import wrapped_mean
 import utils
 
 TRIM_STRATEGIES = Literal["leftalign", "randomcrop", "discard"]
