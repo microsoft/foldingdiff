@@ -73,6 +73,8 @@ def main():
     pool.close()
     pool.join()
 
+    alpha_beta_counts = [p for p in alpha_beta_counts if p != (-1, -1)]
+
     alpha_counts, beta_counts = zip(*alpha_beta_counts)
 
     fig, ax = plt.subplots(dpi=300)
