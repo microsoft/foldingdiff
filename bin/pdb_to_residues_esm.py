@@ -14,6 +14,7 @@ pip install git+https://github.com/facebookresearch/esm.git
 # uses the following notebook as a reference:
 # https://colab.research.google.com/github/facebookresearch/esm/blob/main/examples/inverse_folding/notebook.ipynb
 import os
+import warnings
 import glob
 import functools
 import logging
@@ -32,6 +33,25 @@ import esm
 import esm.inverse_folding
 
 
+from biotite.structure.io.pdb import PDBFile
+import biotite.structure as struc
+
+
+def get_chain_from_pdb(fname: str) -> str:
+    """
+    Get the chain from the given PDB file. If multiple chains are present,
+    return an empty string
+    """
+    warnings.filterwarnings("ignore", ".*elements were guessed from atom_.*")
+    source = PDBFile.read(fname)
+    if source.get_model_count() > 1:
+        return ""
+
+    source_struct = source.get_structure()[0]
+    chain_ids = set(source_struct.chain_id)
+    assert len(chain_ids) == 1
+    return chain_ids.pop()
+
 def write_fa(fname: str, seq: str, seqname: str = "sampled"):
     """Write a fasta file"""
     assert fname.endswith(".fasta")
@@ -43,9 +63,12 @@ def write_fa(fname: str, seq: str, seqname: str = "sampled"):
 
 
 def generate_residues(
-    fpath: str, model, chain_id: str = "A", n: int = 10, temperature: float = 1.0
+    fpath: str, model, chain_id: str = "", n: int = 10, temperature: float = 1.0
 ) -> List[str]:
     """Generate residues for the structure contained in the PDB file"""
+    if not chain_id:
+        chain_id = get_chain_from_pdb(fpath)
+
     structure = esm.inverse_folding.util.load_structure(fpath, chain_id)
     # Coords have shape (seq_len, 3, 3)
     coords, native_seq = esm.inverse_folding.util.extract_coords_from_structure(
