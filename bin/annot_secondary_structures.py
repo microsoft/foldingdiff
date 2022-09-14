@@ -4,8 +4,9 @@ Count secondary structures in a PDB file as determined by p-sea
 https://www.biotite-python.org/apidoc/biotite.structure.annotate_sse.html
 """
 
+import os
 import logging
-import os, sys
+import warnings
 import functools
 import multiprocessing as mp
 import argparse
@@ -23,11 +24,14 @@ from biotite.structure.io.pdb import PDBFile
 SSE_BACKEND = Literal["dssp", "psea"]
 
 
-def count_structures_in_pdb(fname: str, backend: SSE_BACKEND) -> Tuple[int, int]:
+def count_structures_in_pdb(
+    fname: str, backend: SSE_BACKEND = "psea"
+) -> Tuple[int, int]:
     """Count the secondary structures (# alpha, # beta) in the given pdb file"""
     assert os.path.exists(fname)
 
     # Get the secondary structure
+    warnings.filterwarnings("ignore", ".*elements were guessed from atom_.*")
     source = PDBFile.read(fname)
     if source.get_model_count() > 1:
         return (-1, -1)
@@ -58,12 +62,15 @@ def count_structures_in_pdb(fname: str, backend: SSE_BACKEND) -> Tuple[int, int]
         num_beta = ss_counts["B"] if "B" in ss_counts else 0
     else:
         raise ValueError(f"Unrecognized backend: {backend}")
-    logging.info(f"From {fname}:\t{num_alpha} {num_beta}")
+    logging.debug(f"From {fname}:\t{num_alpha} {num_beta}")
     return num_alpha, num_beta
 
 
 def make_ss_cooccurrence_plot(
-    pdb_files: Collection[str], outpdf: str, backend: SSE_BACKEND, threads: int = 4
+    pdb_files: Collection[str],
+    outpdf: str,
+    backend: SSE_BACKEND = "psea",
+    threads: int = 4,
 ):
     """ """
     logging.info(f"Calculating {len(pdb_files)} structures using {backend}")
