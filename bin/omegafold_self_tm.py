@@ -77,15 +77,23 @@ def main():
     logging.info(
         f"Computing selfTM scores across {len(orig_predicted_backbones)} generated structures"
     )
+    orig_predicted_backbone_names = [
+        os.path.splitext(os.path.basename(f))[0] for f in orig_predicted_backbones
+    ]
 
     # Match up the files
     pfunc = functools.partial(get_sctm_score, folded_dirname=Path(args.folded))
     pool = mp.Pool(mp.cpu_count())
-    sctm_scores = np.array(list(pool.map(pfunc, orig_predicted_backbones, chunksize=5)))
+    sctm_scores_raw = list(pool.map(pfunc, orig_predicted_backbones, chunksize=5))
     pool.close()
     pool.join()
 
-    sctm_scores = sctm_scores[~np.isnan(sctm_scores)]
+    sctm_non_nan_idx = [i for i, val in enumerate(sctm_scores_raw) if ~np.isnan(val)]
+    sctm_scores_mapping = {
+        orig_predicted_backbone_names[i]: sctm_scores_raw[i] for i in sctm_non_nan_idx
+    }
+    sctm_scores = np.array(list(sctm_scores_mapping.values()))
+
     passing_num = np.sum(sctm_scores >= 0.5)
     logging.info(
         f"{len(sctm_scores)} entries with scores, {passing_num} passing 0.5 cutoff"
@@ -93,17 +101,17 @@ def main():
 
     # Write the output
     logging.info(
-        f"scTM score mean/median: {np.nanmean(sctm_scores), np.nanmedian(sctm_scores)}"
+        f"scTM score mean/median: {np.mean(sctm_scores), np.median(sctm_scores)}"
     )
     with open(args.outjson, "w") as sink:
-        json.dump(sctm_scores.tolist(), sink)
+        json.dump(sctm_scores_mapping, sink, indent=4)
 
     fig, ax = plt.subplots()
     ax.hist(sctm_scores, bins=25, alpha=0.6)
     ax.axvline(0.5, color="grey", linestyle="--")
     ax.set(
-        xlabel=f"Self-consistency TM (scTM) score; $n={passing_num}$ are designable ($\geq 0.5$)",
-        title=f"scTM scores across {len(sctm_scores)} generated protein backbones",
+        xlabel=f"scTM, $n={passing_num}$ are designable $(\geq 0.5$)",
+        title=f"Self-consistency TM (scTM) scores, {len(sctm_scores)} generated protein backbones",
     )
     fig.savefig(args.plotfile)
 
