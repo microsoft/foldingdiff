@@ -22,9 +22,8 @@ from biotite.structure.io.pdb import PDBFile
 
 SSE_BACKEND = Literal["dssp", "psea"]
 
-def count_structures_in_pdb(
-    fname: str, backend: SSE_BACKEND
-) -> Tuple[int, int]:
+
+def count_structures_in_pdb(fname: str, backend: SSE_BACKEND) -> Tuple[int, int]:
     """Count the secondary structures (# alpha, # beta) in the given pdb file"""
     assert os.path.exists(fname)
 
@@ -33,10 +32,13 @@ def count_structures_in_pdb(
     if source.get_model_count() > 1:
         return (-1, -1)
     source_struct = source.get_structure()[0]
+    chain_ids = np.unique(source_struct.chain_id)
+    assert len(chain_ids) == 1
+    chain_id = chain_ids[0]
 
     if backend == "psea":
         # a = alpha helix, b = beta sheet, c = coil
-        ss = struc.annotate_sse(source_struct, "A")
+        ss = struc.annotate_sse(source_struct, chain_id)
         # https://stackoverflow.com/questions/6352425/whats-the-most-pythonic-way-to-identify-consecutive-duplicates-in-a-list
         ss_grouped = [(k, sum(1 for _ in g)) for k, g in groupby(ss)]
         ss_counts = Counter([chain for chain, _ in ss_grouped])
@@ -56,6 +58,7 @@ def count_structures_in_pdb(
         num_beta = ss_counts["B"] if "B" in ss_counts else 0
     else:
         raise ValueError(f"Unrecognized backend: {backend}")
+    logging.info(f"From {fname}:\t{num_alpha} {num_beta}")
     return num_alpha, num_beta
 
 
@@ -121,4 +124,5 @@ def main():
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
     main()
