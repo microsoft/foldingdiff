@@ -120,7 +120,6 @@ def get_train_valid_test_sets(
     seq_trim_strategy: datasets.TRIM_STRATEGIES = "leftalign",
     timesteps: int = 250,
     variance_schedule: SCHEDULES = "linear",
-    zero_center: bool = False,
     var_scale: float = np.pi,
     toy: Union[int, bool] = False,
     exhaustive_t: bool = False,
@@ -153,7 +152,7 @@ def get_train_valid_test_sets(
             pad=max_seq_len,
             min_length=min_seq_len,
             trim_strategy=seq_trim_strategy,
-            zero_center=zero_center,
+            zero_center=True,
             toy=toy,
         )
         for s in splits
@@ -294,7 +293,6 @@ def train(
     max_seq_len: int = 512,
     min_seq_len: int = 0,  # 0 means no filtering based on min sequence length
     trim_strategy: datasets.TRIM_STRATEGIES = "leftalign",
-    zero_center: bool = False,
     timesteps: int = 250,
     variance_schedule: SCHEDULES = "linear",  # cosine better on single angle toy test
     variance_scale: float = 1.0,
@@ -350,7 +348,6 @@ def train(
         seq_trim_strategy=trim_strategy,
         timesteps=timesteps,
         variance_schedule=variance_schedule,
-        zero_center=zero_center,
         var_scale=variance_scale,
         toy=subset,
         syn_noiser=syn_noiser,
