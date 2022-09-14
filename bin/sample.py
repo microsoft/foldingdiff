@@ -17,7 +17,7 @@ import torch
 
 # Import data loading code from main training script
 from train import get_train_valid_test_sets
-from psea_secondary_structures import make_ss_cooccurrence_plot
+from annot_secondary_structures import make_ss_cooccurrence_plot
 
 SRC_DIR = (Path(os.path.dirname(os.path.abspath(__file__))) / "../protdiff").resolve()
 assert SRC_DIR.is_dir()
