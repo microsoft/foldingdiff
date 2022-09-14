@@ -9,7 +9,7 @@ import multiprocessing as mp
 import argparse
 from itertools import groupby
 from collections import Counter
-from typing import Tuple
+from typing import Tuple, Collection
 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -39,6 +39,31 @@ def count_structures_in_pdb(fname: str) -> Tuple[int, int]:
     return num_alpha, num_beta
 
 
+def make_ss_cooccurrence_plot(
+    pdb_files: Collection[str], outpdf: str, threads: int = 4
+):
+    """ """
+    pool = mp.Pool(threads)
+    alpha_beta_counts = list(
+        pool.map(count_structures_in_pdb, pdb_files, chunksize=10)
+    )
+    pool.close()
+    pool.join()
+
+    alpha_beta_counts = [p for p in alpha_beta_counts if p != (-1, -1)]
+    alpha_counts, beta_counts = zip(*alpha_beta_counts)
+
+    fig, ax = plt.subplots(dpi=300)
+    h = ax.hist2d(alpha_counts, beta_counts, bins=np.arange(10), density=True)
+    ax.set(
+        xlabel="Number of alpha helices",
+        ylabel="Number of beta sheets",
+        title="Co-occurrence frequencies of secondary structure elements",
+    )
+    fig.colorbar(h[-1], ax=ax)
+    fig.savefig(outpdf, bbox_inches="tight")
+
+
 def build_parser():
     parser = argparse.ArgumentParser(
         usage=__doc__, formatter_class=argparse.ArgumentDefaultsHelpFormatter
@@ -65,26 +90,7 @@ def main():
     parser = build_parser()
     args = parser.parse_args()
 
-    # Get the counts
-    pool = mp.Pool(args.threads)
-    alpha_beta_counts = list(
-        pool.map(count_structures_in_pdb, args.pdbfile, chunksize=10)
-    )
-    pool.close()
-    pool.join()
-
-    alpha_beta_counts = [p for p in alpha_beta_counts if p != (-1, -1)]
-
-    alpha_counts, beta_counts = zip(*alpha_beta_counts)
-
-    fig, ax = plt.subplots(dpi=300)
-    ax.hist2d(alpha_counts, beta_counts, bins=10, density=True)
-    ax.set(
-        xlabel="Number of alpha helices",
-        ylabel="Number of beta sheets",
-        title="Co-occurrence frequencies of secondary structure elements",
-    )
-    fig.savefig(args.outpdf, bbox_inches="tight")
+    make_ss_cooccurrence_plot(args.pdbfile, args.outpdf, args.threads)
 
 
 if __name__ == "__main__":
