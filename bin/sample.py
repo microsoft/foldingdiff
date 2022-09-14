@@ -1,6 +1,7 @@
 """
 Script to sample from a trained diffusion model
 """
+import multiprocessing
 import os, sys
 import argparse
 import logging
@@ -16,6 +17,7 @@ import torch
 
 # Import data loading code from main training script
 from train import get_train_valid_test_sets
+from psea_secondary_structures import make_ss_cooccurrence_plot
 
 SRC_DIR = (Path(os.path.dirname(os.path.abspath(__file__))) / "../protdiff").resolve()
 assert SRC_DIR.is_dir()
@@ -243,9 +245,9 @@ def main() -> None:
 
     # Load the model
     model_snapshot_dir = outdir / "model_snapshot"
-    model = modelling.BertForDiffusion.from_dir(args.model, copy_to=model_snapshot_dir).to(
-        torch.device(args.device)
-    )
+    model = modelling.BertForDiffusion.from_dir(
+        args.model, copy_to=model_snapshot_dir
+    ).to(torch.device(args.device))
 
     # Perform sampling
     torch.manual_seed(args.seed)
@@ -320,6 +322,18 @@ def main() -> None:
         ylabel="$\psi$",
         title="Ramachandran plot, generated",
         fname=plotdir / "ramachandran_generated.pdf",
+    )
+
+    # Generate plots of secondary structure co-occurrence
+    make_ss_cooccurrence_plot(
+        pdb_files,
+        str(outdir / "sampled_pdb" / "ss_cooccurrence_sampled.pdf"),
+        threads=multiprocessing.cpu_count(),
+    )
+    make_ss_cooccurrence_plot(
+        train_dset.filenames,
+        str(outdir / "sampled_pdb" / "ss_cooccurrence_train.pdf"),
+        threads=multiprocessing.cpu_count(),
     )
 
 

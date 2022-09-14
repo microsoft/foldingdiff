@@ -4,21 +4,27 @@ Count secondary structures in a PDB file as determined by p-sea
 https://www.biotite-python.org/apidoc/biotite.structure.annotate_sse.html
 """
 
+import logging
 import os, sys
+import functools
 import multiprocessing as mp
 import argparse
 from itertools import groupby
 from collections import Counter
-from typing import Tuple, Collection
+from typing import Tuple, Collection, Literal
 
 import numpy as np
 from matplotlib import pyplot as plt
 
 import biotite.structure as struc
+from biotite.application import dssp
 from biotite.structure.io.pdb import PDBFile
 
+SSE_BACKEND = Literal["dssp", "psea"]
 
-def count_structures_in_pdb(fname: str) -> Tuple[int, int]:
+def count_structures_in_pdb(
+    fname: str, backend: SSE_BACKEND
+) -> Tuple[int, int]:
     """Count the secondary structures (# alpha, # beta) in the given pdb file"""
     assert os.path.exists(fname)
 
@@ -28,25 +34,39 @@ def count_structures_in_pdb(fname: str) -> Tuple[int, int]:
         return (-1, -1)
     source_struct = source.get_structure()[0]
 
-    # a = alpha helix, b = beta sheet, c = coil
-    ss = struc.annotate_sse(source_struct, "A")
-    # https://stackoverflow.com/questions/6352425/whats-the-most-pythonic-way-to-identify-consecutive-duplicates-in-a-list
-    ss_grouped = [(k, sum(1 for _ in g)) for k, g in groupby(ss)]
-    ss_counts = Counter([chain for chain, _ in ss_grouped])
+    if backend == "psea":
+        # a = alpha helix, b = beta sheet, c = coil
+        ss = struc.annotate_sse(source_struct, "A")
+        # https://stackoverflow.com/questions/6352425/whats-the-most-pythonic-way-to-identify-consecutive-duplicates-in-a-list
+        ss_grouped = [(k, sum(1 for _ in g)) for k, g in groupby(ss)]
+        ss_counts = Counter([chain for chain, _ in ss_grouped])
 
-    num_alpha = ss_counts["a"] if "a" in ss_counts else 0
-    num_beta = ss_counts["b"] if "b" in ss_counts else 0
+        num_alpha = ss_counts["a"] if "a" in ss_counts else 0
+        num_beta = ss_counts["b"] if "b" in ss_counts else 0
+    elif backend == "dssp":
+        # https://www.biotite-python.org/apidoc/biotite.application.dssp.DsspApp.html#biotite.application.dssp.DsspApp
+        app = dssp.DsspApp(source_struct)
+        app.start()
+        app.join()
+        ss = app.get_sse()
+        ss_grouped = [(k, sum(1 for _ in g)) for k, g in groupby(ss)]
+        ss_counts = Counter([chain for chain, _ in ss_grouped])
+
+        num_alpha = ss_counts["H"] if "H" in ss_counts else 0
+        num_beta = ss_counts["B"] if "B" in ss_counts else 0
+    else:
+        raise ValueError(f"Unrecognized backend: {backend}")
     return num_alpha, num_beta
 
 
 def make_ss_cooccurrence_plot(
-    pdb_files: Collection[str], outpdf: str, threads: int = 4
+    pdb_files: Collection[str], outpdf: str, backend: SSE_BACKEND, threads: int = 4
 ):
     """ """
+    logging.info(f"Calculating {len(pdb_files)} structures using {backend}")
+    pfunc = functools.partial(count_structures_in_pdb, backend=backend)
     pool = mp.Pool(threads)
-    alpha_beta_counts = list(
-        pool.map(count_structures_in_pdb, pdb_files, chunksize=10)
-    )
+    alpha_beta_counts = list(pool.map(pfunc, pdb_files, chunksize=10))
     pool.close()
     pool.join()
 
@@ -80,6 +100,13 @@ def build_parser():
         help="PDF file to write plot of secondary structure co-occurrence frequencies",
     )
     parser.add_argument(
+        "--backend",
+        type=str,
+        choices=["dssp", "psea"],
+        default="dssp",
+        help="Backend for calculating secondary structure",
+    )
+    parser.add_argument(
         "-t", "--threads", type=int, default=4, help="Number of threads to use"
     )
     return parser
@@ -90,7 +117,7 @@ def main():
     parser = build_parser()
     args = parser.parse_args()
 
-    make_ss_cooccurrence_plot(args.pdbfile, args.outpdf, args.threads)
+    make_ss_cooccurrence_plot(args.pdbfile, args.outpdf, args.backend, args.threads)
 
 
 if __name__ == "__main__":
