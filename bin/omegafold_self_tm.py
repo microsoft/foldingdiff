@@ -73,7 +73,7 @@ def main():
     assert os.path.isdir(args.folded)
     assert os.path.isdir(args.predicted)
 
-    orig_predicted_backbones = glob(os.path.join(args.predicted, "generated_*.pdb"))
+    orig_predicted_backbones = glob(os.path.join(args.predicted, "*.pdb"))
     logging.info(
         f"Computing selfTM scores across {len(orig_predicted_backbones)} generated structures"
     )
