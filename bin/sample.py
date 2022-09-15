@@ -277,8 +277,7 @@ def main() -> None:
             model,
             train_dset,
             n=10,
-            # sweep_lengths=(50, test_dset.dset.pad),
-            sweep_lengths=(50, 52),
+            sweep_lengths=(50, test_dset.dset.pad),
             batch_size=args.batchsize,
         )
     else:
