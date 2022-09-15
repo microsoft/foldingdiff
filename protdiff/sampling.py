@@ -121,32 +121,53 @@ def p_sample_loop(
 
 
 def sample(
-    model: nn.Module, train_dset: NoisedAnglesDataset, n: int, batch_size: int = 256
+    model: nn.Module,
+    train_dset: NoisedAnglesDataset,
+    n: int,
+    sweep_lengths: Optional[Tuple[int, int]] = None,
+    batch_size: int = 512,
 ) -> List[np.ndarray]:
     """
     Sample from the given model. Use the train_dset to generate noise to sample
-    sequence lengths. Returns a list of arrays, shape (timesteps, seq_len, fts)
+    sequence lengths. Returns a list of arrays, shape (timesteps, seq_len, fts).
+    If sweep_lengths is set, we generate n items per length in the sweep range
     """
     # Process each batch
+    if sweep_lengths is not None:
+        sweep_min, sweep_max = sweep_lengths
+        logging.warning(
+            f"Sweeping from {sweep_min}-{sweep_max} with {n} examples at each length"
+        )
+        lengths = []
+        for l in range(sweep_min, sweep_max):
+            lengths.extend([l] * n)
+    else:
+        lengths = [train_dset.sample_length() for _ in range(n)]
+    lengths_chunkified = [lengths[i : i + batch_size] for i in range(0, n, batch_size)]
+
+    logging.info(f"Sampling {len(lengths)} items")
     retval = []
-    for batch in utils.num_to_groups(n, batch_size):
+    for this_lengths, batch in zip(
+        lengths_chunkified, utils.num_to_groups(len(lengths), batch_size)
+    ):
+        assert len(this_lengths) == batch
         # Sample noise and sample the lengths
         noise = train_dset.sample_noise(
             torch.zeros((batch, train_dset.pad, model.n_inputs), dtype=torch.float32)
         )
-        lengths = [train_dset.sample_length() for _ in range(batch)]
-
         # Produces (timesteps, batch_size, seq_len, n_ft)
         sampled = p_sample_loop(
             model=model,
-            lengths=lengths,
+            lengths=this_lengths,
             noise=noise,
             timesteps=train_dset.timesteps,
             betas=train_dset.alpha_beta_terms["betas"],
             is_angle=train_dset.feature_is_angular["angles"],
         )
         # Gets to size (timesteps, seq_len, n_ft)
-        trimmed_sampled = [sampled[:, i, :l, :].numpy() for i, l in enumerate(lengths)]
+        trimmed_sampled = [
+            sampled[:, i, :l, :].numpy() for i, l in enumerate(this_lengths)
+        ]
         retval.extend(trimmed_sampled)
     # Note that we don't use means variable here directly because we may need a subset
     # of it based on which features are active in the dataset. The function

@@ -55,7 +55,6 @@ def build_datasets(
         single_time_debug=training_args["single_timestep_debug"],
         toy=training_args["subset"],
         angles_definitions=training_args["angles_definitions"],
-        zero_center=training_args["zero_center"],
         train_only=True,
     )
 
@@ -144,6 +143,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--num", "-n", type=int, default=512, help="Number of examples to generate"
+    )
+    parser.add_argument(
+        "-l",
+        "--lengths",
+        type=str,
+        choices=["sample", "sweep"],
+        default="sweep",
+        help="Strategy for generating lengths of sequences. Sampled will sample training set lengths, sweep will sweep from 70-max length",
     )
     parser.add_argument(
         "-b",
@@ -251,7 +258,18 @@ def main() -> None:
 
     # Perform sampling
     torch.manual_seed(args.seed)
-    sampled = sampling.sample(model, train_dset, n=args.num, batch_size=args.batchsize)
+    if args.lengths == "sample":
+        sampled = sampling.sample(
+            model, train_dset, n=args.num, batch_size=args.batchsize
+        )
+    elif args.lengths == "sweep":
+        sampled = sampling.sample(
+            model,
+            train_dset,
+            n=10,
+            sweep_lengths=(50, train_dset.dset.pad),
+            batch_size=args.batchsize,
+        )
     final_sampled = [s[-1] for s in sampled]
     sampled_dfs = [
         pd.DataFrame(s, columns=train_dset.feature_names["angles"])
