@@ -11,7 +11,7 @@ following commands:
 > conda activate inverse
 > python bin/pdb_to_residues_esm.py sctm_baseline_real_pdbs -o sctm_baseline_esm_residues
 > conda activate omegafold
-> python bin/omegafold_across_gpus.py sctm_baseline_esm_residues/*.pdb -o sctm_baseline_omegafold_predictions
+> python bin/omegafold_across_gpus.py sctm_baseline_esm_residues/*.fasta -o sctm_baseline_omegafold_predictions
 > conda activate protdiff
 > python bin/omegafold_self_tm.py -p sctm_baseline_esm_residues -f sctm_baseline_omegafold_predictions -o baseline_sctm_scores.json -p baseline_sctm_scores.pdf
 """
