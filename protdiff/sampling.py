@@ -143,14 +143,14 @@ def sample(
             lengths.extend([l] * n)
     else:
         lengths = [train_dset.sample_length() for _ in range(n)]
-    lengths_chunkified = [lengths[i : i + batch_size] for i in range(0, n, batch_size)]
+    lengths_chunkified = [
+        lengths[i : i + batch_size] for i in range(0, len(lengths), batch_size)
+    ]
 
-    logging.info(f"Sampling {len(lengths)} items")
+    logging.info(f"Sampling {len(lengths)} items in batches")
     retval = []
-    for this_lengths, batch in zip(
-        lengths_chunkified, utils.num_to_groups(len(lengths), batch_size)
-    ):
-        assert len(this_lengths) == batch
+    for this_lengths in lengths_chunkified:
+        batch = len(this_lengths)
         # Sample noise and sample the lengths
         noise = train_dset.sample_noise(
             torch.zeros((batch, train_dset.pad, model.n_inputs), dtype=torch.float32)
