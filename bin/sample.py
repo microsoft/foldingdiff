@@ -55,7 +55,7 @@ def build_datasets(
         single_time_debug=training_args["single_timestep_debug"],
         toy=training_args["subset"],
         angles_definitions=training_args["angles_definitions"],
-        train_only=True,
+        train_only=False,
     )
 
     train_dset, valid_dset, test_dset = get_train_valid_test_sets(**dset_args)
@@ -87,8 +87,7 @@ def write_preds_pdb_folder(
 
 
 def plot_distribution_overlap(
-    train_values: np.ndarray,
-    sampled_values: np.ndarray,
+    values_dicts: Dict[str, np.ndarray],
     ft_name: str,
     fname: str = "",
     ax=None,
@@ -105,24 +104,17 @@ def plot_distribution_overlap(
     logging.info(f"Plotting distribution overlap for {ft_name}")
     if ax is None:
         fig, ax = plt.subplots(dpi=300)
-    _n, bins, _pbatches = ax.hist(
-        train_values,
-        bins=50,
-        density=True,
-        label="Training",
-        # color="tab:blue",
-        alpha=0.6,
-        **kwargs,
-    )
-    ax.hist(
-        sampled_values,
-        bins=bins,
-        density=True,
-        label="Sampled",
-        # color="tab:orange",
-        alpha=0.6,
-        **kwargs,
-    )
+
+    bins = 50
+    for k, v in values_dicts.items():
+        _n, bins, _pbatches = ax.hist(
+            v,
+            bins=bins,
+            density=True,
+            label=k,
+            alpha=0.6,
+            **kwargs,
+        )
     ax.set(title=f"Sampled distribution - {ft_name}")
     if show_legend:
         ax.legend()
@@ -198,7 +190,7 @@ def main() -> None:
     alpha_beta_values.keys()
 
     # Load the dataset based on training args
-    train_dset, *_ = build_datasets(training_args)
+    train_dset, _, test_dset = build_datasets(training_args)
     # Fetch values for training distribution
     select_by_attn = lambda x: x["angles"][x["attn_mask"] != 0]
     train_values = [
@@ -207,17 +199,23 @@ def main() -> None:
     ]
     train_values_stacked = torch.cat(train_values, dim=0).cpu().numpy()
 
+    test_values = [
+        select_by_attn(test_dset.dset.__getitem__(i, ignore_zero_center=True))
+        for i in range(len(test_dset))
+    ]
+    test_values_stacked = torch.cat(test_values, dim=0).cpu().numpy()
+
     # Plot ramachandran plot for the training distribution
     # Default figure size is 6.4x4.8 inches
-    phi_idx = train_dset.feature_names["angles"].index("phi")
-    psi_idx = train_dset.feature_names["angles"].index("psi")
+    phi_idx = test_dset.feature_names["angles"].index("phi")
+    psi_idx = test_dset.feature_names["angles"].index("psi")
     train_ram = plotting.plot_joint_kde(
-        train_values_stacked[:5000, phi_idx],
-        train_values_stacked[:5000, psi_idx],
+        test_values_stacked[:5000, phi_idx],
+        test_values_stacked[:5000, psi_idx],
         xlabel="$\phi$",
         ylabel="$\psi$",
-        title="Ramachandran plot, training",
-        fname=plotdir / "ramachandran_train.pdf",
+        title="Ramachandran plot, test",
+        fname=plotdir / "ramachandran_test.pdf",
     )
     train_ram_ax = train_ram.axes[0]
     # https://matplotlib.org/stable/tutorials/text/annotations.html
@@ -327,30 +325,31 @@ def main() -> None:
         dpi=300, nrows=2, ncols=3, figsize=(14, 6), sharex=True
     )
     final_sampled_stacked = np.vstack(final_sampled)
-    for i, ft_name in enumerate(train_dset.feature_names["angles"]):
-        orig_values = train_values_stacked[:, i]
+    for i, ft_name in enumerate(test_dset.feature_names["angles"]):
+        orig_values = test_values_stacked[:, i]
         samp_values = final_sampled_stacked[:, i]
+
+        # Plot single plots
         plot_distribution_overlap(
-            orig_values, samp_values, ft_name, fname=plotdir / f"dist_{ft_name}.pdf"
+            {"Test": orig_values, "Sampled": samp_values}, ft_name, fname=plotdir / f"dist_{ft_name}.pdf"
         )
         plot_distribution_overlap(
-            orig_values,
-            samp_values,
+            {"Test": orig_values, "Sampled": samp_values},
             ft_name,
             histtype="step",
             cumulative=True,
             fname=plotdir / f"cdf_{ft_name}.pdf",
         )
+
+        # Plot combo plots
         plot_distribution_overlap(
-            orig_values,
-            samp_values,
+            {"Test": orig_values, "Sampled": samp_values},
             ft_name,
             ax=multi_axes.flatten()[i],
             show_legend=i == 0,
         )
         plot_distribution_overlap(
-            orig_values,
-            samp_values,
+            {"Test": orig_values, "Sampled": samp_values},
             ft_name,
             cumulative=True,
             histtype="step",
@@ -377,7 +376,7 @@ def main() -> None:
         threads=multiprocessing.cpu_count(),
     )
     make_ss_cooccurrence_plot(
-        train_dset.filenames,
+        test_dset.filenames,
         str(outdir / "sampled_pdb" / "ss_cooccurrence_train.pdf"),
         threads=multiprocessing.cpu_count(),
     )
