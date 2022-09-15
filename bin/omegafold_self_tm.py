@@ -13,7 +13,9 @@ import json
 from typing import *
 
 import numpy as np
+import pandas as pd
 from matplotlib import pyplot as plt
+import seaborn as sns
 
 SRC_DIR = (Path(os.path.dirname(os.path.abspath(__file__))) / "../protdiff").resolve()
 assert SRC_DIR.is_dir()
@@ -50,17 +52,10 @@ def build_parser():
     )
     parser.add_argument(
         "-o",
-        "--outjson",
+        "--outprefix",
         type=str,
-        default=os.path.join(os.getcwd(), "sctm_scores.json"),
-        help="Output json of scores to write",
-    )
-    parser.add_argument(
-        "-P",
-        "--plotfile",
-        type=str,
-        default=os.path.join(os.getcwd(), "sctm_scores.pdf"),
-        help="Plot to write histogram of scTM scores to",
+        default=os.path.join(os.getcwd(), "sctm_scores"),
+        help="Output prefix for files to write",
     )
     return parser
 
@@ -103,9 +98,10 @@ def main():
     logging.info(
         f"scTM score mean/median: {np.mean(sctm_scores), np.median(sctm_scores)}"
     )
-    with open(args.outjson, "w") as sink:
+    with open(args.outprefix + ".json", "w") as sink:
         json.dump(sctm_scores_mapping, sink, indent=4)
 
+    # Create histogram of values
     fig, ax = plt.subplots()
     ax.hist(sctm_scores, bins=25, alpha=0.6)
     ax.axvline(0.5, color="grey", linestyle="--")
@@ -113,7 +109,29 @@ def main():
         xlabel=f"scTM, $n={passing_num}$ are designable $(\geq 0.5$)",
         title=f"Self-consistency TM (scTM) scores, {len(sctm_scores)} generated protein backbones",
     )
-    fig.savefig(args.plotfile)
+    fig.savefig(args.outprefix + "_hist.pdf", bbox_inches="tight")
+
+    # Create a jointplot of values if we can also find the training TM scores
+    training_tm_scores_fname = os.path.join(args.predicted, "tm_scores.json")
+    if os.path.isfile(training_tm_scores_fname):
+        with open(training_tm_scores_fname) as source:
+            training_tm_scores = json.load(source)
+        shared_keys = [k for k in sctm_scores_mapping.keys() if k in training_tm_scores]
+        logging.info(
+            f"Found {len(shared_keys)} overlapped keys with training tm scores at {training_tm_scores_fname}"
+        )
+        # Pair them up and plot
+        scores_df = pd.DataFrame(
+            [(sctm_scores_mapping[k], training_tm_scores[k]) for k in shared_keys],
+            columns=["scTM", "max training TM"],
+        )
+
+        jointgrid = sns.jointplot(scores_df, x="max training TM", y="scTM")
+        for ax in (jointgrid.ax_joint, jointgrid.ax_marg_x):
+            ax.axvline(0.5, color="grey", alpha=0.5, linestyle="--")
+        for ax in (jointgrid.ax_joint, jointgrid.ax_marg_y):
+            ax.axhline(0.5, color="grey", alpha=0.5, linestyle="--")
+        jointgrid.savefig(args.outprefix + "_training_tm_scatter.pdf")
 
 
 if __name__ == "__main__":
