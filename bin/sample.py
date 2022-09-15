@@ -35,6 +35,15 @@ SEED = int(
     % 10000
 )
 
+FT_NAME_MAP = {
+    "phi": r"$\phi$",
+    "psi": r"$\psi$",
+    "omega": r"$\omega$",
+    "tau": r"$\theta_1$",
+    "CA:C:1N": r"$\theta_2$",
+    "C:1N:1CA": r"$\theta_3$",
+}
+
 
 def build_datasets(
     training_args: Dict[str, Any]
@@ -88,7 +97,7 @@ def write_preds_pdb_folder(
 
 def plot_distribution_overlap(
     values_dicts: Dict[str, np.ndarray],
-    ft_name: str,
+    title: str = "Sampled distribution",
     fname: str = "",
     ax=None,
     show_legend: bool = True,
@@ -101,7 +110,6 @@ def plot_distribution_overlap(
     to get a CDF plot
     """
     # Plot the distribution overlap
-    logging.info(f"Plotting distribution overlap for {ft_name}")
     if ax is None:
         fig, ax = plt.subplots(dpi=300)
 
@@ -115,7 +123,7 @@ def plot_distribution_overlap(
             alpha=0.6,
             **kwargs,
         )
-    ax.set(title=f"Sampled distribution - {ft_name}")
+    ax.set(title=title)
     if show_legend:
         ax.legend()
     if fname:
@@ -269,7 +277,8 @@ def main() -> None:
             model,
             train_dset,
             n=10,
-            sweep_lengths=(50, test_dset.dset.pad),
+            # sweep_lengths=(50, test_dset.dset.pad),
+            sweep_lengths=(50, 52),
             batch_size=args.batchsize,
         )
     else:
@@ -328,15 +337,17 @@ def main() -> None:
         orig_values = test_values_stacked[:, i]
         samp_values = final_sampled_stacked[:, i]
 
+        ft_name_readable = FT_NAME_MAP[ft_name]
+
         # Plot single plots
         plot_distribution_overlap(
             {"Test": orig_values, "Sampled": samp_values},
-            ft_name,
+            title=f"Sampled angle distribution - {ft_name_readable}",
             fname=plotdir / f"dist_{ft_name}.pdf",
         )
         plot_distribution_overlap(
             {"Test": orig_values, "Sampled": samp_values},
-            ft_name,
+            title=f"Sampled angle CDF - {ft_name_readable}",
             histtype="step",
             cumulative=True,
             fname=plotdir / f"cdf_{ft_name}.pdf",
@@ -345,13 +356,13 @@ def main() -> None:
         # Plot combo plots
         plot_distribution_overlap(
             {"Test": orig_values, "Sampled": samp_values},
-            ft_name,
+            title=f"Sampled angle distribution - {ft_name_readable}",
             ax=multi_axes.flatten()[i],
             show_legend=i == 0,
         )
         plot_distribution_overlap(
             {"Test": orig_values, "Sampled": samp_values},
-            ft_name,
+            title=f"Sampled angle CDF - {ft_name_readable}",
             cumulative=True,
             histtype="step",
             ax=step_multi_axes.flatten()[i],
