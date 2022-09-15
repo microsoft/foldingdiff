@@ -13,10 +13,21 @@ from typing import *
 
 import torch
 import numpy as np
+from biotite.sequence import ProteinSequence, AlphabetError
 
-
-def read_fasta(fname: str) -> Dict[str, str]:
+def read_fasta(fname: str, check_valid: bool = True) -> Dict[str, str]:
     """Read the sequences in the fasta to a dict"""
+    def add_seq_if_valid(d: Dict[str, str], k:str, v:str) -> None:
+        """Add v to d[k] if v is a valid sequence"""
+        if not check_valid:
+            d[k] = v
+            return
+        try:
+            _ = ProteinSequence(v)
+            d[k] = v
+        except AlphabetError:
+            logging.warning(f"Illegal character in entry {k}: {v} | skipping")
+
     retval = {}
     curr_k, curr_v = "", ""
     with open(fname) as source:
@@ -25,7 +36,7 @@ def read_fasta(fname: str) -> Dict[str, str]:
                 if curr_k:  # Record and reset
                     assert curr_v
                     assert curr_k not in retval, f"Duplicated fasta entry: {curr_k}"
-                    retval[curr_k] = curr_v
+                    add_seq_if_valid(retval, curr_k, curr_v)
                 curr_k = line.strip().strip(">")
                 curr_v = ""
             else:
@@ -33,7 +44,7 @@ def read_fasta(fname: str) -> Dict[str, str]:
     # Write the last sequence
     assert curr_k
     assert curr_v
-    retval[curr_k] = curr_v
+    add_seq_if_valid(retval, curr_k, curr_v)
     return retval
 
 
