@@ -34,8 +34,7 @@ import esm.inverse_folding
 
 
 from biotite.structure.io.pdb import PDBFile
-import biotite.structure as struc
-
+from biotite.sequence import ProteinSequence, AlphabetError
 
 def get_chain_from_pdb(fname: str) -> str:
     """
@@ -76,12 +75,17 @@ def generate_residues(
     )
     logging.debug(f"Native sequence: {native_seq}")
     retval = []
-    for _ in range(n):
+    while len(retval) < n:
         # Sample is defined here:
         # https://github.com/facebookresearch/esm/blob/dc0e039dce52ff11e8eadaa1ef96f0cefcc505e9/esm/inverse_folding/gvp_transformer.py
         sampled_seq = model.sample(coords, temperature=temperature)
-        logging.debug(f"Sampled sequence: {sampled_seq}")
-        retval.append(sampled_seq)
+        try:
+            _ = ProteinSequence(sampled_seq)  # Checks alphabet
+            logging.debug(f"Sampled sequence: {sampled_seq}")
+            retval.append(sampled_seq)
+        except AlphabetError:
+            # Error; do not return and generate another one
+            pass
     return retval
 
 
