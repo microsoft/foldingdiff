@@ -24,6 +24,20 @@ from biotite.structure.io.pdb import PDBFile
 SSE_BACKEND = Literal["dssp", "psea"]
 
 
+def get_pdb_length(fname: str) -> int:
+    """
+    Get the length of the chain described in the PDB file
+    """
+    warnings.filterwarnings("ignore", ".*elements were guessed from atom_.*")
+    structure = PDBFile.read(fname)
+    if structure.get_model_count() > 1:
+        return -1
+    chain = structure.get_structure()[0]
+    backbone = chain[struc.filter_backbone(chain)]
+    l = int(len(backbone) / 3)
+    return l
+
+
 def count_structures_in_pdb(
     fname: str, backend: SSE_BACKEND = "psea"
 ) -> Tuple[int, int]:
@@ -61,7 +75,9 @@ def count_structures_in_pdb(
         num_alpha = ss_counts["H"] if "H" in ss_counts else 0
         num_beta = ss_counts["B"] if "B" in ss_counts else 0
     else:
-        raise ValueError(f"Unrecognized backend: {backend}")
+        raise ValueError(
+            f"Unrecognized backend for calculating secondary structures: {backend}"
+        )
     logging.debug(f"From {fname}:\t{num_alpha} {num_beta}")
     return num_alpha, num_beta
 
@@ -69,10 +85,19 @@ def count_structures_in_pdb(
 def make_ss_cooccurrence_plot(
     pdb_files: Collection[str],
     outpdf: str,
+    max_seq_len: int = 0,
     backend: SSE_BACKEND = "psea",
     threads: int = 4,
 ):
-    """ """
+    """
+    Create a secondary structure co-occurrence plot
+    """
+    if max_seq_len > 0:
+        orig_len = len(pdb_files)
+        pdb_files = [p for p in pdb_files if get_pdb_length(p) <= max_seq_len]
+        logging.info(
+            f"Filtering out sequences with more than {max_seq_len} residues: {orig_len} --> {len(pdb_files)}"
+        )
     logging.info(f"Calculating {len(pdb_files)} structures using {backend}")
     pfunc = functools.partial(count_structures_in_pdb, backend=backend)
     pool = mp.Pool(threads)

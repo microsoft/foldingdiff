@@ -269,8 +269,7 @@ def main() -> None:
             model,
             train_dset,
             n=10,
-            # sweep_lengths=(50, train_dset.dset.pad),
-            sweep_lengths=(50, 52),  # Dummy values
+            sweep_lengths=(50, test_dset.dset.pad),
             batch_size=args.batchsize,
         )
     else:
@@ -331,7 +330,9 @@ def main() -> None:
 
         # Plot single plots
         plot_distribution_overlap(
-            {"Test": orig_values, "Sampled": samp_values}, ft_name, fname=plotdir / f"dist_{ft_name}.pdf"
+            {"Test": orig_values, "Sampled": samp_values},
+            ft_name,
+            fname=plotdir / f"dist_{ft_name}.pdf",
         )
         plot_distribution_overlap(
             {"Test": orig_values, "Sampled": samp_values},
@@ -372,12 +373,13 @@ def main() -> None:
     # Generate plots of secondary structure co-occurrence
     make_ss_cooccurrence_plot(
         pdb_files,
-        str(outdir / "sampled_pdb" / "ss_cooccurrence_sampled.pdf"),
+        str(outdir / "plots" / "ss_cooccurrence_sampled.pdf"),
         threads=multiprocessing.cpu_count(),
     )
     make_ss_cooccurrence_plot(
         test_dset.filenames,
-        str(outdir / "sampled_pdb" / "ss_cooccurrence_train.pdf"),
+        str(outdir / "plots" / "ss_cooccurrence_test.pdf"),
+        max_seq_len=test_dset.dset.pad,
         threads=multiprocessing.cpu_count(),
     )
 
