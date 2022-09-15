@@ -17,6 +17,9 @@ import pandas as pd
 from matplotlib import pyplot as plt
 import seaborn as sns
 
+from biotite import structure as struc
+from biotite.structure.io.pdb import PDBFile
+
 SRC_DIR = (Path(os.path.dirname(os.path.abspath(__file__))) / "../protdiff").resolve()
 assert SRC_DIR.is_dir()
 sys.path.append(str(SRC_DIR))
@@ -30,6 +33,19 @@ def get_sctm_score(orig_pdb: Path, folded_dirname: Path) -> float:
     if not folded_pdbs:
         return np.nan
     return tmalign.max_tm_across_refs(orig_pdb, folded_pdbs, parallel=False)
+
+
+def get_pdb_length(fname: str) -> int:
+    """
+    Get the length of the chain described in the PDB file
+    """
+    structure = PDBFile.read(fname)
+    if structure.get_model_count() > 1:
+        return -1
+    chain = structure.get_structure()[0]
+    backbone = chain[struc.filter_backbone(chain)]
+    l = int(len(backbone) / 3)
+    return l
 
 
 def build_parser():
@@ -72,6 +88,10 @@ def main():
     logging.info(
         f"Computing selfTM scores across {len(orig_predicted_backbones)} generated structures"
     )
+    orig_predicted_backbone_lens = {
+        os.path.splitext(os.path.basename(f))[0]: get_pdb_length(f)
+        for f in orig_predicted_backbones
+    }
     orig_predicted_backbone_names = [
         os.path.splitext(os.path.basename(f))[0] for f in orig_predicted_backbones
     ]
@@ -110,6 +130,27 @@ def main():
         title=f"Self-consistency TM (scTM) scores, {len(sctm_scores)} generated protein backbones",
     )
     fig.savefig(args.outprefix + "_hist.pdf", bbox_inches="tight")
+
+    # Create histogram of values by length
+    sctm_scores_with_len = pd.DataFrame(
+        [
+            (sctm_scores_mapping[k], orig_predicted_backbone_lens[k])
+            for k in sctm_scores_mapping.keys()
+        ],
+        columns=["scTM", "length_int"],
+    )
+    sctm_scores_with_len["length"] = [
+        r"short ($\leq 70$ aa)" if l <= 70 else r"long ($> 70$ aa)"
+        for l in sctm_scores_with_len["length_int"]
+    ]
+
+    fig, ax = plt.subplots(dpi=300)
+    sns.histplot(sctm_scores_with_len, x="scTM", hue="length")
+    ax.axvline(0.5, color="grey", linestyle="--", alpha=0.5)
+    ax.set(
+        title=f"Self-consistency TM (scTM) scores, {len(sctm_scores)} generated protein backbones",
+    )
+    fig.savefig(args.outprefix + "_hist_by_len.pdf", bbox_inches="tight")
 
     # Create a jointplot of values if we can also find the training TM scores
     training_tm_scores_fname = os.path.join(args.predicted, "tm_scores.json")
