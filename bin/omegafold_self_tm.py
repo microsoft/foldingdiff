@@ -32,6 +32,9 @@ def get_sctm_score(orig_pdb: Path, folded_dirname: Path) -> float:
     """get the self-consistency tm score"""
     bname = os.path.splitext(os.path.basename(orig_pdb))[0] + "_esm_residues_*.pdb"
     folded_pdbs = glob(os.path.join(folded_dirname, bname))
+    if len(folded_pdbs) > 8:
+        folded_pdbs = folded_pdbs[:8]
+    assert len(folded_pdbs) == 8
     if not folded_pdbs:
         return np.nan
     return tmalign.max_tm_across_refs(orig_pdb, folded_pdbs, parallel=False)
