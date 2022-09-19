@@ -98,7 +98,9 @@ def main():
         os.path.splitext(os.path.basename(f))[0] for f in orig_predicted_backbones
     ]
     orig_predicted_secondary_structs = {
-        os.path.splitext(os.path.basename(f))[0]: count_structures_in_pdb(f, backend='psea')
+        os.path.splitext(os.path.basename(f))[0]: count_structures_in_pdb(
+            f, backend="psea"
+        )
         for f in orig_predicted_backbones
     }
 
@@ -150,6 +152,14 @@ def main():
         for l in sctm_scores_with_len["length_int"]
     ]
 
+    # For each length category report the number that exceed cutoff
+    for l_cat in sctm_scores_with_len["length"].unique():
+        subset = sctm_scores_with_len.loc[sctm_scores_with_len["length"] == l_cat]
+        prop = np.mean(subset["scTM"] >= 0.5)
+        logging.info(
+            f"For {l_cat}, {np.sum(subset['scTM'] >= 0.5)}/{len(subset)}={prop:.4f} pass 0.5 cutoff"
+        )
+
     fig, ax = plt.subplots(dpi=300)
     sns.histplot(sctm_scores_with_len, x="scTM", hue="length")
     ax.axvline(0.5, color="grey", linestyle="--", alpha=0.5)
@@ -170,16 +180,22 @@ def main():
         # Pair them up and plot
         scores_df = pd.DataFrame(
             [
-                (   
+                (
                     k,
                     sctm_scores_mapping[k],
                     training_tm_scores[k],
                     orig_predicted_backbone_lens[k],
-                    orig_predicted_secondary_structs[k]
+                    orig_predicted_secondary_structs[k],
                 )
                 for k in shared_keys
             ],
-            columns=["id", "scTM", "max training TM", "length_int", "alpha_beta_counts"],
+            columns=[
+                "id",
+                "scTM",
+                "max training TM",
+                "length_int",
+                "alpha_beta_counts",
+            ],
         )
         scores_df["length"] = [
             r"short ($\leq 70$ aa)" if l <= 70 else r"long ($> 70$ aa)"
@@ -188,7 +204,9 @@ def main():
 
         scores_df.to_csv(args.outprefix + "_tm_scores.csv")
 
-        jointgrid = sns.jointplot(scores_df, x="max training TM", y="scTM", hue="length", alpha=0.5)
+        jointgrid = sns.jointplot(
+            scores_df, x="max training TM", y="scTM", hue="length", alpha=0.5
+        )
         for ax in (jointgrid.ax_joint, jointgrid.ax_marg_x):
             ax.axvline(0.5, color="grey", alpha=0.5, linestyle="--")
         for ax in (jointgrid.ax_joint, jointgrid.ax_marg_y):
