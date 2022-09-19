@@ -20,6 +20,8 @@ import seaborn as sns
 from biotite import structure as struc
 from biotite.structure.io.pdb import PDBFile
 
+from annot_secondary_structures import count_structures_in_pdb
+
 SRC_DIR = (Path(os.path.dirname(os.path.abspath(__file__))) / "../protdiff").resolve()
 assert SRC_DIR.is_dir()
 sys.path.append(str(SRC_DIR))
@@ -163,11 +165,25 @@ def main():
         )
         # Pair them up and plot
         scores_df = pd.DataFrame(
-            [(sctm_scores_mapping[k], training_tm_scores[k]) for k in shared_keys],
-            columns=["scTM", "max training TM"],
+            [
+                (   
+                    k,
+                    sctm_scores_mapping[k],
+                    training_tm_scores[k],
+                    orig_predicted_backbone_lens[k],
+                )
+                for k in shared_keys
+            ],
+            columns=["id", "scTM", "max training TM", "length_int"],
         )
+        scores_df["length"] = [
+            r"short ($\leq 70$ aa)" if l <= 70 else r"long ($> 70$ aa)"
+            for l in scores_df["length_int"]
+        ]
 
-        jointgrid = sns.jointplot(scores_df, x="max training TM", y="scTM")
+        scores_df.to_csv(args.outprefix + "_tm_scores.csv")
+
+        jointgrid = sns.jointplot(scores_df, x="max training TM", y="scTM", hue="length", alpha=0.5)
         for ax in (jointgrid.ax_joint, jointgrid.ax_marg_x):
             ax.axvline(0.5, color="grey", alpha=0.5, linestyle="--")
         for ax in (jointgrid.ax_joint, jointgrid.ax_marg_y):
