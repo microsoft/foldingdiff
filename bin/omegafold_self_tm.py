@@ -156,12 +156,6 @@ def main():
     ]
 
     # For each length category report the number that exceed cutoff
-    for l_cat in sctm_scores_with_len["length"].unique():
-        subset = sctm_scores_with_len.loc[sctm_scores_with_len["length"] == l_cat]
-        prop = np.mean(subset["scTM"] >= 0.5)
-        logging.info(
-            f"For {l_cat}, {np.sum(subset['scTM'] >= 0.5)}/{len(subset)}={prop:.4f} pass 0.5 cutoff"
-        )
 
     fig, ax = plt.subplots(dpi=300)
     sns.histplot(sctm_scores_with_len, x="scTM", hue="length")
@@ -188,7 +182,8 @@ def main():
                     sctm_scores_mapping[k],
                     training_tm_scores[k],
                     orig_predicted_backbone_lens[k],
-                    orig_predicted_secondary_structs[k],
+                    orig_predicted_secondary_structs[k][0],
+                    orig_predicted_secondary_structs[k][1],
                 )
                 for k in shared_keys
             ],
@@ -197,13 +192,35 @@ def main():
                 "scTM",
                 "max training TM",
                 "length_int",
-                "alpha_beta_counts",
+                "alpha_counts",
+                "beta_counts",
             ],
         )
         scores_df["length"] = [
             r"short ($\leq 70$ aa)" if l <= 70 else r"long ($> 70$ aa)"
             for l in scores_df["length_int"]
         ]
+        scores_df["designable"] = scores_df["scTM"] >= 0.5
+
+        for l_cat in scores_df["length"].unique():
+            subset = scores_df.loc[scores_df["length"] == l_cat]
+            sctm_prop = np.mean(subset["scTM"] >= 0.5)
+            logging.info(
+                f"For {l_cat}, {np.sum(subset['scTM'] >= 0.5)}/{len(subset)}={sctm_prop:.4f} pass 0.5 cutoff"
+            )
+            designable = subset.loc[subset["designable"]]
+            beta_prop = np.mean(designable["beta_counts"] > 0)
+            logging.info(
+                f"For DESIGNABLE {l_cat}, {np.sum(designable['beta_counts'] > 0)}/{len(designable)}={beta_prop:.4f} with beta sheets"
+            )
+
+        for is_designable in scores_df["designable"].unique():
+            subset = scores_df.iloc[np.where(scores_df["designable"] == is_designable)]
+            beta_prop = np.mean(subset["beta_counts"] > 0)
+            beta_count = np.sum(subset["beta_counts"] > 0)
+            logging.info(
+                f"Designable={is_designable}: beta sheets in {beta_count}/{len(subset)}={beta_prop}"
+            )
 
         scores_df.to_csv(args.outprefix + "_tm_scores.csv")
 
