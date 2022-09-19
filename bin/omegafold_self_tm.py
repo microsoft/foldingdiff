@@ -97,6 +97,10 @@ def main():
     orig_predicted_backbone_names = [
         os.path.splitext(os.path.basename(f))[0] for f in orig_predicted_backbones
     ]
+    orig_predicted_secondary_structs = {
+        os.path.splitext(os.path.basename(f))[0]: count_structures_in_pdb(f, backend='psea')
+        for f in orig_predicted_backbones
+    }
 
     # Match up the files
     pfunc = functools.partial(get_sctm_score, folded_dirname=Path(args.folded))
@@ -171,10 +175,11 @@ def main():
                     sctm_scores_mapping[k],
                     training_tm_scores[k],
                     orig_predicted_backbone_lens[k],
+                    orig_predicted_secondary_structs[k]
                 )
                 for k in shared_keys
             ],
-            columns=["id", "scTM", "max training TM", "length_int"],
+            columns=["id", "scTM", "max training TM", "length_int", "alpha_beta_counts"],
         )
         scores_df["length"] = [
             r"short ($\leq 70$ aa)" if l <= 70 else r"long ($> 70$ aa)"
