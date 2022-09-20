@@ -4,6 +4,7 @@ Run heirarchical clustering on the pairwise distance matrix between all pairs of
 
 import os, sys
 import re
+import json
 import logging
 from glob import glob
 from pathlib import Path
@@ -30,7 +31,9 @@ def int_getter(x: str) -> int:
     return int(matches.pop())
 
 
-def get_pairwise_tmscores(dirname: Collection[str]) -> pd.DataFrame:
+def get_pairwise_tmscores(
+    dirname: Collection[str], sctm_scores_json: Optional[str] = None
+) -> pd.DataFrame:
     """Get the pairwise TM scores across all fnames"""
     fnames = sorted(
         glob(os.path.join(dirname, "*.pdb")),
@@ -38,6 +41,13 @@ def get_pairwise_tmscores(dirname: Collection[str]) -> pd.DataFrame:
     )
     assert fnames, f"{dirname} does not contain any pdb files"
     logging.info(f"Found {len(fnames)} pdb files to compute pairwise distances")
+
+    bname_getter = lambda x: os.path.splitext(os.path.basename(x))[0]
+    if sctm_scores_json:
+        with open(sctm_scores_json) as source:
+            sctm_scores = json.load(source)
+        fnames = [f for f in fnames if sctm_scores[bname_getter(f)] >= 0.5]
+        logging.info(f"{len(fnames)} structures have scTM scores >= 0.5")
 
     # for debugging
     # fnames = fnames[:50]
@@ -47,7 +57,7 @@ def get_pairwise_tmscores(dirname: Collection[str]) -> pd.DataFrame:
     values = list(pool.starmap(tmalign.run_tmalign, pairs, chunksize=25))
     pool.close()
     pool.join()
-    bname_getter = lambda x: os.path.splitext(os.path.basename(x))[0]
+
     bnames = [bname_getter(f) for f in fnames]
     retval = pd.DataFrame(1.0, index=bnames, columns=bnames)
     for (k, v), val in zip(pairs, values):
@@ -63,6 +73,9 @@ def build_parser():
         usage=__doc__, formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
     parser.add_argument("dirname", type=str, help="Directory of PDB files to analyze")
+    parser.add_argument(
+        "--sctm", type=str, required=False, default="", help="scTM scores to filter by"
+    )
     return parser
 
 
@@ -72,11 +85,11 @@ def main():
     args = parser.parse_args()
 
     # TMscore of 1 = perfect match --> 0 distance, so need 1.0 - tmscore
-    pdist_df = 1.0 - get_pairwise_tmscores(args.dirname)
+    pdist_df = 1.0 - get_pairwise_tmscores(args.dirname, sctm_scores_json=args.sctm)
 
     # https://stackoverflow.com/questions/38705359/how-to-give-sns-clustermap-a-precomputed-distance-matrix
     # https://stackoverflow.com/questions/57308725/pass-distance-matrix-to-seaborn-clustermap
-    m = "ward"  # Single looks fairly okay
+    m = "average"  # Trippe uses average here
     linkage = hc.linkage(
         sp.distance.squareform(pdist_df), method=m, optimal_ordering=False
     )
@@ -88,12 +101,11 @@ def main():
         method=None,
         row_cluster=True,
         col_cluster=True,
+        vmin=0.0,
+        vmax=1.0,
+        xticklabels=False,
+        yticklabels=False,
     )
-    ax = c.ax_heatmap
-    ax.set_xticks([])
-    ax.set_xticklabels([])
-    ax.set_yticks([])
-    ax.set_yticklabels([])
     c.savefig(os.path.join(args.dirname, "tmscore_hclust.pdf"))
 
 
