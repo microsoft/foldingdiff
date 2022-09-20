@@ -16,6 +16,7 @@ import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 import seaborn as sns
+from scipy import stats
 
 from biotite import structure as struc
 from biotite.structure.io.pdb import PDBFile
@@ -223,6 +224,13 @@ def main():
             )
 
         scores_df.to_csv(args.outprefix + "_tm_scores.csv")
+
+        r, p = stats.spearmanr(
+            scores_df["max training TM"], scores_df["scTM"], alternative="two-sided"
+        )
+        logging.info(
+            f"Spearman's correlation between training TM and scTM: {r:.4g} {p:.4g}"
+        )
 
         jointgrid = sns.jointplot(
             scores_df, x="max training TM", y="scTM", hue="length", alpha=0.5
