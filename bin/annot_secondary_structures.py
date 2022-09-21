@@ -4,6 +4,11 @@ Count secondary structures in a PDB file as determined by p-sea
 https://www.biotite-python.org/apidoc/biotite.structure.annotate_sse.html
 """
 
+# Examples:
+# python ~/projects/protdiff/bin/annot_secondary_structures.py sampled_pdb/*.pdb plots/ss_cooccurrence_sampled.pdf --suffix generated --prefix "(b)"
+# python ~/projects/protdiff/bin/annot_secondary_structures.py model_snapshot/training_args.json plots/ss_cooccurrence_test.pdf --suffix test --prefix "(a)"
+
+import json
 import os
 import logging
 import warnings
@@ -12,7 +17,7 @@ import multiprocessing as mp
 import argparse
 from itertools import groupby
 from collections import Counter
-from typing import Tuple, Collection, Literal
+from typing import Tuple, Collection, Literal, Dict, Any
 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -22,6 +27,35 @@ from biotite.application import dssp
 from biotite.structure.io.pdb import PDBFile
 
 SSE_BACKEND = Literal["dssp", "psea"]
+
+from train import get_train_valid_test_sets
+
+
+def build_datasets(training_args: Dict[str, Any]):
+    """
+    Build datasets given args again
+    """
+    # Build args based on training args
+    dset_args = dict(
+        timesteps=training_args["timesteps"],
+        variance_schedule=training_args["variance_schedule"],
+        max_seq_len=training_args["max_seq_len"],
+        min_seq_len=training_args["min_seq_len"],
+        var_scale=training_args["variance_scale"],
+        syn_noiser=training_args["syn_noiser"],
+        exhaustive_t=training_args["exhaustive_validation_t"],
+        single_angle_debug=training_args["single_angle_debug"],
+        single_time_debug=training_args["single_timestep_debug"],
+        toy=training_args["subset"],
+        angles_definitions=training_args["angles_definitions"],
+        train_only=False,
+    )
+
+    train_dset, valid_dset, test_dset = get_train_valid_test_sets(**dset_args)
+    logging.info(
+        f"Training dset contains features: {train_dset.feature_names} - angular {train_dset.feature_is_angular}"
+    )
+    return train_dset, valid_dset, test_dset
 
 
 def get_pdb_length(fname: str) -> int:
@@ -87,7 +121,9 @@ def make_ss_cooccurrence_plot(
     outpdf: str,
     max_seq_len: int = 0,
     backend: SSE_BACKEND = "psea",
-    threads: int = 4,
+    threads: int = 8,
+    title_prefix: str = "",
+    title_suffix: str = "",
 ):
     """
     Create a secondary structure co-occurrence plot
@@ -110,12 +146,14 @@ def make_ss_cooccurrence_plot(
 
     fig, ax = plt.subplots(dpi=300)
     h = ax.hist2d(alpha_counts, beta_counts, bins=np.arange(10), density=True)
-    ax.set(
-        xlabel="Number of alpha helices",
-        ylabel="Number of beta sheets",
-        title="Co-occurrence frequencies of secondary structure elements",
+    ax.set_xlabel(r"Number of $\alpha$ helices", fontsize=12)
+    ax.set_ylabel(r"Number of $\beta$ sheets", fontsize=12)
+    ax.set_title(
+        f"{title_prefix} Secondary structure co-occurrence, {title_suffix}".strip(", "),
+        fontsize=14,
     )
-    fig.colorbar(h[-1], ax=ax)
+    cbar = fig.colorbar(h[-1], ax=ax)
+    cbar.ax.set_ylabel("Frequency", fontsize=12)
     fig.savefig(outpdf, bbox_inches="tight")
 
 
@@ -124,10 +162,10 @@ def build_parser():
         usage=__doc__, formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
     parser.add_argument(
-        "pdbfile",
+        "infiles",
         type=str,
         nargs="+",
-        help="PDB files to compute secondary structures for",
+        help="PDB files to compute secondary structures for, or json file containing config for which we take test set",
     )
     parser.add_argument(
         "outpdf",
@@ -138,11 +176,21 @@ def build_parser():
         "--backend",
         type=str,
         choices=["dssp", "psea"],
-        default="dssp",
+        default="psea",
         help="Backend for calculating secondary structure",
     )
     parser.add_argument(
-        "-t", "--threads", type=int, default=4, help="Number of threads to use"
+        "-t",
+        "--threads",
+        type=int,
+        default=mp.cpu_count(),
+        help="Number of threads to use",
+    )
+    parser.add_argument(
+        "-s", "--suffix", type=str, default="", help="Suffix for plot title"
+    )
+    parser.add_argument(
+        "-p", "--prefix", type=str, default="", help="Prefix for plot title"
     )
     return parser
 
@@ -152,7 +200,24 @@ def main():
     parser = build_parser()
     args = parser.parse_args()
 
-    make_ss_cooccurrence_plot(args.pdbfile, args.outpdf, args.backend, args.threads)
+    fnames = args.infiles
+    is_test_data = False
+    if len(fnames) == 1 and fnames[0].endswith(".json"):
+        is_test_data = True
+        with open(fnames[0]) as source:
+            training_args = json.load(source)
+        _, _, test_dset = build_datasets(training_args)
+        fnames = test_dset.filenames
+
+    make_ss_cooccurrence_plot(
+        pdb_files=fnames,
+        outpdf=args.outpdf,
+        backend=args.backend,
+        threads=args.threads,
+        title_suffix=args.suffix,
+        title_prefix=args.prefix,
+        max_seq_len=test_dset.dset.pad if is_test_data else 0,
+    )
 
 
 if __name__ == "__main__":

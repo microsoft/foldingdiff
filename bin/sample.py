@@ -195,7 +195,6 @@ def main() -> None:
         training_args["timesteps"],
     )
     alpha_beta_values = beta_schedules.compute_alphas(beta_values)
-    alpha_beta_values.keys()
 
     # Load the dataset based on training args
     train_dset, _, test_dset = build_datasets(training_args)
