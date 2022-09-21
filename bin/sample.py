@@ -95,6 +95,57 @@ def write_preds_pdb_folder(
     return retval
 
 
+def plot_ramachandran(
+    phi_values, psi_values, fname: str, annot_ss: bool = False, title: str = ""
+):
+    """Create Ramachandran plot for phi_psi"""
+    fig = plotting.plot_joint_kde(
+        phi_values,
+        psi_values,
+    )
+    ax = fig.axes[0]
+    if annot_ss:
+        # https://matplotlib.org/stable/tutorials/text/annotations.html
+        ram_annot_arrows = dict(
+            facecolor="black", shrink=0.05, headwidth=6.0, width=1.5
+        )
+        ax.annotate(
+            r"$\alpha$ helix, LH",
+            xy=(1.2, 0.5),
+            xycoords="data",
+            xytext=(2.0, 1.2),
+            textcoords="data",
+            arrowprops=ram_annot_arrows,
+            horizontalalignment="left",
+            verticalalignment="center",
+        )
+        ax.annotate(
+            r"$\alpha$ helix, RH",
+            xy=(-1.1, -0.6),
+            xycoords="data",
+            xytext=(-1.9, -1.9),
+            textcoords="data",
+            arrowprops=ram_annot_arrows,
+            horizontalalignment="right",
+            verticalalignment="center",
+        )
+        ax.annotate(
+            r"$\beta$ sheet",
+            xy=(-1.67, 2.25),
+            xycoords="data",
+            xytext=(-0.9, 3.75),
+            textcoords="data",
+            arrowprops=ram_annot_arrows,
+            horizontalalignment="left",
+            verticalalignment="center",
+        )
+    ax.set_xlabel("$\phi", fontsize=12)
+    ax.set_ylabel("$\psi", fontsize=12)
+    if title:
+        ax.set_title(title, fontsize=14)
+    fig.savefig(fname, bbox_inches="tight")
+
+
 def plot_distribution_overlap(
     values_dicts: Dict[str, np.ndarray],
     title: str = "Sampled distribution",
@@ -216,48 +267,12 @@ def main() -> None:
     # Default figure size is 6.4x4.8 inches
     phi_idx = test_dset.feature_names["angles"].index("phi")
     psi_idx = test_dset.feature_names["angles"].index("psi")
-    train_ram = plotting.plot_joint_kde(
+    plot_ramachandran(
         test_values_stacked[:5000, phi_idx],
         test_values_stacked[:5000, psi_idx],
-        xlabel="$\phi$",
-        ylabel="$\psi$",
-        title="Ramachandran plot, test",
-        fname=plotdir / "ramachandran_test.pdf",
+        annot_ss=True,
+        fname=plotdir / "ramachandran_test_annot.pdf",
     )
-    train_ram_ax = train_ram.axes[0]
-    # https://matplotlib.org/stable/tutorials/text/annotations.html
-    ram_annot_arrows = dict(facecolor="black", shrink=0.05, headwidth=6.0, width=1.5)
-    train_ram_ax.annotate(
-        r"$\alpha$ helix, LH",
-        xy=(1.2, 0.5),
-        xycoords="data",
-        xytext=(2.0, 1.2),
-        textcoords="data",
-        arrowprops=ram_annot_arrows,
-        horizontalalignment="left",
-        verticalalignment="center",
-    )
-    train_ram_ax.annotate(
-        r"$\alpha$ helix, RH",
-        xy=(-1.1, -0.6),
-        xycoords="data",
-        xytext=(-1.9, -1.9),
-        textcoords="data",
-        arrowprops=ram_annot_arrows,
-        horizontalalignment="right",
-        verticalalignment="center",
-    )
-    train_ram_ax.annotate(
-        r"$\beta$ sheet",
-        xy=(-1.67, 2.25),
-        xycoords="data",
-        xytext=(-0.9, 3.75),
-        textcoords="data",
-        arrowprops=ram_annot_arrows,
-        horizontalalignment="left",
-        verticalalignment="center",
-    )
-    train_ram.savefig(plotdir / "ramachandran_train_annot.pdf", bbox_inches="tight")
 
     # Load the model
     model_snapshot_dir = outdir / "model_snapshot"
@@ -370,12 +385,9 @@ def main() -> None:
     step_multi_fig.savefig(plotdir / "cdf_combined.pdf", bbox_inches="tight")
 
     # Generate ramachandran plot for sampled angles
-    plotting.plot_joint_kde(
+    plot_ramachandran(
         final_sampled_stacked[:5000, phi_idx],
         final_sampled_stacked[:5000, psi_idx],
-        xlabel="$\phi$",
-        ylabel="$\psi$",
-        title="Ramachandran plot, generated",
         fname=plotdir / "ramachandran_generated.pdf",
     )
 
