@@ -153,6 +153,7 @@ def plot_distribution_overlap(
     values_dicts: Dict[str, np.ndarray],
     title: str = "Sampled distribution",
     fname: str = "",
+    bins: int = 50,
     ax=None,
     show_legend: bool = True,
     **kwargs,
@@ -167,17 +168,16 @@ def plot_distribution_overlap(
     if ax is None:
         fig, ax = plt.subplots(dpi=300)
 
-    bins = 50
     for k, v in values_dicts.items():
         _n, bins, _pbatches = ax.hist(
             v,
             bins=bins,
-            density=True,
             label=k,
-            alpha=0.6,
+            density=True,
             **kwargs,
         )
-    ax.set(title=title)
+    if title:
+        ax.set_title(title, fontsize=16)
     if show_legend:
         ax.legend()
     if fname:
