@@ -7,9 +7,7 @@ Usage: python sample_potting_only.py <dirname_with_results>
 """
 
 from glob import glob
-import multiprocessing
 import os, sys
-import argparse
 import re
 import logging
 import json
@@ -20,7 +18,7 @@ import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 from matplotlib.ticker import FormatStrFormatter
-
+from scipy import stats
 
 import torch
 
@@ -40,6 +38,7 @@ SRC_DIR = (Path(os.path.dirname(os.path.abspath(__file__))) / "../protdiff").res
 assert SRC_DIR.is_dir()
 sys.path.append(str(SRC_DIR))
 import plotting
+import custom_metrics as cm
 
 
 def int_getter(x: str) -> int:
@@ -104,12 +103,15 @@ def main(dir_name: Path):
         orig_values = test_values_stacked[:, i]
         samp_values = sampled_stacked[:, i]
 
+        kl = cm.kl_from_empirical(samp_values, orig_values, nbins=200, pseudocount=True)
+        logging.info(f"Angle {ft_name} KL(generated || test) = {kl}")
+
         ft_name_readable = FT_NAME_MAP[ft_name]
 
         # Plot combo plots
         plot_distribution_overlap(
             {"Test": orig_values, "Sampled": samp_values},
-            title=f"{ft_name_readable} distribution",
+            title=f"{ft_name_readable} distribution, KL={kl:.4f}",
             edgecolor="black",
             ax=multi_axes.flatten()[i],
             show_legend=i == 0,

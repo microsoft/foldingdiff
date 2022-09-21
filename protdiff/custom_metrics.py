@@ -16,7 +16,9 @@ from torch.utils.data import Dataset
 import utils
 
 
-def kl_from_empirical(u: np.ndarray, v: np.ndarray, nbins: int = 100) -> float:
+def kl_from_empirical(
+    u: np.ndarray, v: np.ndarray, nbins: int = 100, pseudocount: bool = False
+) -> float:
     """
     Compute the KL divergence between two empirical distributions u and v.
 
@@ -27,6 +29,9 @@ def kl_from_empirical(u: np.ndarray, v: np.ndarray, nbins: int = 100) -> float:
     logging.debug(f"Creating {nbins} bins between {min_val} - {max_val}")
 
     bins = np.linspace(min_val, max_val, nbins + 1)
+    if pseudocount:
+        u = np.concatenate((u, bins))
+        v = np.concatenate((v, bins))
     u_hist, _u_bin_edges = np.histogram(u, bins=bins, density=True)
     v_hist, _v_bin_edges = np.histogram(v, bins=bins, density=True)
 
