@@ -5,8 +5,8 @@ https://www.biotite-python.org/apidoc/biotite.structure.annotate_sse.html
 """
 
 # Examples:
-# python ~/projects/protdiff/bin/annot_secondary_structures.py sampled_pdb/*.pdb plots/ss_cooccurrence_sampled.pdf --suffix generated --prefix "(b)"
-# python ~/projects/protdiff/bin/annot_secondary_structures.py model_snapshot/training_args.json plots/ss_cooccurrence_test.pdf --suffix test --prefix "(a)"
+# python ~/projects/protdiff/bin/annot_secondary_structures.py sampled_pdb/*.pdb plots/ss_cooccurrence_sampled.pdf
+# python ~/projects/protdiff/bin/annot_secondary_structures.py model_snapshot/training_args.json plots/ss_cooccurrence_test.pdf
 
 import json
 import os
@@ -122,8 +122,7 @@ def make_ss_cooccurrence_plot(
     max_seq_len: int = 0,
     backend: SSE_BACKEND = "psea",
     threads: int = 8,
-    title_prefix: str = "",
-    title_suffix: str = "",
+    title: str = "Secondary structure co-occurrence",
 ):
     """
     Create a secondary structure co-occurrence plot
@@ -148,10 +147,8 @@ def make_ss_cooccurrence_plot(
     h = ax.hist2d(alpha_counts, beta_counts, bins=np.arange(10), density=True)
     ax.set_xlabel(r"Number of $\alpha$ helices", fontsize=12)
     ax.set_ylabel(r"Number of $\beta$ sheets", fontsize=12)
-    ax.set_title(
-        f"{title_prefix} Secondary structure co-occurrence, {title_suffix}".strip(", "),
-        fontsize=14,
-    )
+    if title:
+        ax.set_title(title.strip(), fontsize=14)
     cbar = fig.colorbar(h[-1], ax=ax)
     cbar.ax.set_ylabel("Frequency", fontsize=12)
     fig.savefig(outpdf, bbox_inches="tight")
@@ -186,12 +183,7 @@ def build_parser():
         default=mp.cpu_count(),
         help="Number of threads to use",
     )
-    parser.add_argument(
-        "-s", "--suffix", type=str, default="", help="Suffix for plot title"
-    )
-    parser.add_argument(
-        "-p", "--prefix", type=str, default="", help="Prefix for plot title"
-    )
+    parser.add_argument("--title", type=str, default="", help="Title for plot")
     return parser
 
 
@@ -214,8 +206,7 @@ def main():
         outpdf=args.outpdf,
         backend=args.backend,
         threads=args.threads,
-        title_suffix=args.suffix,
-        title_prefix=args.prefix,
+        title=args.title,
         max_seq_len=test_dset.dset.pad if is_test_data else 0,
     )
 
