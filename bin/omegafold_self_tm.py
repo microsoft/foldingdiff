@@ -161,9 +161,11 @@ def main():
     fig, ax = plt.subplots(dpi=300)
     sns.histplot(sctm_scores_with_len, x="scTM", hue="length")
     ax.axvline(0.5, color="grey", linestyle="--", alpha=0.5)
-    ax.set(
-        title=f"Self-consistency TM (scTM) scores, {len(sctm_scores)} generated protein backbones",
+    ax.set_title(
+        f"scTM scores, {len(sctm_scores)} generated protein backbones", fontsize=14
     )
+    ax.set_ylabel("Count", fontsize=12)
+    ax.set_xlabel("Self-consistency TM score (scTM)", fontsize=12)
     fig.savefig(args.outprefix + "_hist_by_len.pdf", bbox_inches="tight")
 
     # Create a jointplot of values if we can also find the training TM scores
@@ -232,14 +234,21 @@ def main():
             f"Spearman's correlation between training TM and scTM: {r:.4g} {p:.4g}"
         )
 
-        jointgrid = sns.jointplot(
-            scores_df, x="max training TM", y="scTM", hue="length", alpha=0.5
+        # Default figure size is 6.4x4.8
+        fig, ax = plt.subplots()
+        sns.scatterplot(
+            scores_df, x="max training TM", y="scTM", hue="length", alpha=0.5, ax=ax
         )
-        for ax in (jointgrid.ax_joint, jointgrid.ax_marg_x):
-            ax.axvline(0.5, color="grey", alpha=0.5, linestyle="--")
-        for ax in (jointgrid.ax_joint, jointgrid.ax_marg_y):
-            ax.axhline(0.5, color="grey", alpha=0.5, linestyle="--")
-        jointgrid.savefig(args.outprefix + "_training_tm_scatter.pdf")
+        ax.axvline(0.5, color="grey", alpha=0.5, linestyle="--")
+        ax.axhline(0.5, color="grey", alpha=0.5, linestyle="--")
+        # for ax in (jointgrid.ax_joint, jointgrid.ax_marg_x):
+        #     ax.axvline(0.5, color="grey", alpha=0.5, linestyle="--")
+        # for ax in (jointgrid.ax_joint, jointgrid.ax_marg_y):
+        #     ax.axhline(0.5, color="grey", alpha=0.5, linestyle="--")
+        ax.set_title("scTM vs. training similarity", fontsize=14)
+        ax.set_xlabel("Maximum training TM score", fontsize=12)
+        ax.set_ylabel("scTM score", fontsize=12)
+        fig.savefig(args.outprefix + "_training_tm_scatter.pdf", bbox_inches="tight")
 
 
 if __name__ == "__main__":
