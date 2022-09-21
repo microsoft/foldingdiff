@@ -118,6 +118,7 @@ def plot_ramachandran(
             arrowprops=ram_annot_arrows,
             horizontalalignment="left",
             verticalalignment="center",
+            fontsize=14,
         )
         ax.annotate(
             r"$\alpha$ helix, RH",
@@ -128,6 +129,7 @@ def plot_ramachandran(
             arrowprops=ram_annot_arrows,
             horizontalalignment="right",
             verticalalignment="center",
+            fontsize=14,
         )
         ax.annotate(
             r"$\beta$ sheet",
@@ -138,11 +140,12 @@ def plot_ramachandran(
             arrowprops=ram_annot_arrows,
             horizontalalignment="left",
             verticalalignment="center",
+            fontsize=14,
         )
-    ax.set_xlabel("$\phi", fontsize=12)
-    ax.set_ylabel("$\psi", fontsize=12)
+    ax.set_xlabel("$\phi$", fontsize=14)
+    ax.set_ylabel("$\psi$", fontsize=14)
     if title:
-        ax.set_title(title, fontsize=14)
+        ax.set_title(title, fontsize=16)
     fig.savefig(fname, bbox_inches="tight")
 
 
