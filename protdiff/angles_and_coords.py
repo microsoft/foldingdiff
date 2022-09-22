@@ -248,36 +248,40 @@ def create_new_chain_nerf(
     return out_fname
 
 
-def test_generation(
-    reference_fname: str = os.path.join(
-        os.path.dirname(os.path.dirname(__file__)), "data/1CRN.pdb"
-    )
-):
+def get_pdb_length(fname: str) -> int:
     """
-    Test the generation of a new chain
+    Get the length of the chain described in the PDB file
     """
-    import tmalign
+    warnings.filterwarnings("ignore", ".*elements were guessed from atom_.*")
+    structure = PDBFile.read(fname)
+    if structure.get_model_count() > 1:
+        return -1
+    chain = structure.get_structure()[0]
+    backbone = chain[struc.filter_backbone(chain)]
+    l = int(len(backbone) / 3)
+    return l
 
-    test = PDBFile.read(reference_fname)
-    print(test.get_structure())
 
-    vals = canonical_distances_and_dihedrals(reference_fname)
-    print(vals.iloc[:10])
-
-    create_new_chain_nerf(
-        "test.pdb",
-        vals,
-        angles_to_set=["phi", "psi", "omega", "tau"],
-        dists_to_set=["0C:1N"],
-    )
-    new_vals = canonical_distances_and_dihedrals("test.pdb")
-    print(new_vals[:10])
-
-    # score = tmalign.run_tmalign("test.pdb", reference_fname)
-    # print(score)
+def extract_backbone_coords(
+    fname: str, atoms: Collection[Literal["N", "CA", "C"]] = ["CA"]
+) -> Optional[np.ndarray]:
+    """Extract the coordinates of the alpha carbons"""
+    structure = PDBFile.read(fname)
+    if structure.get_model_count() > 1:
+        return None
+    chain = structure.get_structure()[0]
+    backbone = chain[struc.filter_backbone(chain)]
+    ca = [c for c in backbone if c.atom_name in atoms]
+    assert len(ca) == get_pdb_length(fname)
+    coords = np.vstack([c.coord for c in ca])
+    return coords
 
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
     # test_reverse_dihedral()
-    test_generation()
+    print(
+        extract_backbone_coords(
+            os.path.join(os.path.dirname(os.path.dirname(__file__)), "data/1CRN.pdb")
+        )
+    )

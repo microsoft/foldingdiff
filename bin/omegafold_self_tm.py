@@ -27,6 +27,7 @@ SRC_DIR = (Path(os.path.dirname(os.path.abspath(__file__))) / "../protdiff").res
 assert SRC_DIR.is_dir()
 sys.path.append(str(SRC_DIR))
 import tmalign
+from angles_and_coords import get_pdb_length
 
 
 def get_sctm_score(orig_pdb: Path, folded_dirname: Path) -> float:
@@ -39,19 +40,6 @@ def get_sctm_score(orig_pdb: Path, folded_dirname: Path) -> float:
     if not folded_pdbs:
         return np.nan
     return tmalign.max_tm_across_refs(orig_pdb, folded_pdbs, parallel=False)
-
-
-def get_pdb_length(fname: str) -> int:
-    """
-    Get the length of the chain described in the PDB file
-    """
-    structure = PDBFile.read(fname)
-    if structure.get_model_count() > 1:
-        return -1
-    chain = structure.get_structure()[0]
-    backbone = chain[struc.filter_backbone(chain)]
-    l = int(len(backbone) / 3)
-    return l
 
 
 def build_parser():

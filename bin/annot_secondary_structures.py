@@ -9,7 +9,8 @@ https://www.biotite-python.org/apidoc/biotite.structure.annotate_sse.html
 # python ~/projects/protdiff/bin/annot_secondary_structures.py model_snapshot/training_args.json plots/ss_cooccurrence_test.pdf
 
 import json
-import os
+import os, sys
+from pathlib import Path
 import logging
 import warnings
 import functools
@@ -30,6 +31,10 @@ SSE_BACKEND = Literal["dssp", "psea"]
 
 from train import get_train_valid_test_sets
 
+SRC_DIR = (Path(os.path.dirname(os.path.abspath(__file__))) / "../protdiff").resolve()
+assert SRC_DIR.is_dir()
+sys.path.append(str(SRC_DIR))
+from angles_and_coords import get_pdb_length
 
 def build_datasets(training_args: Dict[str, Any]):
     """
@@ -56,20 +61,6 @@ def build_datasets(training_args: Dict[str, Any]):
         f"Training dset contains features: {train_dset.feature_names} - angular {train_dset.feature_is_angular}"
     )
     return train_dset, valid_dset, test_dset
-
-
-def get_pdb_length(fname: str) -> int:
-    """
-    Get the length of the chain described in the PDB file
-    """
-    warnings.filterwarnings("ignore", ".*elements were guessed from atom_.*")
-    structure = PDBFile.read(fname)
-    if structure.get_model_count() > 1:
-        return -1
-    chain = structure.get_structure()[0]
-    backbone = chain[struc.filter_backbone(chain)]
-    l = int(len(backbone) / 3)
-    return l
 
 
 def count_structures_in_pdb(
