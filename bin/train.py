@@ -285,7 +285,7 @@ def train(
     # Controls output
     results_dir: str = "./results",
     # Controls data loading and noising process
-    angles_definitions: ANGLES_DEFINITIONS = "canonical",
+    angles_definitions: ANGLES_DEFINITIONS = "canonical-full-angles",
     max_seq_len: int = 512,
     min_seq_len: int = 0,  # 0 means no filtering based on min sequence length
     trim_strategy: datasets.TRIM_STRATEGIES = "leftalign",
@@ -416,12 +416,13 @@ def train(
         use_cache=False,
     )
     # ft_is_angular from the clean datasets angularity definition
+    ft_key = "coords" if angles_definitions == "cart-coords" else "angles"
     model = modelling.BertForDiffusion(
         cfg,
         time_encoding=time_encoding,
         decoder=decoder,
-        ft_is_angular=dsets[0].dset.feature_is_angular["angles"],
-        ft_names=dsets[0].dset.feature_names["angles"],
+        ft_is_angular=dsets[0].dset.feature_is_angular[ft_key],
+        ft_names=dsets[0].dset.feature_names[ft_key],
         lr=lr,
         loss=loss_fn,
         l2=l2_norm,
