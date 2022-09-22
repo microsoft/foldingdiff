@@ -187,7 +187,7 @@ def get_train_valid_test_sets(
     noised_dsets = [
         dset_noiser_class(
             dset=ds,
-            dset_key="angles",
+            dset_key="coords" if angles_definitions == "cart-coords" else "angles",
             timesteps=timesteps,
             exhaustive_t=(i != 0) and exhaustive_t,
             beta_schedule=variance_schedule,
@@ -198,11 +198,6 @@ def get_train_valid_test_sets(
     ]
     for dsname, ds in zip(splits, noised_dsets):
         logging.info(f"{dsname}: {ds}")
-
-    # Lot an example of the data
-    logging.debug(f"Example clean vals:  {noised_dsets[0][0]['angles']}")
-    logging.debug(f"Example noised vals: {noised_dsets[0][0]['corrupted']}")
-    logging.debug(f"Example noise:       {noised_dsets[0][0]['known_noise']}")
 
     # Pad with None values
     if len(noised_dsets) < 3:
