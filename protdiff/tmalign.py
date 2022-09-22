@@ -9,7 +9,7 @@ import shutil
 import subprocess
 import multiprocessing
 import logging
-from typing import List
+from typing import List, Tuple
 
 import numpy as np
 
@@ -56,9 +56,10 @@ def max_tm_across_refs(
     fast: bool = True,
     chunksize: int = 10,
     parallel: bool = True,
-) -> float:
+) -> Tuple[float, str]:
     """
     Compare the query against each of the references in parallel and return the maximum score
+    along with the corresponding reference
     This is typically a lot of comparisons so we run with fast set to True by default
     """
     logging.debug(
@@ -74,7 +75,7 @@ def max_tm_across_refs(
     else:
         values = list(itertools.starmap(run_tmalign, args))
 
-    return np.nanmax(values)
+    return np.nanmax(values), references[np.argmax(values)]
 
 
 def main():

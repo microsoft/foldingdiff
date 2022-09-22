@@ -30,7 +30,7 @@ import tmalign
 from angles_and_coords import get_pdb_length
 
 
-def get_sctm_score(orig_pdb: Path, folded_dirname: Path) -> float:
+def get_sctm_score(orig_pdb: Path, folded_dirname: Path) -> Tuple[float, str]:
     """get the self-consistency tm score"""
     bname = os.path.splitext(os.path.basename(orig_pdb))[0] + "_esm_residues_*.pdb"
     folded_pdbs = glob(os.path.join(folded_dirname, bname))
@@ -99,14 +99,24 @@ def main():
     # Match up the files
     pfunc = functools.partial(get_sctm_score, folded_dirname=Path(args.folded))
     pool = mp.Pool(mp.cpu_count())
-    sctm_scores_raw = list(pool.map(pfunc, orig_predicted_backbones, chunksize=5))
+    sctm_scores_raw_and_ref = list(
+        pool.map(pfunc, orig_predicted_backbones, chunksize=5)
+    )
     pool.close()
     pool.join()
 
-    sctm_non_nan_idx = [i for i, val in enumerate(sctm_scores_raw) if ~np.isnan(val)]
+    sctm_non_nan_idx = [
+        i for i, (val, _) in enumerate(sctm_scores_raw_and_ref) if ~np.isnan(val)
+    ]
     sctm_scores_mapping = {
-        orig_predicted_backbone_names[i]: sctm_scores_raw[i] for i in sctm_non_nan_idx
+        orig_predicted_backbone_names[i]: sctm_scores_raw_and_ref[i][0]
+        for i in sctm_non_nan_idx
     }
+    sctm_scores_reference = {
+        orig_predicted_backbone_names[i]: sctm_scores_raw_and_ref[i][1]
+        for i in sctm_non_nan_idx
+    }
+
     sctm_scores = np.array(list(sctm_scores_mapping.values()))
 
     passing_num = np.sum(sctm_scores >= 0.5)
@@ -175,6 +185,7 @@ def main():
                     orig_predicted_backbone_lens[k],
                     orig_predicted_secondary_structs[k][0],
                     orig_predicted_secondary_structs[k][1],
+                    sctm_scores_reference[k],
                 )
                 for k in shared_keys
             ],
@@ -185,6 +196,7 @@ def main():
                 "length_int",
                 "alpha_counts",
                 "beta_counts",
+                "scTM best match",
             ],
         )
         scores_df["length"] = [

@@ -36,7 +36,7 @@ def compute_training_tm_scores(
             fname,
             train_dset.filenames,
             n_threads=nthreads,
-        )
+        )[0]
         all_tm_scores[samp_name] = tm_score
     with open(outdir / "tm_scores.json", "w") as sink:
         json.dump(all_tm_scores, sink, indent=4)
