@@ -272,7 +272,6 @@ def extract_backbone_coords(
     chain = structure.get_structure()[0]
     backbone = chain[struc.filter_backbone(chain)]
     ca = [c for c in backbone if c.atom_name in atoms]
-    assert len(ca) == get_pdb_length(fname)
     coords = np.vstack([c.coord for c in ca])
     return coords
 
