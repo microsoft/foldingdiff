@@ -49,7 +49,7 @@ torch.backends.cudnn.benchmark = False
 
 # Define some typing literals
 ANGLES_DEFINITIONS = Literal[
-    "canonical", "canonical-full-angles", "canonical-minimal-angles"
+    "canonical", "canonical-full-angles", "canonical-minimal-angles", "cart-coords"
 ]
 
 
@@ -141,6 +141,7 @@ def get_train_valid_test_sets(
         "canonical": datasets.CathCanonicalAnglesDataset,
         "canonical-full-angles": datasets.CathCanonicalAnglesOnlyDataset,
         "canonical-minimal-angles": datasets.CathCanonicalMinimalAnglesDataset,
+        "cart-coords": datasets.CathCanonicalCoordsDataset,
     }[angles_definitions]
     logging.info(f"Clean dataset class: {clean_dset_class}")
 
@@ -152,7 +153,7 @@ def get_train_valid_test_sets(
             pad=max_seq_len,
             min_length=min_seq_len,
             trim_strategy=seq_trim_strategy,
-            zero_center=True,
+            zero_center=False if angles_definitions == "cart-coords" else True,
             toy=toy,
         )
         for s in splits

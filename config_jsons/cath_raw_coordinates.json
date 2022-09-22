@@ -1,5 +1,5 @@
 {
-    "angles_definitions": "canonical-full-angles",
+    "angles_definitions": "cart-coords",
     "timesteps": 1000,
     "max_seq_len": 128,
     "min_seq_len": 40,
