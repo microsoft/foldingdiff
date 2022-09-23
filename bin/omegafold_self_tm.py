@@ -36,9 +36,11 @@ def get_sctm_score(orig_pdb: Path, folded_dirname: Path) -> Tuple[float, str]:
     folded_pdbs = glob(os.path.join(folded_dirname, bname))
     if len(folded_pdbs) > 8:
         folded_pdbs = folded_pdbs[:8]
-    assert len(folded_pdbs) == 8
+    assert len(folded_pdbs) <= 8
+    if len(folded_pdbs) < 8:
+        logging.warning(f"Fewer than 8 structures corresponding to {orig_pdb} -- results wil be incomplete")
     if not folded_pdbs:
-        return np.nan
+        return np.nan, ""
     return tmalign.max_tm_across_refs(orig_pdb, folded_pdbs, parallel=False)
 
 
