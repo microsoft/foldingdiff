@@ -29,17 +29,20 @@ def compute_training_tm_scores(
     nthreads: int = mp.cpu_count(),
 ):
     logging.info(f"Calculating tm scores with {nthreads} threads...")
-    all_tm_scores = {}
+    all_tm_scores, all_tm_scores_ref = {}, {}
     for i, fname in tqdm(enumerate(pdb_files), total=len(pdb_files)):
         samp_name = os.path.splitext(os.path.basename(fname))[0]
-        tm_score = tmalign.max_tm_across_refs(
+        tm_score, tm_score_ref = tmalign.max_tm_across_refs(
             fname,
             train_dset.filenames,
             n_threads=nthreads,
-        )[0]
+        )
         all_tm_scores[samp_name] = tm_score
+        all_tm_scores_ref[samp_name] = tm_score_ref
     with open(outdir / "tm_scores.json", "w") as sink:
         json.dump(all_tm_scores, sink, indent=4)
+    with open(outdir / "tm_scores_ref.json", 'w') as sink:
+        json.dump(all_tm_scores_ref, sink, indent=4)
 
 
 def build_parser() -> argparse.ArgumentParser:
