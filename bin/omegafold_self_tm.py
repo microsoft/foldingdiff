@@ -38,7 +38,9 @@ def get_sctm_score(orig_pdb: Path, folded_dirname: Path) -> Tuple[float, str]:
         folded_pdbs = folded_pdbs[:8]
     assert len(folded_pdbs) <= 8
     if len(folded_pdbs) < 8:
-        logging.warning(f"Fewer than 8 structures corresponding to {orig_pdb} -- results wil be incomplete")
+        logging.warning(
+            f"Fewer than 8 structures corresponding to {orig_pdb} -- results wil be incomplete"
+        )
     if not folded_pdbs:
         return np.nan, ""
     return tmalign.max_tm_across_refs(orig_pdb, folded_pdbs, parallel=False)
@@ -201,6 +203,18 @@ def main():
                 "scTM best match",
             ],
         )
+
+        # Optionally add in the
+        training_tm_scores_match_fname = os.path.join(
+            args.predicted, "tm_scores_ref.json"
+        )
+        if os.path.isfile(training_tm_scores_match_fname):
+            with open(training_tm_scores_match_fname) as source:
+                tm_matches = json.load(source)
+            scores_df["max training TM structure"] = [
+                tm_matches[k] for k in shared_keys
+            ]
+
         scores_df["length"] = [
             r"short ($\leq 70$ aa)" if l <= 70 else r"long ($> 70$ aa)"
             for l in scores_df["length_int"]
