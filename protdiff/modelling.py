@@ -362,6 +362,7 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
                 "canonical": [False, False, False, True, True, True, True, True, True],
                 "canonical-full-angles": [True, True, True, True, True, True],
                 "canonical-minimal-angles": [True, True, True, True],
+                "cart-coords": [False, False, False],
             }[train_args["angles_definitions"]]
             logging.info(f"Auto constructed ft_is_angular: {ft_is_angular}")
 
