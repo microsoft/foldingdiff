@@ -126,6 +126,7 @@ def sample(
     n: int,
     sweep_lengths: Optional[Tuple[int, int]] = None,
     batch_size: int = 512,
+    feature_key: str = "angles",
 ) -> List[np.ndarray]:
     """
     Sample from the given model. Use the train_dset to generate noise to sample
@@ -162,7 +163,7 @@ def sample(
             noise=noise,
             timesteps=train_dset.timesteps,
             betas=train_dset.alpha_beta_terms["betas"],
-            is_angle=train_dset.feature_is_angular["angles"],
+            is_angle=train_dset.feature_is_angular[feature_key],
         )
         # Gets to size (timesteps, seq_len, n_ft)
         trimmed_sampled = [
@@ -182,7 +183,7 @@ def sample(
         )
         retval = [s + train_dset.dset.get_masked_means() for s in retval]
         # Because shifting may have caused us to go across the circle boundary, re-wrap
-        angular_idx = np.where(train_dset.feature_is_angular["angles"])[0]
+        angular_idx = np.where(train_dset.feature_is_angular[feature_key])[0]
         for s in retval:
             s[..., angular_idx] = utils.modulo_with_wrapped_range(
                 s[..., angular_idx], range_min=-np.pi, range_max=np.pi
