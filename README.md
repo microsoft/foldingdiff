@@ -17,8 +17,6 @@ sure you have conda (or [mamba](https://mamba.readthedocs.io/en/latest/index.htm
 conda env create -f environment.yml
 ```
 
-Note that you do not need to have this set up if you are _only_ submitting jobs to the cluster.
-
 ## Training models
 
 To train a model on the CATH dataset, use the script at `bin/train.py` in combination with one of the

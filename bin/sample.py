@@ -207,7 +207,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--lengths",
         type=str,
         choices=["sample", "sweep"],
-        default="sweep",
+        default="sample",
         help="Strategy for generating lengths of sequences. Sampled will sample training set lengths, sweep will sweep from 70-max length",
     )
     parser.add_argument(
