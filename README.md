@@ -38,10 +38,21 @@ results/
     - training_args.json    # Full set of arguments, can be used to reproduce run
 ```
 
+## Pre-trained models
+
+We provide weihts for a model trained on the CATH dataset. These weights are located under the `models/cath_pretrained` directory. To programmatically load these weights, you can use code defined under `protdiff/modelling.py` as such:
+
+```python
+import modelling
+
+modelling.BertForDiffusion.from_dir("models/cath_pretrained").to(torch.device("cuda:0"))
+```
+
+Providing this path to premade script such as for sampling is detailed below.
+
 ## Downloading data
 
-We requires some data files not packaged on Git due to their large size. These are required to be downloaded locally even
-if you are running this on Singularity (as they are uploaded). To download these, do the following:
+We requires some data files not packaged on Git due to their large size. These are required to be downloaded locally even if you are not training and are only sampling. The simple command to do this is as follows:
 
 ```bash
 # Download the CATH dataset
@@ -51,10 +62,10 @@ cd data  # Ensure that you are in the data subdirectory within the codebase
 
 ## Sampling protein backbones
 
-To sample protein backbones, use the script `bin/sample.py`. An example command to do this is as follows.
+To sample protein backbones, use the script `bin/sample.py`. An example command to do this using the pretrained weights described above is as follows.
 
 ```bash
-python ~/protdiff/bin/sample.py ../projects/models/full_angles/results/ --num 512 --device cuda:3
+python ~/projects/protdiff/bin/sample.py ~/projects/protdiff/models/cath_pretrained --num 256 --device cuda:3
 ```
 
 This will run the model contained in the `results` folder and generate 512 sequences of varying lengths.
@@ -63,15 +74,16 @@ Not specifying a device will default to the first device `cuda:0`; use `--device
 ```
 some_dir/
     - plots/            # Contains plots comparing the distribution of training/generated angles
-    - sampled_angles/   # Contains .npy files with the angles we have sampled
-    - sampled_pdb/      # Contains the .pdb files resulting from converting the sampled angles to cartesian coordinates
+    - sampled_angles/   # Contains .csv.gz files with the sampled angles
+    - sampled_pdb/      # Contains .pdb files from converting the sampled angles to cartesian coordinates
+    - model_snapshot/   # Contains a copy of the model used to produce results
 ```
 
 ### Maximum training similarity TM scores
 
 After generating sequences, we can calculate TM-scores to evaluate the simliarity of the generated sequences and the original sequences. This is done using the script under `bin/tmscore_training.py`.
 
-### Visualizing "folding" process
+### Visualizing diffusion "folding" process
 
 The above sampling code can also be run with the ``--fullhistory`` flag to write an additional subdirectory `sample_history` under each of the `sampled_angles` and `sampled_pdb` folders that contain pdb/csv files coresponding to each timestep in the sampling process. The pdb files, for example, can then be passed into the script under `protdiff/pymol_vis.py` to generate a gif of the folding process (as shown above). An example command to do this is:
 
@@ -87,7 +99,7 @@ One way to evaluate the quality of generated backbones is via their "designabili
 
 ### Inverse folding with ESM
 
-We use a different conda environment for this step; see <https://colab.research.google.com/github/facebookresearch/esm/blob/main/examples/inverse_folding/notebook.ipynb> for setup details. We found that the following command works on our machine:
+We use a different conda environment for this step; see <https://colab.research.google.com/github/facebookresearch/esm/blob/main/examples/inverse_folding/notebook.ipynb> for setup details. We found that the following command works on our machines:
 
 ```bash
 mamba create -n inverse python=3.9 pytorch cudatoolkit pyg -c pytorch -c conda-forge -c pyg
@@ -106,7 +118,7 @@ This creates a new folder, `esm_residues` that contains 10 potential residues fo
 
 ### Structural prediction with OmegaFold
 
-We use [OmegaFold](https://github.com/HeliXonProtein/OmegaFold) to fold the amino acid sequences produced above. After creating a separate conda environment and following the authors' instructions for installing OmegaFold, we use the following script to split our input amino acid fasta files across GPUs for inference, and subsequently calculate the self-consistency TM (scTM) scores.
+We use [OmegaFold](https://github.com/HeliXonProtein/OmegaFold) to fold the amino acid sequences produced above. After creating and activating a separate conda environment and following the authors' instructions for installing OmegaFold, we use the following script to split our input amino acid fasta files across GPUs for inference, and subsequently calculate the self-consistency TM (scTM) scores.
 
 ```bash
 # Fold each fasta, spreading the work over GPUs 0 and 1, outputs to omegafold_predictions folder
