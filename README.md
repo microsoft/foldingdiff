@@ -11,7 +11,7 @@ We present a diffusion model for generating novel protein backbone structures.
 This software is written in Python, notably using PyTorch, PyTorch Ligthing, and the HuggingFace
 transformers library.
 The required conda environment is defined within the `environment.yml` file. To set this up, make
-sure you have conda (or [mamba](https://mamba.readthedocs.io/en/latest/index.html)) installed and run:
+sure you have conda (or [mamba](https://mamba.readthedocs.io/en/latest/index.html)) installed, clone this repository, and run:
 
 ```bash
 conda env create -f environment.yml
@@ -40,7 +40,7 @@ results/
 
 ## Pre-trained models
 
-We provide weihts for a model trained on the CATH dataset. These weights are located under the `models/cath_pretrained` directory. To programmatically load these weights, you can use code defined under `protdiff/modelling.py` as such:
+We provide weihts for a model trained on the CATH dataset. These weights are located under the `models/cath_pretrained` directory and are stored via Git LFS. To programmatically load these weights, you can use code defined under `protdiff/modelling.py` as such:
 
 ```python
 import modelling
