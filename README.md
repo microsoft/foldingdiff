@@ -60,14 +60,16 @@ cd data  # Ensure that you are in the data subdirectory within the codebase
 
 ## Sampling protein backbones
 
-To sample protein backbones, use the script `bin/sample.py`. An example command to do this using the pretrained weights described above is as follows.
+To sample protein backbones, use the script `bin/sample.py`. Example commands to do this using the pretrained weights described above is as follows.
 
 ```bash
+# To sample 256 backbones
 python ~/projects/protdiff/bin/sample.py ~/projects/protdiff/models/cath_pretrained --num 256 --device cuda:3
+# To sample 10 backbones per length ranging from [50, 128) - this reproduces results in our manuscript
+python ~/projects/protdiff/bin/sample.py ~/projects/protdiff/models/cath_pretrained -l sweep --device cuda:3
 ```
 
-This will run the model contained in the `results` folder and generate 512 sequences of varying lengths.
-Not specifying a device will default to the first device `cuda:0`; use `--device cpu` to run on CPU. This will create the following directory structure in the diretory where it is run:
+This will run the model contained in the `results` folder and generate 512 sequences of varying lengths. Not specifying a device will default to the first device `cuda:0`; use `--device cpu` to run on CPU. This will create the following directory structure in the diretory where it is run:
 
 ```
 some_dir/
