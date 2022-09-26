@@ -733,8 +733,4 @@ def main():
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    # main()
-    BertForDiffusion.from_dir(
-        "/home/wukevin/projects/protdiff_results/models/results",
-        copy_to="temp",
-    )
+    main()

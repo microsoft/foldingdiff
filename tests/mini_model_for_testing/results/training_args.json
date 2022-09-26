@@ -1,5 +1,4 @@
 {
-    "results_dir": "/home/wukevin/projects/protdiff_results/models/mini/results",
     "angles_definitions": "canonical-full-angles",
     "max_seq_len": 128,
     "min_seq_len": 40,
