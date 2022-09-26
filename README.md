@@ -67,9 +67,9 @@ some_dir/
     - sampled_pdb/      # Contains the .pdb files resulting from converting the sampled angles to cartesian coordinates
 ```
 
-### Self-consistency TM scores
+### Maximum training similarity TM scores
 
-After generating sequences, we automatically calculate TM-scores to evaluate the simliarity of the generated sequences and the original sequences. You may want to append the `--skiptm` argument to the above command if you wish to skip the very time-consuming calculation of TM scores against training set; doing so takes about ~1min per generated example on a 128-core machine running fully parallelized.
+After generating sequences, we can calculate TM-scores to evaluate the simliarity of the generated sequences and the original sequences. This is done using the script under `bin/tmscore_training.py`.
 
 ### Visualizing "folding" process
 
@@ -115,7 +115,7 @@ python ~/projects/protdiff/bin/omegafold_across_gpus.py esm_residues/*.fasta -g 
 python ~/projects/protdiff/bin/omegafold_self_tm.py  # Requires no arguments
 ```
 
-After executing these commands, the final command produces a json file of all scmtm scores, as well as a pdf file containing a histogram of the score distribution.
+After executing these commands, the final command produces a json file of all scmtm scores, as well as various pdf files containing plots and correlations of the scTM score distribution.
 
 ## Tests
 
@@ -124,23 +124,6 @@ Tests are implemented through a mixture of doctests and unittests. To run unitte
 ```bash
 python -m unittest -v
 ```
-
-## Singularity/amulet
-
-To run on singularity/amulet, make sure you have already downloaded the CATH dataset (see instructions above). If you do not have amulet installed, folow the instructions at <https://amulet-docs.azurewebsites.net/main/setup.html>. This should leave you with a conda environment named `amlt8`. Note that this environment should be _separate_ from the environment for the diffusion model itself. Note that you do _not_ need to create the given `environment.yml` to submit to amulet/singularity; the environment for running the code is separately set up within the Singularity compute cluster.
-
-With these two requirements, to run training on singularity, run:
-
-```bash
-conda activate amlt8  # Activate the conda env.
-amlt run -y scripts/amlt.yaml -o results
-```
-
-Within this `amlt.yaml` file, the python command contains a pointer to a config json file. Edit the path indicated here to
-use a different configuration for training.
-
-Note rearding the structure of the `amlt.yaml` file: installing packages via conda is very slow on the Singularity cluster, so
-we recreate the same set of packages installed via pip instead of relying on conda.
 
 ## Contributing
 
