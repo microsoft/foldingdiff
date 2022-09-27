@@ -11,9 +11,9 @@ import numpy as np
 import torch
 from torch import nn
 
-import beta_schedules
-import utils
-from . import datasets as dsets
+from foldingdiff import beta_schedules
+from foldingdiff import utils
+from foldingdiff import datasets as dsets
 
 
 @torch.no_grad()

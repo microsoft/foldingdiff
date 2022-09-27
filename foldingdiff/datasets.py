@@ -28,15 +28,15 @@ CATH_DIR = LOCAL_DATA_DIR / "cath"
 ALPHAFOLD_DIR = LOCAL_DATA_DIR / "alphafold"
 
 
-import beta_schedules
-from angles_and_coords import (
+from foldingdiff import beta_schedules
+from foldingdiff.angles_and_coords import (
     canonical_distances_and_dihedrals,
     EXHAUSTIVE_ANGLES,
     EXHAUSTIVE_DISTS,
     extract_backbone_coords,
 )
-from . import custom_metrics as cm
-from . import utils
+from foldingdiff import custom_metrics as cm
+from foldingdiff import utils
 
 TRIM_STRATEGIES = Literal["leftalign", "randomcrop", "discard"]
 

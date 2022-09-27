@@ -29,17 +29,17 @@ from pytorch_lightning.strategies.ddp import DDPStrategy
 
 from transformers import BertConfig
 
-SRC_DIR = (Path(os.path.dirname(os.path.abspath(__file__))) / "../protdiff").resolve()
-assert SRC_DIR.is_dir()
-sys.path.append(str(SRC_DIR))
+# SRC_DIR = (Path(os.path.dirname(os.path.abspath(__file__))) / "../protdiff").resolve()
+# assert SRC_DIR.is_dir()
+# sys.path.append(str(SRC_DIR))
 
-import datasets
-import modelling
-import losses
-from beta_schedules import SCHEDULES
-import plotting
-import utils
-import custom_metrics as cm
+from foldingdiff import datasets
+from foldingdiff import modelling
+from foldingdiff import losses
+from foldingdiff import beta_schedules
+from foldingdiff import plotting
+from foldingdiff import utils
+from foldingdiff import custom_metrics as cm
 
 assert torch.cuda.is_available(), "Requires CUDA to train"
 # reproducibility
@@ -119,7 +119,7 @@ def get_train_valid_test_sets(
     min_seq_len: int = 0,
     seq_trim_strategy: datasets.TRIM_STRATEGIES = "leftalign",
     timesteps: int = 250,
-    variance_schedule: SCHEDULES = "linear",
+    variance_schedule: beta_schedules.SCHEDULES = "linear",
     var_scale: float = np.pi,
     toy: Union[int, bool] = False,
     exhaustive_t: bool = False,
@@ -290,7 +290,7 @@ def train(
     min_seq_len: int = 0,  # 0 means no filtering based on min sequence length
     trim_strategy: datasets.TRIM_STRATEGIES = "leftalign",
     timesteps: int = 250,
-    variance_schedule: SCHEDULES = "linear",  # cosine better on single angle toy test
+    variance_schedule: beta_schedules.SCHEDULES = "linear",  # cosine better on single angle toy test
     variance_scale: float = 1.0,
     # Related to model architecture
     time_encoding: modelling.TIME_ENCODING = "gaussian_fourier",
