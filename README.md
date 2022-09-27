@@ -8,10 +8,10 @@ We present a diffusion model for generating novel protein backbone structures.
 
 ## Installation
 
-This software is written in Python, notably using PyTorch, PyTorch Ligthing, and the HuggingFace
-transformers library.
-The required conda environment is defined within the `environment.yml` file. To set this up, make
-sure you have conda (or [mamba](https://mamba.readthedocs.io/en/latest/index.html)) installed, clone this repository, and run:
+To install, clone this using `git clone` followed by `git lfs fetch`. Note that this requires [git-lfs](https://git-lfs.github.com) to be installed on your system.
+
+This software is written in Python, notably using PyTorch, PyTorch Lightning, and the HuggingFace
+transformers library. The required conda environment is defined within the `environment.yml` file. To set this up, make sure you have conda (or [mamba](https://mamba.readthedocs.io/en/latest/index.html)) installed, clone this repository, and run:
 
 ```bash
 conda env create -f environment.yml
