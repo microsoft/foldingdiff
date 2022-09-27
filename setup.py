@@ -5,12 +5,12 @@ with open("README.md", "r") as source:
 
 setup(
     name="foldingdiff",
-    packages=find_packages(),
+    packages=find_packages("foldingdiff"),
     description="Diffusion for protein backbone generation using internal angles",
     long_description=long_description,
     classifiers=[
         "Programming Language :: Python :: 3",
         "Operating System :: OS Independent",
     ],
-    python_requires='>=3.8',
+    python_requires=">=3.8",
 )
