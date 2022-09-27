@@ -192,8 +192,12 @@ def build_parser() -> argparse.ArgumentParser:
         usage=__doc__, formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
     parser.add_argument(
-        "model",
+        "-m",
+        "--model",
         type=str,
+        default=os.path.join(
+            os.path.dirname(os.path.dirname(__file__)), "models/cath_pretrained"
+        ),
         help="Path to model directory. Should contain training_args.json, config.json, and models folder at a minimum.",
     )
     parser.add_argument(
