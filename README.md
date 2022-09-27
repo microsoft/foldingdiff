@@ -1,4 +1,4 @@
-# Protein diffusion
+# foldingdiff - Diffusion model for protein backbone generation
 
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
@@ -40,12 +40,12 @@ results/
 
 ## Pre-trained models
 
-We provide weihts for a model trained on the CATH dataset. These weights are located under the `models/cath_pretrained` directory and are stored via Git LFS. To programmatically load these weights, you can use code defined under `protdiff/modelling.py` as such:
+We provide weihts for a model trained on the CATH dataset. These weights are located under the `models/cath_pretrained` directory and are stored via Git LFS. To programmatically load these weights, you can use code defined under `foldingdiff/modelling.py` as such:
 
 ```python
-import modelling
+from foldingdiff import modelling
 
-modelling.BertForDiffusion.from_dir("models/cath_pretrained").to(torch.device("cuda:0"))
+modelling.BertForDiffusion.from_dir("models/cath_pretrained")
 ```
 
 Providing this path to premade script such as for sampling is detailed below.
@@ -66,9 +66,9 @@ To sample protein backbones, use the script `bin/sample.py`. Example commands to
 
 ```bash
 # To sample 256 backbones
-python ~/projects/protdiff/bin/sample.py ~/projects/protdiff/models/cath_pretrained --num 256 --device cuda:3
+python ~/projects/foldingdiff/bin/sample.py ~/projects/foldingdiff/models/cath_pretrained --num 256 --device cuda:3
 # To sample 10 backbones per length ranging from [50, 128) - this reproduces results in our manuscript
-python ~/projects/protdiff/bin/sample.py ~/projects/protdiff/models/cath_pretrained -l sweep --device cuda:3
+python ~/projects/foldingdiff/bin/sample.py ~/projects/foldingdiff/models/cath_pretrained -l sweep --device cuda:3
 ```
 
 This will run the model contained in the `results` folder and generate 512 sequences of varying lengths. Not specifying a device will default to the first device `cuda:0`; use `--device cpu` to run on CPU. This will create the following directory structure in the diretory where it is run:
@@ -87,10 +87,10 @@ After generating sequences, we can calculate TM-scores to evaluate the simliarit
 
 ### Visualizing diffusion "folding" process
 
-The above sampling code can also be run with the ``--fullhistory`` flag to write an additional subdirectory `sample_history` under each of the `sampled_angles` and `sampled_pdb` folders that contain pdb/csv files coresponding to each timestep in the sampling process. The pdb files, for example, can then be passed into the script under `protdiff/pymol_vis.py` to generate a gif of the folding process (as shown above). An example command to do this is:
+The above sampling code can also be run with the ``--fullhistory`` flag to write an additional subdirectory `sample_history` under each of the `sampled_angles` and `sampled_pdb` folders that contain pdb/csv files coresponding to each timestep in the sampling process. The pdb files, for example, can then be passed into the script under `foldingdiff/pymol_vis.py` to generate a gif of the folding process (as shown above). An example command to do this is:
 
 ```bash
-python ~/protdiff/protdiff/pymol_vis.py pdb2gif -i sampled_pdb/sample_history/generated_0/*.pdb -o generated_0.gif
+python ~/foldingdiff/foldingdiff/pymol_vis.py pdb2gif -i sampled_pdb/sample_history/generated_0/*.pdb -o generated_0.gif
 ```
 
 **Note** this script lives separately from other plotting code because it depends on PyMOL; feel free to install/activate your own installation of PyMOL for this.
@@ -113,7 +113,7 @@ pip install git+https://github.com/facebookresearch/esm.git
 After this, we `cd` into the folder that contains the `sampled_pdb` directory created by the prior step, and run:
 
 ```bash
-python ~/protdiff/bin/pdb_to_residues_esm.py sampled_pdb -o esm_residues
+python ~/foldingdiff/bin/pdb_to_residues_esm.py sampled_pdb -o esm_residues
 ```
 
 This creates a new folder, `esm_residues` that contains 10 potential residues for each of the pdb files contained in `sampled_pdb`.
@@ -124,9 +124,9 @@ We use [OmegaFold](https://github.com/HeliXonProtein/OmegaFold) to fold the amin
 
 ```bash
 # Fold each fasta, spreading the work over GPUs 0 and 1, outputs to omegafold_predictions folder
-python ~/projects/protdiff/bin/omegafold_across_gpus.py esm_residues/*.fasta -g 0 1
+python ~/projects/foldingdiff/bin/omegafold_across_gpus.py esm_residues/*.fasta -g 0 1
 # Calculate the scTM scores; parallelizes across all CPUs
-python ~/projects/protdiff/bin/omegafold_self_tm.py  # Requires no arguments
+python ~/projects/foldingdiff/bin/omegafold_self_tm.py  # Requires no arguments
 ```
 
 After executing these commands, the final command produces a json file of all scmtm scores, as well as various pdf files containing plots and correlations of the scTM score distribution.
