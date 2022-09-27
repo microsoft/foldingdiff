@@ -15,6 +15,8 @@ transformers library. The required conda environment is defined within the `envi
 
 ```bash
 conda env create -f environment.yml
+conda activate foldingdiff
+pip install -e ./  # make sure ./ is the dir including setup.py
 ```
 
 ## Training models
@@ -23,7 +25,7 @@ To train a model on the CATH dataset, use the script at `bin/train.py` in combin
 json config files under `config_jsons` (or write your own). An example usage of this is as follows:
 
 ```bash
-python bin/train.py config_jsons/full_run_canonical_angles_only_zero_centered_1000_timesteps_reduced_len.json
+python bin/train.py config_jsons/cath_full_angles_cosine.json
 ```
 
 The output of the model will be in the `results` folder with the following major files present:
