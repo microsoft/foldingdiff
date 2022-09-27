@@ -102,6 +102,7 @@ def main():
         vmax=1.0,
         xticklabels=False,
         yticklabels=False,
+        cbar_kws={"label": r"$d(x, y) = 1 - \mathrm{TMscore}(x, y)$"},
     )
     c.savefig(os.path.join(args.dirname, "tmscore_hclust.pdf"))
 
