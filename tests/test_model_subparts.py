@@ -2,17 +2,11 @@
 tests for model subparts
 """
 
-import os, sys
 import unittest
 
-import numpy as np
 import torch
 
-SRC_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "protdiff")
-assert os.path.isdir(SRC_DIR)
-sys.path.append(SRC_DIR)
-
-import modelling
+from foldingdiff import modelling
 
 
 class TestPositionalEmbedding(unittest.TestCase):
@@ -44,7 +38,8 @@ class TestPositionalEmbedding(unittest.TestCase):
         for i in range(1, self.bs):
             # Check that across the batch, every example gets the same embedding
             self.assertTrue(
-                torch.all(torch.isclose(pe[i], pe[0])), msg=f"{pe[i]} != {pe[0]}",
+                torch.all(torch.isclose(pe[i], pe[0])),
+                msg=f"{pe[i]} != {pe[0]}",
             )
             # Check that across the sequences, each position gets the same embedding
             for j in range(self.seq_len):

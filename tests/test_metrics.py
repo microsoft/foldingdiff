@@ -1,13 +1,8 @@
-import os, sys
 import unittest
 
 import numpy as np
 
-SRC_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "protdiff")
-assert os.path.isdir(SRC_DIR)
-sys.path.append(SRC_DIR)
-
-import custom_metrics as cm
+from foldingdiff import custom_metrics as cm
 
 
 class TestKLFromEmpirical(unittest.TestCase):

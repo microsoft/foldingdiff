@@ -2,16 +2,10 @@
 Test the TMalign wrapper
 """
 
-import os, sys
+import os
 import unittest
 
-import numpy as np
-
-SRC_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "protdiff")
-assert os.path.isdir(SRC_DIR)
-sys.path.append(SRC_DIR)
-
-import tmalign
+from foldingdiff import tmalign
 
 
 class TestTMalign(unittest.TestCase):

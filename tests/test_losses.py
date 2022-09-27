@@ -1,15 +1,9 @@
-import os, sys
 import unittest
 
 import numpy as np
 import torch
-from transformers import BertConfig
 
-SRC_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "protdiff")
-assert os.path.isdir(SRC_DIR)
-sys.path.append(SRC_DIR)
-
-import losses
+from foldingdiff import losses
 
 
 class TestRadianSmoothL1Loss(unittest.TestCase):
@@ -71,7 +65,8 @@ class TestRadianSmoothL1Loss(unittest.TestCase):
         """
         for i in range(-10, 10):
             l = losses.radian_smooth_l1_loss(
-                torch.tensor(0), torch.tensor(i * 2 * np.pi),
+                torch.tensor(0),
+                torch.tensor(i * 2 * np.pi),
             )
             self.assertAlmostEqual(0, l.item(), places=5)
 

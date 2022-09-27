@@ -3,16 +3,12 @@ Unit tests to test data loaders. These primarily check that the data loaders ret
 with expected shapes and ranges.
 """
 
-import os, sys
 import unittest
 
 import numpy as np
 import torch
 
-SRC_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "protdiff")
-assert os.path.isdir(SRC_DIR)
-sys.path.append(SRC_DIR)
-import datasets
+from foldingdiff import datasets
 
 
 class TestCathCanonical(unittest.TestCase):

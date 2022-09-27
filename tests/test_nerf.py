@@ -2,20 +2,16 @@
 Unit tests for NERF conversion of internal coordinates to cartesian coordinates
 """
 
-import os, sys
+import os
 import tempfile
 import unittest
 
 import numpy as np
 from biotite.structure import dihedral
 
-SRC_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "protdiff")
-assert os.path.isdir(SRC_DIR)
-sys.path.append(SRC_DIR)
-
-import nerf
-import angles_and_coords as ac
-import tmalign
+from foldingdiff import nerf
+from foldingdiff import angles_and_coords as ac
+from foldingdiff import tmalign
 
 
 class TestDihedralPlacement(unittest.TestCase):

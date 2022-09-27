@@ -1,4 +1,4 @@
-import os, sys
+import os
 import unittest
 import tempfile
 
@@ -6,11 +6,7 @@ import numpy as np
 import torch
 from transformers import BertConfig
 
-SRC_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "protdiff")
-assert os.path.isdir(SRC_DIR)
-sys.path.append(SRC_DIR)
-
-import modelling
+from foldingdiff import modelling
 
 ATOL, RTOL = 1e-6, 1e-3
 
