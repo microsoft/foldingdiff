@@ -29,10 +29,6 @@ from pytorch_lightning.strategies.ddp import DDPStrategy
 
 from transformers import BertConfig
 
-# SRC_DIR = (Path(os.path.dirname(os.path.abspath(__file__))) / "../protdiff").resolve()
-# assert SRC_DIR.is_dir()
-# sys.path.append(str(SRC_DIR))
-
 from foldingdiff import datasets
 from foldingdiff import modelling
 from foldingdiff import losses

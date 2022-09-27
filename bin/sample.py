@@ -19,9 +19,6 @@ import torch
 from train import get_train_valid_test_sets
 from annot_secondary_structures import make_ss_cooccurrence_plot
 
-# SRC_DIR = (Path(os.path.dirname(os.path.abspath(__file__))) / "../protdiff").resolve()
-# assert SRC_DIR.is_dir()
-# sys.path.append(str(SRC_DIR))
 from foldingdiff import modelling
 from foldingdiff import beta_schedules
 from foldingdiff import sampling
