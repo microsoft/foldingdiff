@@ -31,9 +31,6 @@ SSE_BACKEND = Literal["dssp", "psea"]
 
 from train import get_train_valid_test_sets
 
-# SRC_DIR = (Path(os.path.dirname(os.path.abspath(__file__))) / "../protdiff").resolve()
-# assert SRC_DIR.is_dir()
-# sys.path.append(str(SRC_DIR))
 from foldingdiff.angles_and_coords import get_pdb_length
 
 

@@ -23,11 +23,8 @@ from biotite.structure.io.pdb import PDBFile
 
 from annot_secondary_structures import count_structures_in_pdb
 
-SRC_DIR = (Path(os.path.dirname(os.path.abspath(__file__))) / "../protdiff").resolve()
-assert SRC_DIR.is_dir()
-sys.path.append(str(SRC_DIR))
-import tmalign
-from angles_and_coords import get_pdb_length
+from foldingdiff import tmalign
+from foldingdiff.angles_and_coords import get_pdb_length
 
 
 def get_sctm_score(orig_pdb: Path, folded_dirname: Path) -> Tuple[float, str]:

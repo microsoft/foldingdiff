@@ -28,10 +28,7 @@ from sample import (
     plot_ramachandran,
 )
 
-SRC_DIR = (Path(os.path.dirname(os.path.abspath(__file__))) / "../protdiff").resolve()
-assert SRC_DIR.is_dir()
-sys.path.append(str(SRC_DIR))
-import custom_metrics as cm
+from foldingdiff import custom_metrics as cm
 
 
 def int_getter(x: str) -> int:

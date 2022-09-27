@@ -18,10 +18,7 @@ import pandas as pd
 import scipy.spatial as sp, scipy.cluster.hierarchy as hc
 import seaborn as sns
 
-SRC_DIR = (Path(os.path.dirname(os.path.abspath(__file__))) / "../protdiff").resolve()
-assert SRC_DIR.is_dir()
-sys.path.append(str(SRC_DIR))
-import tmalign
+from foldingdiff import tmalign
 
 
 def int_getter(x: str) -> int:

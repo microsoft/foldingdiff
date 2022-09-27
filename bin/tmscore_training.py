@@ -15,11 +15,8 @@ import multiprocessing as mp
 
 from tqdm.auto import tqdm
 
-SRC_DIR = (Path(os.path.dirname(os.path.abspath(__file__))) / "../protdiff").resolve()
-assert SRC_DIR.is_dir()
-sys.path.append(str(SRC_DIR))
-from datasets import CathCanonicalAnglesDataset
-import tmalign
+from foldingdiff.datasets import CathCanonicalAnglesDataset
+from foldingdiff import tmalign
 
 
 def compute_training_tm_scores(
