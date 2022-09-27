@@ -35,8 +35,8 @@ from angles_and_coords import (
     EXHAUSTIVE_DISTS,
     extract_backbone_coords,
 )
-from custom_metrics import wrapped_mean
-import utils
+from . import custom_metrics as cm
+from . import utils
 
 TRIM_STRATEGIES = Literal["leftalign", "randomcrop", "discard"]
 
@@ -203,7 +203,7 @@ class CathCanonicalAnglesDataset(Dataset):
             # Note that these angles are not yet padded
             structures_concat = np.concatenate([s["angles"] for s in self.structures])
             assert structures_concat.ndim == 2
-            self.means = wrapped_mean(structures_concat, axis=0)
+            self.means = cm.wrapped_mean(structures_concat, axis=0)
             assert self.means.shape == (structures_concat.shape[1],)
             # Subtract the mean and perform modulo where values are radial
             logging.info(

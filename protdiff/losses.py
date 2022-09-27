@@ -7,7 +7,7 @@ import numpy as np
 import torch
 from torch import nn
 
-import utils
+from . import utils
 
 
 def radian_l1_loss(input: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
@@ -48,7 +48,7 @@ def radian_smooth_l1_loss(
     d = utils.modulo_with_wrapped_range(d, -torch.pi, torch.pi)
 
     abs_d = torch.abs(d)
-    retval = torch.where(abs_d < beta, 0.5 * (d ** 2) / beta, abs_d - 0.5 * beta)
+    retval = torch.where(abs_d < beta, 0.5 * (d**2) / beta, abs_d - 0.5 * beta)
     assert torch.all(retval >= 0), f"Got negative loss terms: {torch.min(retval)}"
     retval = torch.mean(retval)
 

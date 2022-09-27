@@ -13,8 +13,6 @@ from scipy import stats
 import torch
 from torch.utils.data import Dataset
 
-import utils
-
 
 def kl_from_empirical(
     u: np.ndarray, v: np.ndarray, nbins: int = 100, pseudocount: bool = False

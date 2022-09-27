@@ -28,7 +28,7 @@ from transformers.models.bert.modeling_bert import (
 from transformers.activations import get_activation
 from transformers.optimization import get_linear_schedule_with_warmup
 
-import losses
+from . import losses
 
 LR_SCHEDULE = Optional[Literal["OneCycleLR", "LinearWarmup"]]
 TIME_ENCODING = Literal["gaussian_fourier", "sinusoidal"]

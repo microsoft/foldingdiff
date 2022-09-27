@@ -13,7 +13,7 @@ from torch import nn
 
 import beta_schedules
 import utils
-from datasets import NoisedAnglesDataset
+from . import datasets as dsets
 
 
 @torch.no_grad()
@@ -122,7 +122,7 @@ def p_sample_loop(
 
 def sample(
     model: nn.Module,
-    train_dset: NoisedAnglesDataset,
+    train_dset: dsets.NoisedAnglesDataset,
     n: int,
     sweep_lengths: Optional[Tuple[int, int]] = None,
     batch_size: int = 512,
