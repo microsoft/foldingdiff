@@ -103,7 +103,7 @@ After generating sequences, we can calculate TM-scores to evaluate the simliarit
 The above sampling code can also be run with the ``--fullhistory`` flag to write an additional subdirectory `sample_history` under each of the `sampled_angles` and `sampled_pdb` folders that contain pdb/csv files coresponding to each timestep in the sampling process. The pdb files, for example, can then be passed into the script under `foldingdiff/pymol_vis.py` to generate a gif of the folding process (as shown above). An example command to do this is:
 
 ```bash
-python ~/foldingdiff/foldingdiff/pymol_vis.py pdb2gif -i sampled_pdb/sample_history/generated_0/*.pdb -o generated_0.gif
+python ~/projects/foldingdiff/foldingdiff/pymol_vis.py pdb2gif -i sampled_pdb/sample_history/generated_0/*.pdb -o generated_0.gif
 ```
 
 **Note** this script lives separately from other plotting code because it depends on PyMOL; feel free to install/activate your own installation of PyMOL for this.
@@ -126,7 +126,7 @@ pip install git+https://github.com/facebookresearch/esm.git
 After this, we `cd` into the folder that contains the `sampled_pdb` directory created by the prior step, and run:
 
 ```bash
-python ~/foldingdiff/bin/pdb_to_residues_esm.py sampled_pdb -o esm_residues
+python ~/projects/foldingdiff/bin/pdb_to_residues_esm.py sampled_pdb -o esm_residues
 ```
 
 This creates a new folder, `esm_residues` that contains 10 potential residues for each of the pdb files contained in `sampled_pdb`.
