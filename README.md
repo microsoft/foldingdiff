@@ -36,10 +36,10 @@ To train a model on the CATH dataset, use the script at `bin/train.py` in combin
 json config files under `config_jsons` (or write your own). An example usage of this is as follows:
 
 ```bash
-python bin/train.py config_jsons/cath_full_angles_cosine.json
+python bin/train.py config_jsons/cath_full_angles_cosine.json --dryrun
 ```
 
-The output of the model will be in the `results` folder with the following major files present:
+By default, the training script will calculate the KL divergence at each timestep before starting training, which can be quite computationally expensive with more timesteps. To skip this, append the `--dryrun` flag. The output of the model will be in the `results` folder with the following major files present:
 
 ```
 results/
