@@ -151,3 +151,9 @@ Tests are implemented through a mixture of doctests and unittests. To run unitte
 ```bash
 python -m unittest -v
 ```
+
+You may see warnings like the following; these are expected.
+
+```bash
+WARNING:root:Illegal values for omega in protdiff-main/data/cath/dompdb/5a2qw00 -- skipping
+```
