@@ -376,7 +376,6 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
             l2=train_args["l2_norm"],
             l1=train_args["l1_norm"],
             circle_reg=train_args["circle_reg"],
-            min_epochs=train_args["min_epochs"],
             lr_scheduler=train_args["lr_scheduler"],
             **kwargs,
         )
