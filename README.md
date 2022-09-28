@@ -19,6 +19,16 @@ conda activate foldingdiff
 pip install -e ./  # make sure ./ is the dir including setup.py
 ```
 
+### Downloading data
+
+We requires some data files not packaged on Git due to their large size. These are required to be downloaded locally even if you are not training and are only sampling. We provide a script in the `data` dir to download requisite data.
+
+```bash
+# Download the CATH dataset
+cd data  # Ensure that you are in the data subdirectory within the codebase
+./download_cath.sh
+```
+
 ## Training models
 
 To train a model on the CATH dataset, use the script at `bin/train.py` in combination with one of the
@@ -49,16 +59,6 @@ modelling.BertForDiffusion.from_dir("models/cath_pretrained")
 ```
 
 Providing this path to premade script such as for sampling is detailed below.
-
-## Downloading data
-
-We requires some data files not packaged on Git due to their large size. These are required to be downloaded locally even if you are not training and are only sampling. The simple command to do this is as follows:
-
-```bash
-# Download the CATH dataset
-cd data  # Ensure that you are in the data subdirectory within the codebase
-./download_cath.sh
-```
 
 ## Sampling protein backbones
 
