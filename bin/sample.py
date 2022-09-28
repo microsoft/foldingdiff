@@ -132,7 +132,7 @@ def plot_ramachandran(
             r"$\beta$ sheet",
             xy=(-1.67, 2.25),
             xycoords="data",
-            xytext=(-0.9, 3.75),
+            xytext=(-0.9, 3.33),
             textcoords="data",
             arrowprops=ram_annot_arrows,
             horizontalalignment="left",
@@ -141,6 +141,9 @@ def plot_ramachandran(
         )
     ax.set_xlabel("$\phi$", fontsize=14)
     ax.set_ylabel("$\psi$", fontsize=14)
+    ax.set(
+        xlim=(-3.67, 3.67), ylim=(-3.67, 3.67)
+    )
     if title:
         ax.set_title(title, fontsize=16)
     fig.savefig(fname, bbox_inches="tight")
