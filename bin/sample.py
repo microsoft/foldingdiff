@@ -11,7 +11,10 @@ from typing import *
 
 import numpy as np
 import pandas as pd
+import mpl_scatter_density
 from matplotlib import pyplot as plt
+from astropy.visualization import LogStretch
+from astropy.visualization.mpl_normalize import ImageNormalize
 
 import torch
 
@@ -93,14 +96,29 @@ def write_preds_pdb_folder(
 
 
 def plot_ramachandran(
-    phi_values, psi_values, fname: str, annot_ss: bool = False, title: str = ""
+    phi_values,
+    psi_values,
+    fname: str,
+    annot_ss: bool = False,
+    title: str = "",
+    plot_type: Literal["kde", "density_heatmap"] = "density_heatmap",
 ):
     """Create Ramachandran plot for phi_psi"""
-    fig = plotting.plot_joint_kde(
-        phi_values,
-        psi_values,
-    )
-    ax = fig.axes[0]
+    if plot_type == "kde":
+        fig = plotting.plot_joint_kde(
+            phi_values,
+            psi_values,
+        )
+        ax = fig.axes[0]
+        ax.set_xlim(-3.67, 3.67)
+        ax.set_ylim(-3.67, 3.67)
+    elif plot_type == "density_heatmap":
+        fig = plt.figure(dpi=800)
+        ax = fig.add_subplot(1, 1, 1, projection="scatter_density")
+        norm = ImageNormalize(vmin=0.0, vmax=650, stretch=LogStretch())
+        ax.scatter_density(phi_values, psi_values, norm=norm, cmap=plt.cm.Blues)
+    else:
+        raise NotImplementedError(f"Cannot plot type: {plot_type}")
     if annot_ss:
         # https://matplotlib.org/stable/tutorials/text/annotations.html
         ram_annot_arrows = dict(
@@ -110,7 +128,7 @@ def plot_ramachandran(
             r"$\alpha$ helix, LH",
             xy=(1.2, 0.5),
             xycoords="data",
-            xytext=(2.0, 1.2),
+            xytext=(1.7, 1.2),
             textcoords="data",
             arrowprops=ram_annot_arrows,
             horizontalalignment="left",
@@ -121,7 +139,7 @@ def plot_ramachandran(
             r"$\alpha$ helix, RH",
             xy=(-1.1, -0.6),
             xycoords="data",
-            xytext=(-1.9, -1.9),
+            xytext=(-1.7, -1.9),
             textcoords="data",
             arrowprops=ram_annot_arrows,
             horizontalalignment="right",
@@ -132,18 +150,15 @@ def plot_ramachandran(
             r"$\beta$ sheet",
             xy=(-1.67, 2.25),
             xycoords="data",
-            xytext=(-0.9, 3.33),
+            xytext=(-0.9, 2.9),
             textcoords="data",
             arrowprops=ram_annot_arrows,
             horizontalalignment="left",
             verticalalignment="center",
             fontsize=14,
         )
-    ax.set_xlabel("$\phi$", fontsize=14)
-    ax.set_ylabel("$\psi$", fontsize=14)
-    ax.set(
-        xlim=(-3.67, 3.67), ylim=(-3.67, 3.67)
-    )
+    ax.set_xlabel("$\phi$ (radians)", fontsize=14)
+    ax.set_ylabel("$\psi$ (radians)", fontsize=14)
     if title:
         ax.set_title(title, fontsize=16)
     fig.savefig(fname, bbox_inches="tight")
