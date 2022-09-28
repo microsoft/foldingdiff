@@ -29,7 +29,7 @@ from sample import (
 )
 
 from foldingdiff import custom_metrics as cm
-
+from foldingdiff.angles_and_coords import get_pdb_length
 
 def int_getter(x: str) -> int:
     """Fetches integer value out of a string"""
@@ -51,16 +51,21 @@ def main(dir_name: Path):
     phi_idx = test_dset.feature_names["angles"].index("phi")
     psi_idx = test_dset.feature_names["angles"].index("psi")
 
+    # Filter by test set sequence length
+    test_dset_seq_lens = np.array([get_pdb_length(f) for f in test_dset.filenames])
+    short_enough_idx = np.where(test_dset_seq_lens <= test_dset.pad)[0]
+    logging.info(f"{len(short_enough_idx)}/{len(test_dset)} test set seqeunces < {test_dset.pad} residues")
+
     # Ramachandran for test set
     select_by_attn = lambda x: x["angles"][x["attn_mask"] != 0]
     test_values = [
         select_by_attn(test_dset.dset.__getitem__(i, ignore_zero_center=True))
-        for i in range(len(test_dset))
+        for i in short_enough_idx
     ]
     test_values_stacked = torch.cat(test_values, dim=0).cpu().numpy()
     plot_ramachandran(
-        test_values_stacked[:5000, phi_idx],
-        test_values_stacked[:5000, psi_idx],
+        test_values_stacked[:, phi_idx],
+        test_values_stacked[:, psi_idx],
         annot_ss=True,
         fname=plotdir / "ramachandran_test_annot.pdf",
     )
@@ -79,8 +84,8 @@ def main(dir_name: Path):
 
     sampled_stacked = np.vstack([df.values for df in sampled_dfs])
     plot_ramachandran(
-        sampled_stacked[:5000, phi_idx],
-        sampled_stacked[:5000, psi_idx],
+        sampled_stacked[:, phi_idx],
+        sampled_stacked[:, psi_idx],
         fname=plotdir / "ramachandran_generated.pdf",
     )
 

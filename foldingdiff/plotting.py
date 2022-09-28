@@ -6,12 +6,10 @@ import re
 from pathlib import Path
 from typing import Optional, Sequence, Union
 
-from tqdm.auto import tqdm
-
 import numpy as np
 import pandas as pd
-import mpl_scatter_density
 import matplotlib.pyplot as plt
+from matplotlib.colors import LogNorm
 import seaborn as sns
 
 from astropy.visualization import LogStretch
@@ -35,7 +33,7 @@ def plot_joint_kde(
     https://proteopedia.org/wiki/index.php/Ramachandran_Plots
     """
     fig, ax = plt.subplots(dpi=300)
-    sns.kdeplot(x=x_values, y=y_values, levels=25, fill=True, ax=ax)
+    sns.kdeplot(x=x_values, y=y_values, levels=100, fill=True, norm=LogNorm(), ax=ax)
     if show_axes:
         ax.axvline(0, color="grey", alpha=0.5)
         ax.axhline(0, color="grey", alpha=0.5)
