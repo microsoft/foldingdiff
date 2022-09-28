@@ -25,7 +25,7 @@ class TestCathCanonical(unittest.TestCase):
     def test_return_keys(self):
         """Test that returned dictionary has expected keys"""
         d = self.dset[0]
-        self.assertEqual(set(d.keys()), set(["angles", "position_ids", "attn_mask"]))
+        self.assertEqual(set(d.keys()), set(["angles", "coords", "position_ids", "attn_mask"]))
 
     def test_num_feature(self):
         """Test that we have the expected number of features"""
