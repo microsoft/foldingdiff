@@ -133,7 +133,9 @@ def make_ss_cooccurrence_plot(
     alpha_counts, beta_counts = zip(*alpha_beta_counts)
 
     fig, ax = plt.subplots(dpi=300)
-    h = ax.hist2d(alpha_counts, beta_counts, bins=np.arange(10), density=True)
+    h = ax.hist2d(
+        alpha_counts, beta_counts, bins=np.arange(10), density=True, vmin=0.0, vmax=0.09
+    )
     ax.set_xlabel(r"Number of $\alpha$ helices", fontsize=12)
     ax.set_ylabel(r"Number of $\beta$ sheets", fontsize=12)
     if title:
