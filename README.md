@@ -79,12 +79,12 @@ To sample protein backbones, use the script `bin/sample.py`. Example commands to
 
 ```bash
 # To sample 256 backbones
-python ~/projects/foldingdiff/bin/sample.py ~/projects/foldingdiff/models/cath_pretrained --num 256 --device cuda:3
+python ~/projects/foldingdiff/bin/sample.py --num 256 --device cuda:3
 # To sample 10 backbones per length ranging from [50, 128) - this reproduces results in our manuscript
-python ~/projects/foldingdiff/bin/sample.py ~/projects/foldingdiff/models/cath_pretrained -l sweep --device cuda:3
+python ~/projects/foldingdiff/bin/sample.py -l sweep --device cuda:3
 ```
 
-This will run the model contained in the `results` folder and generate 512 sequences of varying lengths. Not specifying a device will default to the first device `cuda:0`; use `--device cpu` to run on CPU. This will create the following directory structure in the diretory where it is run:
+This will run the trained model contained in the `models/cath_pretrained` folder and generate sequences of varying lengths. Not specifying a device will default to the first device `cuda:0`; use `--device cpu` to run on CPU (though this will be very slow). Running `sample.py` will create the following directory structure in the diretory where it is run:
 
 ```
 some_dir/
