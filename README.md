@@ -21,7 +21,7 @@ pip install -e ./  # make sure ./ is the dir including setup.py
 
 ### Downloading data
 
-We requires some data files not packaged on Git due to their large size. These are required to be downloaded locally even if you are not training and are only sampling. We provide a script in the `data` dir to download requisite data.
+We require some data files not packaged on Git due to their large size. These are required to be downloaded locally even if you are not training and are only sampling. We provide a script in the `data` dir to download requisite data.
 
 ```bash
 # Download the CATH dataset
@@ -51,7 +51,7 @@ results/
 
 ## Pre-trained models
 
-We provide weihts for a model trained on the CATH dataset. These weights are located under the `models/cath_pretrained` directory and are stored via Git LFS. The following code snippet shows how to load this model, load data, and perform a forward pass:
+We provide weights for a model trained on the CATH dataset. These weights are located under the `models/cath_pretrained` directory and are stored via Git LFS. The following code snippet shows how to load this model, load data, and perform a forward pass:
 
 ```python
 from torch.utils.data.dataloader import DataLoader
@@ -71,11 +71,11 @@ x = iter(dl).next()
 predicted_noise = m(x['corrupted'], x['t'], x['attn_mask'])
 ```
 
-Providing this path to premade script such as for sampling is detailed below.
+Providing this path to a premade script, such as the one for sampling, is detailed below.
 
 ## Sampling protein backbones
 
-To sample protein backbones, use the script `bin/sample.py`. Example commands to do this using the pretrained weights described above is as follows.
+To sample protein backbones, use the script `bin/sample.py`. Example commands to do this using the pretrained weights described above are as follows.
 
 ```bash
 # To sample 256 backbones
@@ -110,7 +110,7 @@ python ~/projects/foldingdiff/foldingdiff/pymol_vis.py pdb2gif -i sampled_pdb/sa
 
 ## Evaluating designability of generated backbones
 
-One way to evaluate the quality of generated backbones is via their "designability". This refers to whether or not we can design an amino acid chain that will fold into the designed backbone. To evaluate this, we use the ESM inverse folding model to generate residues that are predicted to fold into our generated backbone, and use OmegaFold to check whether that generated sequence actually does fold into a structure comparable to our backbone. (While prior backbone design works have used AlphaFold2 for their designability evaluations, this was previously done without providing AlphaFold with MSA information; OmegaFold is designed from the ground up to use sequence only, and is therefore better suited for this use case.)
+One way to evaluate the quality of generated backbones is via their "designability". This refers to whether or not we can design an amino acid chain that will fold into the designed backbone. To evaluate this, we use the [ESM inverse folding model](https://github.com/facebookresearch/esm) to generate residues that are predicted to fold into our generated backbone, and use [OmegaFold](https://github.com/HeliXonProtein/OmegaFold) to check whether that generated sequence actually does fold into a structure comparable to our backbone. (While prior backbone design works have used AlphaFold for their designability evaluations, this was previously done without providing AlphaFold with MSA information; OmegaFold is designed from the ground up to use sequence only, and is therefore better suited for this use case.)
 
 ### Inverse folding with ESM
 
@@ -142,7 +142,7 @@ python ~/projects/foldingdiff/bin/omegafold_across_gpus.py esm_residues/*.fasta 
 python ~/projects/foldingdiff/bin/omegafold_self_tm.py  # Requires no arguments
 ```
 
-After executing these commands, the final command produces a json file of all scmtm scores, as well as various pdf files containing plots and correlations of the scTM score distribution.
+After executing these commands, the final command produces a json file of all scTM scores, as well as various pdf files containing plots and correlations of the scTM score distribution.
 
 ## Tests
 
