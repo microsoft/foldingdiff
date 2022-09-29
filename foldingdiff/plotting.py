@@ -19,7 +19,8 @@ import torch
 from torch.utils.data import Dataset
 
 PLOT_DIR = Path(os.path.join(os.path.dirname(os.path.dirname(__file__)), "plots"))
-assert PLOT_DIR.is_dir()
+if not PLOT_DIR.is_dir():
+    os.makedirs(PLOT_DIR)
 
 
 def plot_joint_kde(
