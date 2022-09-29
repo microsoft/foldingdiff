@@ -62,6 +62,11 @@ from foldingdiff import datasets as dsets
 m = modelling.BertForDiffusion.from_dir("models/cath_pretrained")
 
 # Load dataset
+# As part of loading, we try to compute internal angles in parallel. This may
+# throw warnings like the following; this is normal.
+# WARNING:root:Illegal values for omega in /home/wukevin/projects/foldingdiff-main/data/cath/dompdb/2ebqA00 -- skipping
+# After computing these once, the results are saved in a .pkl file under the
+# foldingdiff source directory for faster loading in future calls.
 clean_dset = dsets.CathCanonicalAnglesOnlyDataset(pad=128, trim_strategy='randomcrop')
 noised_dset = dsets.NoisedAnglesDataset(clean_dset, timesteps=1000, beta_schedule='cosine')
 dl = DataLoader(noised_dset, batch_size=32, shuffle=False)
