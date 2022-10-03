@@ -68,7 +68,7 @@ class CathCanonicalAnglesDataset(Dataset):
     }
     cache_fname = os.path.join(
         os.path.dirname(os.path.abspath(__file__)),
-        f"cache_canonical_structures_{utils.md5_all_py_files(os.path.dirname(os.path.abspath(__file__)))}.pkl",
+        "cache_canonical_structures.pkl",
     )
 
     def __init__(
@@ -91,15 +91,15 @@ class CathCanonicalAnglesDataset(Dataset):
         fnames = glob.glob(os.path.join(CATH_DIR, "dompdb", "*"))
         assert fnames, f"No files found in {CATH_DIR}/dompdb"
 
-        # Compute all the angles
-        pfunc = functools.partial(
-            canonical_distances_and_dihedrals,
-            distances=EXHAUSTIVE_DISTS,
-            angles=EXHAUSTIVE_ANGLES,
-        )
-        coords_pfunc = functools.partial(extract_backbone_coords, atoms=["CA"])
-
         # self.structures should be a list of dicts with keys (angles, coords, fname)
+        # Define as None by default; allow for easy checking later
+        self.structures = None
+        codebase_hash = utils.md5_all_py_files(
+            os.path.dirname(os.path.abspath(__file__))
+        )
+        codebase_matches_hash = (
+            False  # Default to false; assuming no cache, also doesn't match
+        )
         # Always compute for toy; do not save
         if toy:
             if isinstance(toy, bool):
@@ -107,52 +107,26 @@ class CathCanonicalAnglesDataset(Dataset):
             fnames = fnames[:toy]
 
             logging.info(f"Loading toy dataset of {toy} structures")
-            struct_arrays = [pfunc(f) for f in fnames]
-            coord_arrays = [coords_pfunc for f in fnames]
-            self.structures = []
-            for fname, s, c in zip(fnames, struct_arrays, coord_arrays):
-                if s is None:
-                    continue
-                self.structures.append(
-                    {
-                        "angles": s,
-                        "coords": c,
-                        "fname": fname,
-                    }
-                )
-        elif not use_cache or not os.path.exists(self.cache_fname):
-            # No cache yet or not using cache
-            logging.info(
-                f"Computing full dataset of {len(fnames)} with {multiprocessing.cpu_count()} threads"
-            )
-            # Generate dihedral angles
-            pool = multiprocessing.Pool(processes=multiprocessing.cpu_count())
-            struct_arrays = list(pool.map(pfunc, fnames, chunksize=250))
-            coord_arrays = list(pool.map(coords_pfunc, fnames, chunksize=250))
-            pool.close()
-            pool.join()
-
-            # Contains only non-null structures
-            self.structures = []
-            for fname, s, c in zip(fnames, struct_arrays, coord_arrays):
-                if s is None:
-                    continue
-                self.structures.append(
-                    {
-                        "angles": s,
-                        "coords": c,
-                        "fname": fname,
-                    }
-                )
-            # Write the output to a file for faster loading next time
-            if use_cache:
-                logging.info(f"Saving full dataset to cache at {self.cache_fname}")
-                with open(self.cache_fname, "wb") as sink:
-                    pickle.dump(self.structures, sink)
-        else:
+            self.structures = self.__compute_featurization(fnames)
+        elif use_cache and os.path.exists(self.cache_fname):
             logging.info(f"Loading cached full dataset from {self.cache_fname}")
             with open(self.cache_fname, "rb") as source:
-                self.structures = pickle.load(source)
+                loaded_hash, loaded_structures = pickle.load(source)
+                codebase_matches_hash = loaded_hash == codebase_hash
+                if not codebase_matches_hash:
+                    logging.warning(
+                        "Mismatched hashes between codebase and cached values; updating cached values"
+                    )
+                else:
+                    self.structures = loaded_structures
+                    logging.info("Hash matches between codebase and cached values!")
+        # We have not yet populated self.structures
+        if self.structures is None:
+            self.structures = self.__compute_featurization(fnames)
+            if use_cache and not codebase_matches_hash:
+                logging.info(f"Saving full dataset to cache at {self.cache_fname}")
+                with open(self.cache_fname, "wb") as sink:
+                    pickle.dump((codebase_hash, self.structures), sink)
 
         # If specified, remove sequences shorter than min_length
         if self.min_length:
@@ -223,6 +197,41 @@ class CathCanonicalAnglesDataset(Dataset):
         #     logging.info(f"Feature {ft} is angular: {is_angular}")
         #     m, v = self.get_feature_mean_var(ft)
         #     logging.info(f"Feature {ft} mean, var: {m}, {v}")
+
+    def __compute_featurization(
+        self, fnames: Sequence[str]
+    ) -> List[Dict[str, np.ndarray]]:
+        """Get the featurization of the given fnames"""
+        pfunc = functools.partial(
+            canonical_distances_and_dihedrals,
+            distances=EXHAUSTIVE_DISTS,
+            angles=EXHAUSTIVE_ANGLES,
+        )
+        coords_pfunc = functools.partial(extract_backbone_coords, atoms=["CA"])
+
+        logging.info(
+            f"Computing full dataset of {len(fnames)} with {multiprocessing.cpu_count()} threads"
+        )
+        # Generate dihedral angles
+        pool = multiprocessing.Pool(processes=multiprocessing.cpu_count())
+        struct_arrays = list(pool.map(pfunc, fnames, chunksize=250))
+        coord_arrays = list(pool.map(coords_pfunc, fnames, chunksize=250))
+        pool.close()
+        pool.join()
+
+        # Contains only non-null structures
+        structures = []
+        for fname, s, c in zip(fnames, struct_arrays, coord_arrays):
+            if s is None:
+                continue
+            structures.append(
+                {
+                    "angles": s,
+                    "coords": c,
+                    "fname": fname,
+                }
+            )
+        return structures
 
     def sample_length(self, n: int = 1) -> Union[int, List[int]]:
         """
