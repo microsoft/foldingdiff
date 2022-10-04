@@ -28,7 +28,7 @@ from transformers.models.bert.modeling_bert import (
 from transformers.activations import get_activation
 from transformers.optimization import get_linear_schedule_with_warmup
 
-from . import losses
+from foldingdiff import losses
 
 LR_SCHEDULE = Optional[Literal["OneCycleLR", "LinearWarmup"]]
 TIME_ENCODING = Literal["gaussian_fourier", "sinusoidal"]
@@ -704,16 +704,15 @@ def main():
 
     clean_dset = datasets.CathCanonicalAnglesDataset(toy=True)
     noised_dset = datasets.NoisedAnglesDataset(clean_dset, "angles")
-    for k, v in noised_dset[0].items():
-        print(k, v.shape)
     x = default_collate([noised_dset[i] for i in range(8)])
+    for k, v in x.items():
+        print(k, v.shape)
 
     # # Create model
     # device = torch.device("cuda")
     cfg = BertConfig()
-    model = BertForDiffusion(cfg)
-    # print(model)
-    y = model.forward(x["corrupted"], x["t"].squeeze())
+    model = BertForDiffusion(cfg, ft_is_angular=clean_dset.feature_is_angular["angles"])
+    y = model.forward(x["corrupted"], x["t"].squeeze(), x["attn_mask"])
     print(y.shape)
 
 
