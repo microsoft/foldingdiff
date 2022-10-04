@@ -2,7 +2,7 @@
 
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-We present a diffusion model for generating novel protein backbone structures.
+We present a diffusion model for generating novel protein backbone structures. For more details, see our preprint on [arXiv](https://arxiv.org/abs/2209.15611).
 
 ![Animation of diffusion model protein folds over timesteps](plots/generated_0.gif)
 
@@ -80,7 +80,7 @@ Providing this path to a premade script, such as the one for sampling, is detail
 
 ## Sampling protein backbones
 
-To sample protein backbones, use the script `bin/sample.py`. Example commands to do this using the pretrained weights described above are as follows.
+To sample protein backbones, use the script `bin/sample.py`. Example commands to do this using the pretrained weights described above are as follows. Sampling takes about ~5-7 minutes for 512 structures using an Nvidia 2080Ti GPU.
 
 ```bash
 # To sample 256 backbones
