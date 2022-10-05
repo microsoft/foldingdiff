@@ -292,9 +292,8 @@ def main() -> None:
     # Download the model if it was given on modelhub
     if not os.path.exists(args.model) and args.model.count("/") == 1:
         logging.info(f"Detected huggingface repo ID {args.model}")
-        dl_path = snapshot_download(
-            args.model, cache_dir=os.path.expanduser("~/.cache/foldingdiff")
-        )
+        dl_path = snapshot_download(args.model)  # Caching is automatic
+        assert os.path.isdir(dl_path)
         logging.info(f"Using downloaded model at {dl_path}")
         args.model = dl_path
 
