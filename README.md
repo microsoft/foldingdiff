@@ -80,7 +80,7 @@ Providing this path to a premade script, such as the one for sampling, is detail
 
 ## Sampling protein backbones
 
-To sample protein backbones, use the script `bin/sample.py`. Example commands to do this using the pretrained weights described above are as follows. Sampling takes ~7 minutes for 512 structures using an Nvidia 2080Ti GPU paired with an Intel i9-9960X.
+To sample protein backbones, use the script `bin/sample.py`. Example commands to do this using the pretrained weights described above are as follows.
 
 ```bash
 # To sample 256 backbones
@@ -89,7 +89,7 @@ python ~/projects/foldingdiff/bin/sample.py --num 256 --device cuda:3
 python ~/projects/foldingdiff/bin/sample.py -l sweep --device cuda:3
 ```
 
-This will run the trained model contained in the `models/cath_pretrained` folder and generate sequences of varying lengths. If you wish to load the test dataset and include test chains in the generated plots, use the option `--testcomparison`; note that this requires downloading the CATH dataset, see above. Not specifying a device will default to the first device `cuda:0`; use `--device cpu` to run on CPU (though this will be very slow). Running `sample.py` will create the following directory structure in the diretory where it is run:
+This will run the trained model contained in the `models/cath_pretrained` folder and generate sequences of varying lengths. If you wish to load the test dataset and include test chains in the generated plots, use the option `--testcomparison`; note that this requires downloading the CATH dataset, see above. Running `sample.py` will create the following directory structure in the diretory where it is run:
 
 ```
 some_dir/
@@ -98,6 +98,13 @@ some_dir/
     - sampled_pdb/      # Contains .pdb files from converting the sampled angles to cartesian coordinates
     - model_snapshot/   # Contains a copy of the model used to produce results
 ```
+
+Not specifying a `--device` will default to the first device `cuda:0`; use `--device cpu` to run on CPU (though this will be very slow). See the following table for runtimes from our machines.
+
+| Device | Runtime estimates sampling 512 structures |
+| --- | --- |
+| Nvidia RTX 2080Ti | 7 minutes |
+| i9-9960X (16 physical cores) | 2 hours |
 
 ### Maximum training similarity TM scores
 
