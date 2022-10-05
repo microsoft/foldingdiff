@@ -567,12 +567,25 @@ class AnglesEmptyDataset(Dataset):
         self,
         feature_set_key: str,
         pad: int = 128,
+        mean_offset: Optional[np.ndarray] = None,
     ):
         k = "coords" if feature_set_key == "cart-coords" else "angles"
         self.feature_is_angular = {k: FEATURE_SET_NAMES_TO_ANGULARITY[feature_set_key]}
         self.feature_names = {k: FEATURE_SET_NAMES_TO_FEATURE_NAMES[feature_set_key]}
-        logging.info(f"Angularity definitions: {self.feature_is_angular} | {self.feature_names}")
+        assert len(self.feature_names[k]) == len(self.feature_is_angular[k])
+        logging.info(
+            f"Angularity definitions: {self.feature_is_angular} | {self.feature_names}"
+        )
         self.pad = pad
+        self._mean_offset = mean_offset
+        if self._mean_offset is not None:
+            assert self._mean_offset.size == len(self.feature_names[k])
+
+    def get_masked_means(self) -> np.ndarray:
+        """Implement the behavior of the actual dataset"""
+        if self.mean_offset is None:
+            raise NotImplementedError
+        return np.copy(self._mean_offset)
 
     def __len__(self):
         raise NotImplementedError

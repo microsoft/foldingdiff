@@ -45,11 +45,13 @@ FT_NAME_MAP = {
 
 
 def build_datasets(
-    training_args: Dict[str, Any], load_actual: bool = True
+    model_dir: Path, load_actual: bool = True
 ) -> Tuple[NoisedAnglesDataset, NoisedAnglesDataset, NoisedAnglesDataset]:
     """
     Build datasets given args again
     """
+    with open(model_dir / "training_args.json") as source:
+        training_args = json.load(source)
     # Build args based on training args
     if load_actual:
         dset_args = dict(
@@ -73,9 +75,11 @@ def build_datasets(
         )
         return train_dset, valid_dset, test_dset
     else:
+        mean_file = model_dir / "training_mean_offset.npy"
         placeholder_dset = AnglesEmptyDataset(
             feature_set_key=training_args["angles_definitions"],
             pad=training_args["max_seq_len"],
+            mean_offset=None if not mean_file.exists() else np.load(mean_file),
         )
         noised_dsets = [
             NoisedAnglesDataset(
@@ -285,12 +289,9 @@ def main() -> None:
     plotdir = outdir / "plots"
     os.makedirs(plotdir, exist_ok=True)
 
-    with open(os.path.join(args.model, "training_args.json")) as source:
-        training_args = json.load(source)
-
     # Load the dataset based on training args
     train_dset, _, test_dset = build_datasets(
-        training_args, load_actual=args.testcomparison
+        Path(args.model), load_actual=args.testcomparison
     )
     phi_idx = test_dset.feature_names["angles"].index("phi")
     psi_idx = test_dset.feature_names["angles"].index("psi")
