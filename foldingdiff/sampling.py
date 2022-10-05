@@ -132,11 +132,19 @@ def sample(
     Sample from the given model. Use the train_dset to generate noise to sample
     sequence lengths. Returns a list of arrays, shape (timesteps, seq_len, fts).
     If sweep_lengths is set, we generate n items per length in the sweep range
+
+    train_dset object must support:
+    - sample_noise - provided by NoisedAnglesDataset
+    - timesteps - provided by NoisedAnglesDataset
+    - alpha_beta_terms - provided by NoisedAnglesDataset
+    - feature_is_angular - provided by *wrapped dataset* under NoisedAnglesDataset
+    - pad - provided by *wrapped dataset* under NoisedAnglesDataset
+    And optionally, sample_length()
     """
     # Process each batch
     if sweep_lengths is not None:
         sweep_min, sweep_max = sweep_lengths
-        logging.warning(
+        logging.info(
             f"Sweeping from {sweep_min}-{sweep_max} with {n} examples at each length"
         )
         lengths = []
@@ -148,7 +156,7 @@ def sample(
         lengths[i : i + batch_size] for i in range(0, len(lengths), batch_size)
     ]
 
-    logging.info(f"Sampling {len(lengths)} items in batches")
+    logging.info(f"Sampling {len(lengths)} items in batches of size {batch_size}")
     retval = []
     for this_lengths in lengths_chunkified:
         batch = len(this_lengths)
@@ -179,7 +187,7 @@ def sample(
         and train_dset.dset.get_masked_means() is not None
     ):
         logging.info(
-            f"Shifting predicted values by original offset: {train_dset.dset.means}"
+            f"Shifting predicted values by original offset: {train_dset.dset.get_masked_means()}"
         )
         retval = [s + train_dset.dset.get_masked_means() for s in retval]
         # Because shifting may have caused us to go across the circle boundary, re-wrap
