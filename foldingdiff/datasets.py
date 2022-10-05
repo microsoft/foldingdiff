@@ -485,78 +485,6 @@ class CathCanonicalMinimalAnglesDataset(CathCanonicalAnglesOnlyDataset):
     feature_is_angular = {"angles": [True, True, True, True]}
 
 
-class AlphafoldConsecutiveAnglesDataset(Dataset):
-    """
-    Represent the
-    """
-
-    def __init__(
-        self,
-        pad: int = 512,
-        shift_to_zero_twopi: bool = True,
-        force_recompute_angles: bool = False,
-        toy: bool = False,
-    ) -> None:
-        super().__init__()
-        assert ALPHAFOLD_DIR.is_dir(), f"Expected AlphaFold data dir at {ALPHAFOLD_DIR}"
-        self.pad = pad
-        self.shift_to_zero_twpi = shift_to_zero_twopi
-
-        # Glob for the untarred files
-        pdb_files = glob.glob(os.path.join(ALPHAFOLD_DIR, "*.pdb.gz"))
-        pfunc = functools.partial(
-            trrosetta_angles_from_pdb, force_compute=force_recompute_angles
-        )
-        if toy:
-            logging.info("Using toy AlphaFold dataset")
-            # Reduce number of examples and disable multithreading
-            pdb_files = pdb_files[:10]
-            self.structures = list(map(pfunc, pdb_files))
-        else:
-            logging.info(f"Computing angles for {len(pdb_files)} structures")
-            pool = multiprocessing.Pool()
-            self.structures = pool.map(pfunc, pdb_files, chunksize=100)
-            pool.close()
-            pool.join()
-
-        self.all_lengths = [s["angles"].shape[0] for s in self.structures]
-        self._length_rng = np.random.default_rng(seed=6489)
-        logging.info(
-            f"Length of angles: {np.min(self.all_lengths)}-{np.max(self.all_lengths)}, mean {np.mean(self.all_lengths)}"
-        )
-
-    def __str__(self) -> str:
-        return f"AlphafoldConsecutiveAnglesDataset with {len(self)} examples and sequence length {np.min(self.all_lengths)}-{np.max(self.all_lengths)} padded to {self.pad}"
-
-    def __len__(self) -> int:
-        return len(self.structures)
-
-    def __getitem__(self, index: int) -> Dict[str, torch.Tensor]:
-        if not 0 <= index <= len(self):
-            raise IndexError(index)
-
-        angles = self.structures[index]["angles"]
-        assert angles is not None
-        l = min(self.pad, angles.shape[0])
-        attn_mask = torch.zeros(size=(self.pad,))
-        attn_mask[:l] = 1.0
-
-        if angles.shape[0] < self.pad:
-            orig_shape = angles.shape
-            angles = np.pad(
-                angles,
-                ((0, self.pad - angles.shape[0]), (0, 0)),
-                mode="constant",
-                constant_values=0,
-            )
-            logging.debug(f"Padded {orig_shape} --> {angles.shape}")
-        elif angles.shape[0] > self.pad:
-            angles = angles[: self.pad]
-
-        position_ids = torch.arange(start=0, end=self.pad, step=1, dtype=torch.long)
-        return {"angles": angles, "attn_mask": attn_mask, "position_ids": position_ids}
-
-
 class AnglesEmptyDataset(Dataset):
     """
     "Dataset" that doesn't actually contain any data. This is so that we can run sampling without needing to load
@@ -583,7 +511,7 @@ class AnglesEmptyDataset(Dataset):
 
     def get_masked_means(self) -> np.ndarray:
         """Implement the behavior of the actual dataset"""
-        if self.mean_offset is None:
+        if self._mean_offset is None:
             raise NotImplementedError
         return np.copy(self._mean_offset)
 
