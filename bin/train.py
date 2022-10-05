@@ -15,7 +15,6 @@ import functools
 from datetime import datetime
 from typing import *
 
-import git
 import numpy as np
 from matplotlib import pyplot as plt
 
@@ -266,6 +265,7 @@ def record_args_and_metadata(func_args: Dict[str, Any], results_folder: Path):
 
     # Record current Git version
     try:
+        import git
         repo = git.Repo(
             path=os.path.dirname(os.path.abspath(__file__)),
             search_parent_directories=True,
@@ -274,7 +274,9 @@ def record_args_and_metadata(func_args: Dict[str, Any], results_folder: Path):
         with open(results_folder / "git_sha.txt", "w") as sink:
             sink.write(sha + "\n")
     except git.exc.InvalidGitRepositoryError:
-        logging.warning("Could not determine Git repo status")
+        logging.warning("Could not determine Git repo status -- not a git repo")
+    except ModuleNotFoundError:
+        logging.warning(f"Could not determine Git repo status -- GitPython is not installed")
 
 
 def train(
