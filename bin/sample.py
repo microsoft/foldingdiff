@@ -23,10 +23,9 @@ from train import get_train_valid_test_sets
 from annot_secondary_structures import make_ss_cooccurrence_plot
 
 from foldingdiff import modelling
-from foldingdiff import beta_schedules
 from foldingdiff import sampling
 from foldingdiff import plotting
-from foldingdiff.datasets import NoisedAnglesDataset
+from foldingdiff.datasets import AnglesEmptyDataset, NoisedAnglesDataset
 from foldingdiff.angles_and_coords import create_new_chain_nerf
 
 # :)
@@ -46,32 +45,53 @@ FT_NAME_MAP = {
 
 
 def build_datasets(
-    training_args: Dict[str, Any]
+    training_args: Dict[str, Any], load_actual: bool = True
 ) -> Tuple[NoisedAnglesDataset, NoisedAnglesDataset, NoisedAnglesDataset]:
     """
     Build datasets given args again
     """
     # Build args based on training args
-    dset_args = dict(
-        timesteps=training_args["timesteps"],
-        variance_schedule=training_args["variance_schedule"],
-        max_seq_len=training_args["max_seq_len"],
-        min_seq_len=training_args["min_seq_len"],
-        var_scale=training_args["variance_scale"],
-        syn_noiser=training_args["syn_noiser"],
-        exhaustive_t=training_args["exhaustive_validation_t"],
-        single_angle_debug=training_args["single_angle_debug"],
-        single_time_debug=training_args["single_timestep_debug"],
-        toy=training_args["subset"],
-        angles_definitions=training_args["angles_definitions"],
-        train_only=False,
-    )
+    if load_actual:
+        dset_args = dict(
+            timesteps=training_args["timesteps"],
+            variance_schedule=training_args["variance_schedule"],
+            max_seq_len=training_args["max_seq_len"],
+            min_seq_len=training_args["min_seq_len"],
+            var_scale=training_args["variance_scale"],
+            syn_noiser=training_args["syn_noiser"],
+            exhaustive_t=training_args["exhaustive_validation_t"],
+            single_angle_debug=training_args["single_angle_debug"],
+            single_time_debug=training_args["single_timestep_debug"],
+            toy=training_args["subset"],
+            angles_definitions=training_args["angles_definitions"],
+            train_only=False,
+        )
 
-    train_dset, valid_dset, test_dset = get_train_valid_test_sets(**dset_args)
-    logging.info(
-        f"Training dset contains features: {train_dset.feature_names} - angular {train_dset.feature_is_angular}"
-    )
-    return train_dset, valid_dset, test_dset
+        train_dset, valid_dset, test_dset = get_train_valid_test_sets(**dset_args)
+        logging.info(
+            f"Training dset contains features: {train_dset.feature_names} - angular {train_dset.feature_is_angular}"
+        )
+        return train_dset, valid_dset, test_dset
+    else:
+        placeholder_dset = AnglesEmptyDataset(
+            feature_set_key=training_args["angles_definitions"],
+            pad=training_args["max_seq_len"],
+        )
+        noised_dsets = [
+            NoisedAnglesDataset(
+                dset=placeholder_dset,
+                dset_key="coords"
+                if training_args["angles_definitions"] == "cart-coords"
+                else "angles",
+                timesteps=training_args["timesteps"],
+                exhaustive_t=False,
+                beta_schedule=training_args["variance_schedule"],
+                nonangular_variance=1.0,
+                angular_variance=training_args["variance_scale"],
+            )
+            for _ in range(3)
+        ]
+        return noised_dsets
 
 
 def write_preds_pdb_folder(
@@ -184,6 +204,8 @@ def plot_distribution_overlap(
         fig, ax = plt.subplots(dpi=300)
 
     for k, v in values_dicts.items():
+        if v is None:
+            continue
         _n, bins, _pbatches = ax.hist(
             v,
             bins=bins,
@@ -241,6 +263,9 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Store full history, not just final structure",
     )
+    parser.add_argument(
+        "--testcomparison", action="store_true", help="Run comparison against test set"
+    )
     parser.add_argument("--seed", type=int, default=SEED, help="Random seed")
     parser.add_argument("--device", type=str, default="cuda:0", help="Device to use")
     return parser
@@ -254,6 +279,7 @@ def main() -> None:
     logging.info(f"Creating {args.outdir}")
     os.makedirs(args.outdir, exist_ok=True)
     outdir = Path(args.outdir)
+    # Be extra cautious so we don't overwrite any results
     assert not os.listdir(outdir), f"Expected {outdir} to be empty!"
 
     plotdir = outdir / "plots"
@@ -263,26 +289,31 @@ def main() -> None:
         training_args = json.load(source)
 
     # Load the dataset based on training args
-    train_dset, _, test_dset = build_datasets(training_args)
+    train_dset, _, test_dset = build_datasets(
+        training_args, load_actual=args.testcomparison
+    )
+    phi_idx = test_dset.feature_names["angles"].index("phi")
+    psi_idx = test_dset.feature_names["angles"].index("psi")
     # Fetch values for training distribution
     select_by_attn = lambda x: x["angles"][x["attn_mask"] != 0]
 
-    test_values = [
-        select_by_attn(test_dset.dset.__getitem__(i, ignore_zero_center=True))
-        for i in range(len(test_dset))
-    ]
-    test_values_stacked = torch.cat(test_values, dim=0).cpu().numpy()
+    if args.testcomparison:
+        test_values = [
+            select_by_attn(test_dset.dset.__getitem__(i, ignore_zero_center=True))
+            for i in range(len(test_dset))
+        ]
+        test_values_stacked = torch.cat(test_values, dim=0).cpu().numpy()
 
-    # Plot ramachandran plot for the training distribution
-    # Default figure size is 6.4x4.8 inches
-    phi_idx = test_dset.feature_names["angles"].index("phi")
-    psi_idx = test_dset.feature_names["angles"].index("psi")
-    plot_ramachandran(
-        test_values_stacked[:5000, phi_idx],
-        test_values_stacked[:5000, psi_idx],
-        annot_ss=True,
-        fname=plotdir / "ramachandran_test_annot.pdf",
-    )
+        # Plot ramachandran plot for the training distribution
+        # Default figure size is 6.4x4.8 inches
+        plot_ramachandran(
+            test_values_stacked[:, phi_idx],
+            test_values_stacked[:, psi_idx],
+            annot_ss=True,
+            fname=plotdir / "ramachandran_test_annot.pdf",
+        )
+    else:
+        test_values_stacked = None
 
     # Load the model
     model_snapshot_dir = outdir / "model_snapshot"
@@ -357,7 +388,9 @@ def main() -> None:
     )
     final_sampled_stacked = np.vstack(final_sampled)
     for i, ft_name in enumerate(test_dset.feature_names["angles"]):
-        orig_values = test_values_stacked[:, i]
+        orig_values = (
+            test_values_stacked[:, i] if test_values_stacked is not None else None
+        )
         samp_values = final_sampled_stacked[:, i]
 
         ft_name_readable = FT_NAME_MAP[ft_name]
@@ -396,8 +429,8 @@ def main() -> None:
 
     # Generate ramachandran plot for sampled angles
     plot_ramachandran(
-        final_sampled_stacked[:5000, phi_idx],
-        final_sampled_stacked[:5000, psi_idx],
+        final_sampled_stacked[:, phi_idx],
+        final_sampled_stacked[:, psi_idx],
         fname=plotdir / "ramachandran_generated.pdf",
     )
 

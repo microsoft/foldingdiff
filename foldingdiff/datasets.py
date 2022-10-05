@@ -40,6 +40,36 @@ from foldingdiff import utils
 
 TRIM_STRATEGIES = Literal["leftalign", "randomcrop", "discard"]
 
+FEATURE_SET_NAMES_TO_ANGULARITY = {
+    "canonical": [False, False, False, True, True, True, True, True, True],
+    "canonical-full-angles": [True, True, True, True, True, True],
+    "canonical-minimal-angles": [True, True, True, True],
+    "cart-coords": [False, False, False],
+}
+FEATURE_SET_NAMES_TO_FEATURE_NAMES = {
+    "canonical": [
+        "0C:1N",
+        "N:CA",
+        "CA:C",
+        "phi",
+        "psi",
+        "omega",
+        "tau",
+        "CA:C:1N",
+        "C:1N:1CA",
+    ],
+    "canonical-full-angles": [
+        "phi",
+        "psi",
+        "omega",
+        "tau",
+        "CA:C:1N",
+        "C:1N:1CA",
+    ],
+    "canonical-minimal-angles": ["phi", "psi", "omega", "tau"],
+    "cart-coords": ["x", "y", "z"],
+}
+
 
 class CathCanonicalAnglesDataset(Dataset):
     """
@@ -525,6 +555,30 @@ class AlphafoldConsecutiveAnglesDataset(Dataset):
 
         position_ids = torch.arange(start=0, end=self.pad, step=1, dtype=torch.long)
         return {"angles": angles, "attn_mask": attn_mask, "position_ids": position_ids}
+
+
+class AnglesEmptyDataset(Dataset):
+    """
+    "Dataset" that doesn't actually contain any data. This is so that we can run sampling without needing to load
+    the actual data. Provides an API interface very similar to an actual dataset.
+    """
+
+    def __init__(
+        self,
+        feature_set_key: str,
+        pad: int = 128,
+    ):
+        k = "coords" if feature_set_key == "cart-coords" else "angles"
+        self.feature_is_angular = {k: FEATURE_SET_NAMES_TO_ANGULARITY[feature_set_key]}
+        self.feature_names = {k: FEATURE_SET_NAMES_TO_FEATURE_NAMES[feature_set_key]}
+        logging.info(f"Angularity definitions: {self.feature_is_angular} | {self.feature_names}")
+        self.pad = pad
+
+    def __len__(self):
+        raise NotImplementedError
+
+    def __getitem__(self, index):
+        raise NotImplementedError
 
 
 class NoisedAnglesDataset(Dataset):

@@ -29,6 +29,7 @@ from transformers.activations import get_activation
 from transformers.optimization import get_linear_schedule_with_warmup
 
 from foldingdiff import losses
+from foldingdiff.datasets import FEATURE_SET_NAMES_TO_ANGULARITY
 
 LR_SCHEDULE = Optional[Literal["OneCycleLR", "LinearWarmup"]]
 TIME_ENCODING = Literal["gaussian_fourier", "sinusoidal"]
@@ -309,12 +310,7 @@ class BertForDiffusionBase(BertPreTrainedModel):
         config = BertConfig.from_json_file(os.path.join(dirname, "config.json"))
 
         if ft_is_angular is None:
-            ft_is_angular = {
-                "canonical": [False, False, False, True, True, True, True, True, True],
-                "canonical-full-angles": [True, True, True, True, True, True],
-                "canonical-minimal-angles": [True, True, True, True],
-                "cart-coords": [False, False, False],
-            }[train_args["angles_definitions"]]
+            ft_is_angular = FEATURE_SET_NAMES_TO_ANGULARITY[train_args["angles_definitions"]]
             logging.info(f"Auto constructed ft_is_angular: {ft_is_angular}")
 
         model_args = dict(
