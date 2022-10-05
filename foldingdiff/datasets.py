@@ -3,6 +3,7 @@ Contains source code for loading in data and creating requisite PyTorch
 data loader object
 """
 
+import json
 import pickle
 import functools
 import multiprocessing
@@ -508,6 +509,26 @@ class AnglesEmptyDataset(Dataset):
         self._mean_offset = mean_offset
         if self._mean_offset is not None:
             assert self._mean_offset.size == len(self.feature_names[k])
+
+    @classmethod
+    def from_dir(cls, dirname: str):
+        """Initialize this dummy dataset from the given model dirname"""
+        training_args_json = os.path.join(dirname, "training_args.json")
+        assert os.path.isfile(training_args_json)
+        with open(training_args_json) as source:
+            training_args = json.load(source)
+
+        # Find the mean offset
+        mean_offset_file = os.path.join(dirname, "training_mean_offset.npy")
+        mean_offset = (
+            None if not os.path.isfile(mean_offset_file) else np.load(mean_offset_file)
+        )
+
+        return cls(
+            feature_set_key=training_args["angles_definitions"],
+            pad=training_args["max_seq_len"],
+            mean_offset=mean_offset,
+        )
 
     def get_masked_means(self) -> np.ndarray:
         """Implement the behavior of the actual dataset"""

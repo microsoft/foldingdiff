@@ -1,19 +1,24 @@
 """
 Code for sampling from diffusion models
 """
+import json
+import os
 import logging
 from typing import *
 
 from tqdm.auto import tqdm
 
 import numpy as np
+import pandas as pd
 
 import torch
 from torch import nn
+from huggingface_hub import snapshot_download
 
 from foldingdiff import beta_schedules
 from foldingdiff import utils
 from foldingdiff import datasets as dsets
+from foldingdiff import modelling
 
 
 @torch.no_grad()
@@ -123,8 +128,8 @@ def p_sample_loop(
 def sample(
     model: nn.Module,
     train_dset: dsets.NoisedAnglesDataset,
-    n: int,
-    sweep_lengths: Optional[Tuple[int, int]] = None,
+    n: int = 10,
+    sweep_lengths: Optional[Tuple[int, int]] = (50, 128),
     batch_size: int = 512,
     feature_key: str = "angles",
 ) -> List[np.ndarray]:
@@ -198,3 +203,48 @@ def sample(
             )
 
     return retval
+
+
+def sample_simple(
+    model_dir: str, n: int = 10, sweep_lengths: Tuple[int, int] = (50, 128)
+) -> List[pd.DataFrame]:
+    """
+    Simple wrapper on sample to automatically load in the model and dummy dataset
+    Primarily for gradio integration
+    """
+    if utils.is_huggingface_hub_id(model_dir):
+        model_dir = snapshot_download(model_dir)
+    assert os.path.isdir(model_dir)
+
+    with open(os.path.join(model_dir, "training_args.json")) as source:
+        training_args = json.load(source)
+
+    model = modelling.BertForDiffusionBase.from_dir(model_dir)
+    if torch.cuda.is_available():
+        model = model.to("cuda:0")
+
+    dummy_dset = dsets.AnglesEmptyDataset.from_dir(model_dir)
+    dummy_noised_dset = dsets.NoisedAnglesDataset(
+        dset=dummy_dset,
+        dset_key="coords" if training_args == "cart-cords" else "angles",
+        timesteps=training_args["timesteps"],
+        exhaustive_t=False,
+        beta_schedule=training_args["variance_schedule"],
+        nonangular_variance=1.0,
+        angular_variance=training_args["variance_scale"],
+    )
+
+    sampled = sample(model, dummy_noised_dset, n=n, sweep_lengths=sweep_lengths)
+    final_sampled = [s[-1] for s in sampled]
+    sampled_dfs = [
+        pd.DataFrame(s, columns=dummy_noised_dset.feature_names["angles"])
+        for s in final_sampled
+    ]
+    return sampled_dfs
+
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+    s = sample_simple("wukevin/foldingdiff_cath", n=1, sweep_lengths=(50, 55))
+    for i, x in enumerate(s):
+        print(x.shape)
