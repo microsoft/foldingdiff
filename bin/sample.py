@@ -245,15 +245,15 @@ def build_parser() -> argparse.ArgumentParser:
         "--outdir", "-o", type=str, default=os.getcwd(), help="Path to output directory"
     )
     parser.add_argument(
-        "--num", "-n", type=int, default=512, help="Number of examples to generate"
+        "--num", "-n", type=int, default=10, help="Number of examples to generate *per length*"
     )
     parser.add_argument(
         "-l",
         "--lengths",
-        type=str,
-        choices=["sample", "sweep"],
-        default="sample",
-        help="Strategy for generating lengths of sequences. Sampled will sample training set lengths, sweep will sweep from 70-max length",
+        type=int,
+        nargs=2,
+        default=[50, 128],
+        help="Range of lengths to sample from",
     )
     parser.add_argument(
         "-b",
@@ -322,22 +322,20 @@ def main() -> None:
         args.model, copy_to=model_snapshot_dir
     ).to(torch.device(args.device))
 
+    # Checks
+    sweep_min_len, sweep_max_len = args.lengths
+    assert sweep_min_len < sweep_max_len
+    assert sweep_max_len <= train_dset.dset.pad
+
     # Perform sampling
     torch.manual_seed(args.seed)
-    if args.lengths == "sample":
-        sampled = sampling.sample(
-            model, train_dset, n=args.num, batch_size=args.batchsize
-        )
-    elif args.lengths == "sweep":
-        sampled = sampling.sample(
-            model,
-            train_dset,
-            n=10,
-            sweep_lengths=(50, test_dset.dset.pad),
-            batch_size=args.batchsize,
-        )
-    else:
-        raise ValueError(f"Unrecognized length mode: {args.lengths}")
+    sampled = sampling.sample(
+        model,
+        train_dset,
+        n=args.num,
+        sweep_lengths=(sweep_min_len, sweep_max_len),
+        batch_size=args.batchsize,
+    )
     final_sampled = [s[-1] for s in sampled]
     sampled_dfs = [
         pd.DataFrame(s, columns=train_dset.feature_names["angles"])

@@ -144,7 +144,7 @@ def sample(
     # Process each batch
     if sweep_lengths is not None:
         sweep_min, sweep_max = sweep_lengths
-        logging.warning(
+        logging.info(
             f"Sweeping from {sweep_min}-{sweep_max} with {n} examples at each length"
         )
         lengths = []
@@ -156,7 +156,7 @@ def sample(
         lengths[i : i + batch_size] for i in range(0, len(lengths), batch_size)
     ]
 
-    logging.info(f"Sampling {len(lengths)} items in batches")
+    logging.info(f"Sampling {len(lengths)} items in batches of size {batch_size}")
     retval = []
     for this_lengths in lengths_chunkified:
         batch = len(this_lengths)
