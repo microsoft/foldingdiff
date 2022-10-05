@@ -80,7 +80,7 @@ Providing this path to a premade script, such as the one for sampling, is detail
 
 ## Sampling protein backbones
 
-To sample protein backbones, use the script `bin/sample.py`. Example commands to do this using the pretrained weights described above are as follows. Sampling takes about ~5-7 minutes for 512 structures using an Nvidia 2080Ti GPU.
+To sample protein backbones, use the script `bin/sample.py`. Example commands to do this using the pretrained weights described above are as follows. Sampling takes about ~7 minutes for 512 structures using an Nvidia 2080Ti GPU paired with an Intel i9-9960X.
 
 ```bash
 # To sample 256 backbones
