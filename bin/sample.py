@@ -440,12 +440,13 @@ def main() -> None:
         str(outdir / "plots" / "ss_cooccurrence_sampled.pdf"),
         threads=multiprocessing.cpu_count(),
     )
-    make_ss_cooccurrence_plot(
-        test_dset.filenames,
-        str(outdir / "plots" / "ss_cooccurrence_test.pdf"),
-        max_seq_len=test_dset.dset.pad,
-        threads=multiprocessing.cpu_count(),
-    )
+    if args.testcomparison:
+        make_ss_cooccurrence_plot(
+            test_dset.filenames,
+            str(outdir / "plots" / "ss_cooccurrence_test.pdf"),
+            max_seq_len=test_dset.dset.pad,
+            threads=multiprocessing.cpu_count(),
+        )
 
 
 if __name__ == "__main__":
