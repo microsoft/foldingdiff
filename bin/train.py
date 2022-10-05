@@ -347,6 +347,12 @@ def train(
         single_angle_debug=single_angle_debug,
         single_time_debug=single_timestep_debug,
     )
+    # Record the masked means in the output directory
+    np.save(
+        results_folder / "training_mean_offset.npy",
+        dsets[0].dset.get_masked_means(),
+        fix_imports=False,
+    )
 
     # Calculate effective batch size
     # https://pytorch-lightning.readthedocs.io/en/1.4.0/advanced/multi_gpu.html#batch-size
