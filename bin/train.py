@@ -414,7 +414,7 @@ def train(
     # ft_is_angular from the clean datasets angularity definition
     ft_key = "coords" if angles_definitions == "cart-coords" else "angles"
     model = modelling.BertForDiffusion(
-        cfg,
+        config=cfg,
         time_encoding=time_encoding,
         decoder=decoder,
         ft_is_angular=dsets[0].dset.feature_is_angular[ft_key],

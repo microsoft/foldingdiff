@@ -19,7 +19,7 @@ class TestHuggingFaceBertModel(unittest.TestCase):
     def setUp(self) -> None:
         self.max_seq_len = 512
         self.cfg = BertConfig(max_position_embeddings=self.max_seq_len, use_cache=False)
-        self.model = modelling.BertForDiffusion(self.cfg)
+        self.model = modelling.BertForDiffusion(config=self.cfg)
         self.model.eval()
 
         self.bs = 32
