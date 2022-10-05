@@ -8,10 +8,7 @@ We present a diffusion model for generating novel protein backbone structures. F
 
 ## Installation
 
-To install, clone this using `git clone` followed by `git lfs fetch`. Note that this requires [git-lfs](https://git-lfs.github.com) to be installed on your system.
-
-This software is written in Python, notably using PyTorch, PyTorch Lightning, and the HuggingFace
-transformers library. The required conda environment is defined within the `environment.yml` file. To set this up, make sure you have conda (or [mamba](https://mamba.readthedocs.io/en/latest/index.html)) installed, clone this repository, and run:
+To install, clone this using `git clone`. This software is written in Python, notably using PyTorch, PyTorch Lightning, and the HuggingFace transformers library. The required conda environment is defined within the `environment.yml` file. To set this up, make sure you have conda (or [mamba](https://mamba.readthedocs.io/en/latest/index.html)) installed, clone this repository, and run:
 
 ```bash
 conda env create -f environment.yml
@@ -21,7 +18,7 @@ pip install -e ./  # make sure ./ is the dir including setup.py
 
 ### Downloading data
 
-We require some data files not packaged on Git due to their large size. These are not strictly required for sampling (as long as you are not using the `--testcomparison` option, see below); this is required for training your own model. We provide a script in the `data` dir to download requisite CATH data.
+We require some data files not packaged on Git due to their large size. These are not required for sampling (as long as you are not using the `--testcomparison` option, see below); this is required for training your own model. We provide a script in the `data` dir to download requisite CATH data.
 
 ```bash
 # Download the CATH dataset
@@ -32,7 +29,7 @@ chmod +x download_cath.sh
 
 ## Training models
 
-To train a model on the CATH dataset, use the script at `bin/train.py` in combination with one of the
+To train your own model on the CATH dataset, use the script at `bin/train.py` in combination with one of the
 json config files under `config_jsons` (or write your own). An example usage of this is as follows:
 
 ```bash
@@ -51,15 +48,16 @@ results/
 
 ## Pre-trained models
 
-We provide weights for a model trained on the CATH dataset. These weights are located under the `models/cath_pretrained` directory and are stored via Git LFS. The following code snippet shows how to load this model, load data, and perform a forward pass:
+We provide weights for a model trained on the CATH dataset. These weights are stored on HuggingFace model hub at [wukevin/foldingdiff_cath](https://huggingface.co/wukevin/foldingdiff_cath). The following code snippet shows how to load this model, load data (assuming it's been downloaded), and perform a forward pass:
 
 ```python
+from huggingface_hub import snapshot_download
 from torch.utils.data.dataloader import DataLoader
 from foldingdiff import modelling
 from foldingdiff import datasets as dsets
 
-# Load the model
-m = modelling.BertForDiffusion.from_dir("models/cath_pretrained")
+# Load the model (files will be cached for future calls)
+m = modelling.BertForDiffusion.from_dir(snapshot_download("wukevin/foldingdiff_cath"))
 
 # Load dataset
 # As part of loading, we try to compute internal angles in parallel. This may
@@ -76,8 +74,6 @@ x = iter(dl).next()
 predicted_noise = m(x['corrupted'], x['t'], x['attn_mask'])
 ```
 
-Providing this path to a premade script, such as the one for sampling, is detailed below.
-
 ## Sampling protein backbones
 
 To sample protein backbones, use the script `bin/sample.py`. Example commands to do this using the pretrained weights described above are as follows.
@@ -87,7 +83,7 @@ To sample protein backbones, use the script `bin/sample.py`. Example commands to
 python ~/projects/foldingdiff/bin/sample.py -l 50 128 -n 10 -b 512 --device cuda:0
 ```
 
-This will run the trained model contained in the `models/cath_pretrained` folder and generate sequences of varying lengths. If you wish to load the test dataset and include test chains in the generated plots, use the option `--testcomparison`; note that this requires downloading the CATH dataset, see above. Running `sample.py` will create the following directory structure in the diretory where it is run:
+This will run the trained model hosted at [wukevin/foldingdiff_cath](https://huggingface.co/wukevin/foldingdiff_cath) and generate sequences of varying lengths. If you wish to load the test dataset and include test chains in the generated plots, use the option `--testcomparison`; note that this requires downloading the CATH dataset, see above. Running `sample.py` will create the following directory structure in the diretory where it is run:
 
 ```
 some_dir/
@@ -106,7 +102,7 @@ Not specifying a `--device` will default to the first device `cuda:0`; use `--de
 
 ### Maximum training similarity TM scores
 
-After generating sequences, we can calculate TM-scores to evaluate the simliarity of the generated sequences and the original sequences. This is done using the script under `bin/tmscore_training.py`.
+After generating sequences, we can calculate TM-scores to evaluate the simliarity of the generated sequences and the original sequences. This is done using the script under `bin/tmscore_training.py` and requires data to have been downloaded prior (see above).
 
 ### Visualizing diffusion "folding" process
 
