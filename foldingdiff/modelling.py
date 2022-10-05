@@ -322,12 +322,12 @@ class BertForDiffusionBase(BertPreTrainedModel):
             ft_is_angular=ft_is_angular,
             time_encoding=train_args["time_encoding"],
             decoder=train_args["decoder"],
-            lr=train_args["lr"],
-            loss=train_args["loss"],
-            l2=train_args["l2_norm"],
-            l1=train_args["l1_norm"],
-            circle_reg=train_args["circle_reg"],
-            lr_scheduler=train_args["lr_scheduler"],
+            # lr=train_args["lr"],
+            # loss=train_args["loss"],
+            # l2=train_args["l2_norm"],
+            # l1=train_args["l1_norm"],
+            # circle_reg=train_args["circle_reg"],
+            # lr_scheduler=train_args["lr_scheduler"],
             **kwargs,
         )
 
@@ -344,7 +344,15 @@ class BertForDiffusionBase(BertPreTrainedModel):
             logging.info(f"Found {len(ckpt_names)} checkpoints")
             ckpt_name = ckpt_names[idx]
             logging.info(f"Loading weights from {ckpt_name}")
-            retval = cls.load_from_checkpoint(checkpoint_path=ckpt_name, **model_args)
+            if hasattr(cls, "load_from_checkpoint"):
+                # Defined for pytorch lightning module
+                retval = cls.load_from_checkpoint(
+                    checkpoint_path=ckpt_name, **model_args
+                )
+            else:
+                retval = cls(**model_args)
+                loaded = torch.load(ckpt_name)
+                retval.load_state_dict(loaded["state_dict"])
         else:
             retval = cls(**model_args)
             logging.info(f"Loaded unitialized model from {dirname}")
@@ -718,20 +726,16 @@ def main():
     import datasets
     from torch.utils.data import default_collate
 
-    clean_dset = datasets.CathCanonicalAnglesDataset(toy=True)
-    noised_dset = datasets.NoisedAnglesDataset(clean_dset, "angles")
-    x = default_collate([noised_dset[i] for i in range(8)])
-    for k, v in x.items():
-        print(k, v.shape)
-
     # # Create model
     # device = torch.device("cuda")
     cfg = BertConfig()
-    model = BertForDiffusion(
-        config=cfg, ft_is_angular=clean_dset.feature_is_angular["angles"]
+    model = BertForDiffusionBase.from_dir(
+        os.path.join(
+            os.path.dirname(os.path.dirname(__file__)),
+            "tests/mini_model_for_testing/results",
+        )
     )
-    y = model.forward(x["corrupted"], x["t"].squeeze(), x["attn_mask"])
-    print(y.shape)
+    print(model)
 
 
 if __name__ == "__main__":
