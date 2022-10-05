@@ -201,7 +201,7 @@ class AnglesPredictor(nn.Module):
         return x
 
 
-class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
+class BertForDiffusionBase(BertPreTrainedModel):
     """
     BERT designed to be used with continuous inputs instead of tokens
 
@@ -209,6 +209,8 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
 
     Decoder: linear = single linear decoding of per-position embeddings
              mlp = two-layer MLP to decode per-position embeddings
+
+    This is the base model object and does _not_ include the pytorch lightning code
     """
 
     # Define loss functions and their wrapped angular versions
@@ -234,15 +236,6 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         ft_names: Optional[List[str]] = None,
         time_encoding: TIME_ENCODING = "gaussian_fourier",
         decoder: DECODER_HEAD = "mlp",
-        lr: float = 5e-5,
-        loss: Union[Callable, LOSS_KEYS] = "smooth_l1",
-        l2: float = 0.0,
-        l1: float = 0.0,
-        circle_reg: float = 0.0,
-        epochs: int = 1,
-        steps_per_epoch: int = 250,  # Dummy value
-        lr_scheduler: LR_SCHEDULE = None,
-        write_preds_to_dir: Optional[str] = None,
     ) -> None:
         """
         dim should be the dimension of the inputs
@@ -251,6 +244,7 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         self.config = config
         if self.config.is_decoder:
             raise NotImplementedError
+        self.ft_is_angular = ft_is_angular
         n_inputs = len(ft_is_angular)
         self.n_inputs = n_inputs
 
@@ -261,43 +255,6 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         assert (
             len(self.ft_names) == n_inputs
         ), f"Got {len(self.ft_names)} names, expected {n_inputs}"
-        # Store information about leraning rates and loss
-        self.learning_rate = lr
-        # loss function is either a callable or a list of callables
-        if isinstance(loss, str):
-            logging.info(
-                f"Mapping loss {loss} to list of losses corresponding to angular {ft_is_angular}"
-            )
-            if loss in self.loss_autocorrect_dict:
-                logging.info(
-                    "Autocorrecting {} to {}".format(
-                        loss, self.loss_autocorrect_dict[loss]
-                    )
-                )
-                loss = self.loss_autocorrect_dict[loss]
-            self.loss_func = [
-                self.angular_loss_fn_dict[loss]
-                if is_angular
-                else self.nonangular_loss_fn_dict[loss]
-                for is_angular in ft_is_angular
-            ]
-        else:
-            logging.warning(
-                f"Using pre-given callable loss: {loss}. This may not handle angles correctly!"
-            )
-            self.loss_func = loss
-        pl.utilities.rank_zero_info(f"Using loss: {self.loss_func}")
-        if isinstance(self.loss_func, (tuple, list)):
-            assert (
-                len(self.loss_func) == self.n_inputs
-            ), f"Got {len(self.loss_func)} loss functions, expected {self.n_inputs}"
-
-        self.l1_lambda = l1
-        self.l2_lambda = l2
-        self.circle_lambda = circle_reg
-        self.epochs = epochs
-        self.steps_per_epoch = steps_per_epoch
-        self.lr_scheduler = lr_scheduler
 
         # Needed to project the low dimensional input to hidden dim
         self.inputs_to_hidden_dim = nn.Linear(
@@ -326,12 +283,6 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         # Initialize weights and apply final processing
         self.init_weights()
 
-        # Set up the output directory for writing predictions
-        self.write_preds_to_dir = write_preds_to_dir
-        self.write_preds_counter = 0
-        if self.write_preds_to_dir:
-            os.makedirs(self.write_preds_to_dir, exist_ok=True)
-
         # Epoch counters and timers
         self.train_epoch_counter = 0
         self.train_epoch_last_time = time.time()
@@ -346,7 +297,7 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         best_by: Literal["train", "valid"] = "valid",
         copy_to: str = "",
         **kwargs,
-    ) -> "BertForDiffusion":
+    ):
         """
         Builds this model out from directory. Legacy mode is for loading models
         before there were separate folders for training and validation best models.
@@ -371,12 +322,12 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
             ft_is_angular=ft_is_angular,
             time_encoding=train_args["time_encoding"],
             decoder=train_args["decoder"],
-            lr=train_args["lr"],
-            loss=train_args["loss"],
-            l2=train_args["l2_norm"],
-            l1=train_args["l1_norm"],
-            circle_reg=train_args["circle_reg"],
-            lr_scheduler=train_args["lr_scheduler"],
+            # lr=train_args["lr"],
+            # loss=train_args["loss"],
+            # l2=train_args["l2_norm"],
+            # l1=train_args["l1_norm"],
+            # circle_reg=train_args["circle_reg"],
+            # lr_scheduler=train_args["lr_scheduler"],
             **kwargs,
         )
 
@@ -393,7 +344,15 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
             logging.info(f"Found {len(ckpt_names)} checkpoints")
             ckpt_name = ckpt_names[idx]
             logging.info(f"Loading weights from {ckpt_name}")
-            retval = cls.load_from_checkpoint(checkpoint_path=ckpt_name, **model_args)
+            if hasattr(cls, "load_from_checkpoint"):
+                # Defined for pytorch lightning module
+                retval = cls.load_from_checkpoint(
+                    checkpoint_path=ckpt_name, **model_args
+                )
+            else:
+                retval = cls(**model_args)
+                loaded = torch.load(ckpt_name)
+                retval.load_state_dict(loaded["state_dict"])
         else:
             retval = cls(**model_args)
             logging.info(f"Loaded unitialized model from {dirname}")
@@ -515,6 +474,71 @@ class BertForDiffusion(BertPreTrainedModel, pl.LightningModule):
         sequence_output = encoder_outputs[0]
         per_token_decoded = self.token_decoder(sequence_output)
         return per_token_decoded
+
+
+class BertForDiffusion(BertForDiffusionBase, pl.LightningModule):
+    """
+    Wraps our model as a pl LightningModule for easy training
+    """
+
+    def __init__(
+        self,
+        lr: float = 5e-5,
+        loss: Union[Callable, LOSS_KEYS] = "smooth_l1",
+        l2: float = 0.0,
+        l1: float = 0.0,
+        circle_reg: float = 0.0,
+        epochs: int = 1,
+        steps_per_epoch: int = 250,  # Dummy value
+        lr_scheduler: LR_SCHEDULE = None,
+        write_preds_to_dir: Optional[str] = None,
+        **kwargs,
+    ):
+        """Feed args to BertForDiffusionBase and then feed the rest into"""
+        BertForDiffusionBase.__init__(self, **kwargs)
+        # Store information about leraning rates and loss
+        self.learning_rate = lr
+        # loss function is either a callable or a list of callables
+        if isinstance(loss, str):
+            logging.info(
+                f"Mapping loss {loss} to list of losses corresponding to angular {self.ft_is_angular}"
+            )
+            if loss in self.loss_autocorrect_dict:
+                logging.info(
+                    "Autocorrecting {} to {}".format(
+                        loss, self.loss_autocorrect_dict[loss]
+                    )
+                )
+                loss = self.loss_autocorrect_dict[loss]
+            self.loss_func = [
+                self.angular_loss_fn_dict[loss]
+                if is_angular
+                else self.nonangular_loss_fn_dict[loss]
+                for is_angular in self.ft_is_angular
+            ]
+        else:
+            logging.warning(
+                f"Using pre-given callable loss: {loss}. This may not handle angles correctly!"
+            )
+            self.loss_func = loss
+        pl.utilities.rank_zero_info(f"Using loss: {self.loss_func}")
+        if isinstance(self.loss_func, (tuple, list)):
+            assert (
+                len(self.loss_func) == self.n_inputs
+            ), f"Got {len(self.loss_func)} loss functions, expected {self.n_inputs}"
+
+        self.l1_lambda = l1
+        self.l2_lambda = l2
+        self.circle_lambda = circle_reg
+        self.epochs = epochs
+        self.steps_per_epoch = steps_per_epoch
+        self.lr_scheduler = lr_scheduler
+
+        # Set up the output directory for writing predictions
+        self.write_preds_to_dir = write_preds_to_dir
+        self.write_preds_counter = 0
+        if self.write_preds_to_dir:
+            os.makedirs(self.write_preds_to_dir, exist_ok=True)
 
     def _get_loss_terms(
         self, batch, write_preds: Optional[str] = None
@@ -702,18 +726,16 @@ def main():
     import datasets
     from torch.utils.data import default_collate
 
-    clean_dset = datasets.CathCanonicalAnglesDataset(toy=True)
-    noised_dset = datasets.NoisedAnglesDataset(clean_dset, "angles")
-    x = default_collate([noised_dset[i] for i in range(8)])
-    for k, v in x.items():
-        print(k, v.shape)
-
     # # Create model
     # device = torch.device("cuda")
     cfg = BertConfig()
-    model = BertForDiffusion(cfg, ft_is_angular=clean_dset.feature_is_angular["angles"])
-    y = model.forward(x["corrupted"], x["t"].squeeze(), x["attn_mask"])
-    print(y.shape)
+    model = BertForDiffusionBase.from_dir(
+        os.path.join(
+            os.path.dirname(os.path.dirname(__file__)),
+            "tests/mini_model_for_testing/results",
+        )
+    )
+    print(model)
 
 
 if __name__ == "__main__":
