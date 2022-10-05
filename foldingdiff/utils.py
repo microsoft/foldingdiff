@@ -7,7 +7,21 @@ import hashlib
 import logging
 from typing import *
 
+import requests
+
 import numpy as np
+
+
+def is_huggingface_hub_id(s: str) -> bool:
+    """
+    Return True if s looks like a repo ID
+    >>> is_huggingface_hub_id("wukevin/foldingdiff_cath")
+    True
+    >>> is_huggingface_hub_id("wukevin/foldingdiff_cath_lol")
+    False
+    """
+    r = requests.get(f"https://huggingface.co/{s}")
+    return r.status_code == 200
 
 
 def extract(a, t, x_shape):

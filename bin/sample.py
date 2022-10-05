@@ -28,6 +28,7 @@ from foldingdiff import sampling
 from foldingdiff import plotting
 from foldingdiff.datasets import AnglesEmptyDataset, NoisedAnglesDataset
 from foldingdiff.angles_and_coords import create_new_chain_nerf
+from foldingdiff import utils
 
 # :)
 SEED = int(
@@ -290,7 +291,7 @@ def main() -> None:
     assert not os.listdir(outdir), f"Expected {outdir} to be empty!"
 
     # Download the model if it was given on modelhub
-    if not os.path.exists(args.model) and args.model.count("/") == 1:
+    if utils.is_huggingface_hub_id(args.model):
         logging.info(f"Detected huggingface repo ID {args.model}")
         dl_path = snapshot_download(args.model)  # Caching is automatic
         assert os.path.isdir(dl_path)
