@@ -51,15 +51,16 @@ results/
 
 ## Pre-trained models
 
-We provide weights for a model trained on the CATH dataset. These weights are located under the `models/cath_pretrained` directory and are stored via Git LFS. The following code snippet shows how to load this model, load data, and perform a forward pass:
+We provide weights for a model trained on the CATH dataset. These weights are stored on HuggingFace model hub at [wukevin/foldingdiff_cath](https://huggingface.co/wukevin/foldingdiff_cath). The following code snippet shows how to load this model, load data (assuming it's been downloaded), and perform a forward pass:
 
 ```python
+from huggingface_hub import snapshot_download
 from torch.utils.data.dataloader import DataLoader
 from foldingdiff import modelling
 from foldingdiff import datasets as dsets
 
-# Load the model
-m = modelling.BertForDiffusion.from_dir("models/cath_pretrained")
+# Load the model (files will be cached for future calls)
+m = modelling.BertForDiffusion.from_dir(snapshot_download("wukevin/foldingdiff_cath"))
 
 # Load dataset
 # As part of loading, we try to compute internal angles in parallel. This may
@@ -87,7 +88,7 @@ To sample protein backbones, use the script `bin/sample.py`. Example commands to
 python ~/projects/foldingdiff/bin/sample.py -l 50 128 -n 10 -b 512 --device cuda:0
 ```
 
-This will run the trained model contained in the `models/cath_pretrained` folder and generate sequences of varying lengths. If you wish to load the test dataset and include test chains in the generated plots, use the option `--testcomparison`; note that this requires downloading the CATH dataset, see above. Running `sample.py` will create the following directory structure in the diretory where it is run:
+This will run the trained model hosted at [wukevin/foldingdiff_cath](https://huggingface.co/wukevin/foldingdiff_cath) and generate sequences of varying lengths. If you wish to load the test dataset and include test chains in the generated plots, use the option `--testcomparison`; note that this requires downloading the CATH dataset, see above. Running `sample.py` will create the following directory structure in the diretory where it is run:
 
 ```
 some_dir/
