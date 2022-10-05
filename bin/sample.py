@@ -17,6 +17,7 @@ from astropy.visualization import LogStretch
 from astropy.visualization.mpl_normalize import ImageNormalize
 
 import torch
+from huggingface_hub import snapshot_download
 
 # Import data loading code from main training script
 from train import get_train_valid_test_sets
@@ -236,16 +237,18 @@ def build_parser() -> argparse.ArgumentParser:
         "-m",
         "--model",
         type=str,
-        default=os.path.join(
-            os.path.dirname(os.path.dirname(__file__)), "models/cath_pretrained"
-        ),
-        help="Path to model directory. Should contain training_args.json, config.json, and models folder at a minimum.",
+        default="wukevin/foldingdiff_cath",
+        help="Path to model directory, or a repo identifier on huggingface hub. Should contain training_args.json, config.json, and models folder at a minimum.",
     )
     parser.add_argument(
         "--outdir", "-o", type=str, default=os.getcwd(), help="Path to output directory"
     )
     parser.add_argument(
-        "--num", "-n", type=int, default=10, help="Number of examples to generate *per length*"
+        "--num",
+        "-n",
+        type=int,
+        default=10,
+        help="Number of examples to generate *per length*",
     )
     parser.add_argument(
         "-l",
@@ -285,6 +288,15 @@ def main() -> None:
     outdir = Path(args.outdir)
     # Be extra cautious so we don't overwrite any results
     assert not os.listdir(outdir), f"Expected {outdir} to be empty!"
+
+    # Download the model if it was given on modelhub
+    if not os.path.exists(args.model) and args.model.count("/") == 1:
+        logging.info(f"Detected huggingface repo ID {args.model}")
+        dl_path = snapshot_download(
+            args.model, cache_dir=os.path.expanduser("~/.cache/foldingdiff")
+        )
+        logging.info(f"Using downloaded model at {dl_path}")
+        args.model = dl_path
 
     plotdir = outdir / "plots"
     os.makedirs(plotdir, exist_ok=True)
