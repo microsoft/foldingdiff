@@ -262,22 +262,10 @@ def main() -> None:
     with open(os.path.join(args.model, "training_args.json")) as source:
         training_args = json.load(source)
 
-    # Reproduce the beta schedule
-    beta_values = beta_schedules.get_variance_schedule(
-        training_args["variance_schedule"],
-        training_args["timesteps"],
-    )
-    alpha_beta_values = beta_schedules.compute_alphas(beta_values)
-
     # Load the dataset based on training args
     train_dset, _, test_dset = build_datasets(training_args)
     # Fetch values for training distribution
     select_by_attn = lambda x: x["angles"][x["attn_mask"] != 0]
-    train_values = [
-        select_by_attn(train_dset.dset.__getitem__(i, ignore_zero_center=True))
-        for i in range(len(train_dset))
-    ]
-    train_values_stacked = torch.cat(train_values, dim=0).cpu().numpy()
 
     test_values = [
         select_by_attn(test_dset.dset.__getitem__(i, ignore_zero_center=True))
