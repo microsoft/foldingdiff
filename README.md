@@ -21,7 +21,7 @@ pip install -e ./  # make sure ./ is the dir including setup.py
 
 ### Downloading data
 
-We require some data files not packaged on Git due to their large size. These are required to be downloaded locally even if you are not training and are only sampling. We provide a script in the `data` dir to download requisite data.
+We require some data files not packaged on Git due to their large size. These are not strictly required for sampling (as long as you are not using the `--testcomparison` option, see below); this is required for training your own model. We provide a script in the `data` dir to download requisite CATH data.
 
 ```bash
 # Download the CATH dataset
@@ -80,7 +80,7 @@ Providing this path to a premade script, such as the one for sampling, is detail
 
 ## Sampling protein backbones
 
-To sample protein backbones, use the script `bin/sample.py`. Example commands to do this using the pretrained weights described above are as follows. Sampling takes about ~7 minutes for 512 structures using an Nvidia 2080Ti GPU paired with an Intel i9-9960X.
+To sample protein backbones, use the script `bin/sample.py`. Example commands to do this using the pretrained weights described above are as follows. Sampling takes ~7 minutes for 512 structures using an Nvidia 2080Ti GPU paired with an Intel i9-9960X.
 
 ```bash
 # To sample 256 backbones
@@ -89,7 +89,7 @@ python ~/projects/foldingdiff/bin/sample.py --num 256 --device cuda:3
 python ~/projects/foldingdiff/bin/sample.py -l sweep --device cuda:3
 ```
 
-This will run the trained model contained in the `models/cath_pretrained` folder and generate sequences of varying lengths. Not specifying a device will default to the first device `cuda:0`; use `--device cpu` to run on CPU (though this will be very slow). Running `sample.py` will create the following directory structure in the diretory where it is run:
+This will run the trained model contained in the `models/cath_pretrained` folder and generate sequences of varying lengths. If you wish to load the test dataset and include test chains in the generated plots, use the option `--testcomparison`; note that this requires downloading the CATH dataset, see above. Not specifying a device will default to the first device `cuda:0`; use `--device cpu` to run on CPU (though this will be very slow). Running `sample.py` will create the following directory structure in the diretory where it is run:
 
 ```
 some_dir/
