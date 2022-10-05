@@ -187,7 +187,7 @@ def sample(
         and train_dset.dset.get_masked_means() is not None
     ):
         logging.info(
-            f"Shifting predicted values by original offset: {train_dset.dset.means}"
+            f"Shifting predicted values by original offset: {train_dset.dset.get_masked_means()}"
         )
         retval = [s + train_dset.dset.get_masked_means() for s in retval]
         # Because shifting may have caused us to go across the circle boundary, re-wrap
