@@ -5,5 +5,5 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "foldingdiff"
 version = "0.0.1"
-readme = README.model_dir
+readme = README.md
 requires-python = ">=3.8"
