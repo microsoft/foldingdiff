@@ -298,7 +298,7 @@ def main() -> None:
 
     # Load the model
     model_snapshot_dir = outdir / "model_snapshot"
-    model = modelling.BertForDiffusion.from_dir(
+    model = modelling.BertForDiffusionBase.from_dir(
         args.model, copy_to=model_snapshot_dir
     ).to(torch.device(args.device))
 
