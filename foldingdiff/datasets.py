@@ -23,7 +23,6 @@ from torch.utils.data import Dataset
 LOCAL_DATA_DIR = Path(
     os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
 )
-assert LOCAL_DATA_DIR.is_dir(), f"Data directory {LOCAL_DATA_DIR} does not exist"
 
 CATH_DIR = LOCAL_DATA_DIR / "cath"
 ALPHAFOLD_DIR = LOCAL_DATA_DIR / "alphafold"
