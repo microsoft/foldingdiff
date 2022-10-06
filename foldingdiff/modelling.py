@@ -347,7 +347,7 @@ class BertForDiffusionBase(BertPreTrainedModel):
                 )
             else:
                 retval = cls(**model_args)
-                loaded = torch.load(ckpt_name)
+                loaded = torch.load(ckpt_name, map_location=torch.device("cpu"))
                 retval.load_state_dict(loaded["state_dict"])
         else:
             retval = cls(**model_args)
