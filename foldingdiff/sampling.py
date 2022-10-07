@@ -80,6 +80,7 @@ def p_sample_loop(
     timesteps: int,
     betas: torch.Tensor,
     is_angle: Union[bool, List[bool]] = [False, True, True, True],
+    disable_pbar: bool = False,
 ) -> torch.Tensor:
     """
     Returns a tensor of shape (timesteps, batch_size, seq_len, n_ft)
@@ -96,7 +97,7 @@ def p_sample_loop(
     imgs = []
 
     for i in tqdm(
-        reversed(range(0, timesteps)), desc="sampling loop time step", total=timesteps
+        reversed(range(0, timesteps)), desc="sampling loop time step", total=timesteps, disable=disable_pbar
     ):
         # Shape is (batch, seq_len, 4)
         img = p_sample(
@@ -132,6 +133,7 @@ def sample(
     sweep_lengths: Optional[Tuple[int, int]] = (50, 128),
     batch_size: int = 512,
     feature_key: str = "angles",
+    disable_pbar: bool = False,
 ) -> List[np.ndarray]:
     """
     Sample from the given model. Use the train_dset to generate noise to sample
@@ -177,6 +179,7 @@ def sample(
             timesteps=train_dset.timesteps,
             betas=train_dset.alpha_beta_terms["betas"],
             is_angle=train_dset.feature_is_angular[feature_key],
+            disable_pbar=disable_pbar
         )
         # Gets to size (timesteps, seq_len, n_ft)
         trimmed_sampled = [
@@ -234,7 +237,7 @@ def sample_simple(
         angular_variance=training_args["variance_scale"],
     )
 
-    sampled = sample(model, dummy_noised_dset, n=n, sweep_lengths=sweep_lengths)
+    sampled = sample(model, dummy_noised_dset, n=n, sweep_lengths=sweep_lengths, disable_pbar=True)
     final_sampled = [s[-1] for s in sampled]
     sampled_dfs = [
         pd.DataFrame(s, columns=dummy_noised_dset.feature_names["angles"])
