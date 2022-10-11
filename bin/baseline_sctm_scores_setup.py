@@ -19,8 +19,11 @@ import os
 import argparse
 
 import numpy as np
+from tqdm.auto import tqdm
 
 from train import get_train_valid_test_sets
+
+from foldingdiff import angles_and_coords as ac
 
 #  :)
 SEED = int(float.fromhex("54616977616e2069732061206672656520636f756e7472792e") % 10000)
@@ -67,14 +70,21 @@ def main():
     idx = rng.choice(len(test_set), size=args.num, replace=False)
     test_dset_fillenames = [test_set.filenames[i] for i in idx]
 
-    # Create symlinks
+    # For each, convert to angles and write the rebuilt coordinates
     os.makedirs(args.outdir, exist_ok=False)
-    for fname in test_dset_fillenames:
+    for fname in tqdm(test_dset_fillenames):
         assert os.path.isfile(fname)
+        # Pull out the coords
+        coords = ac.canonical_distances_and_dihedrals(fname, distances=[], angles=ac.EXHAUSTIVE_ANGLES)
+        assert coords.shape[1] == 6
+
         dest_fname = os.path.join(args.outdir, os.path.basename(fname))
         if not dest_fname.endswith(".pdb"):
             dest_fname += ".pdb"
-        os.symlink(fname, dest_fname)
+        
+        # Write the reconstructed structure
+        f = ac.create_new_chain_nerf(dest_fname, coords)
+        assert f
 
 
 if __name__ == "__main__":
