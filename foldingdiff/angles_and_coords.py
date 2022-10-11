@@ -1,6 +1,7 @@
 """
 Code to convert from angles between residues to XYZ coordinates. 
 """
+import functools
 import os
 import logging
 import pickle
@@ -248,6 +249,7 @@ def create_new_chain_nerf(
     return out_fname
 
 
+@functools.lru_cache(maxsize=8192)
 def get_pdb_length(fname: str) -> int:
     """
     Get the length of the chain described in the PDB file
