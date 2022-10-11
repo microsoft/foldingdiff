@@ -15,6 +15,7 @@ following commands:
 > conda activate protdiff
 > python bin/omegafold_self_tm.py -p sctm_baseline_esm_residues -f sctm_baseline_omegafold_predictions -o baseline_sctm_scores.json -p baseline_sctm_scores.pdf
 """
+import logging
 import os
 import argparse
 
@@ -47,6 +48,7 @@ def build_parser():
         default=os.path.join(os.getcwd(), "sctm_baseline_real_pdbs"),
         help="Outdir to place symlinks to files",
     )
+    parser.add_argument("--maxlen", type=int, default=128, help='Maximum length of structure to consider')
     return parser
 
 
@@ -65,15 +67,21 @@ def main():
         variance_schedule="cosine",
     )
 
-    # Choose 512 random sequences
+    # Filter out structures that are too long
+    orig_num = len(test_set.filenames)
+    test_set_fnames_filt = [f for f in test_set.filenames if ac.get_pdb_length(f) <= args.maxlen]
+    logging.info(f"Retaining {len(test_set_fnames_filt)}/{orig_num} test set structures of length <= {args.maxlen}")
+
+    # Choose random structures
     rng = np.random.default_rng(seed=SEED)
-    idx = rng.choice(len(test_set), size=args.num, replace=False)
-    test_dset_fillenames = [test_set.filenames[i] for i in idx]
+    idx = rng.choice(len(test_set_fnames_filt), size=args.num, replace=False)
+    test_dset_fillenames = [test_set_fnames_filt[i] for i in idx]
 
     # For each, convert to angles and write the rebuilt coordinates
     os.makedirs(args.outdir, exist_ok=False)
     for fname in tqdm(test_dset_fillenames):
         assert os.path.isfile(fname)
+        assert ac.get_pdb_length(fname) <= args.maxlen
         # Pull out the coords
         coords = ac.canonical_distances_and_dihedrals(fname, distances=[], angles=ac.EXHAUSTIVE_ANGLES)
         assert coords.shape[1] == 6
@@ -88,4 +96,5 @@ def main():
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
     main()
