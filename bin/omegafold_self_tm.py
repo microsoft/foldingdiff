@@ -77,7 +77,7 @@ def main():
     args = parser.parse_args()
 
     assert os.path.isdir(args.folded)
-    assert os.path.isdir(args.predicted)
+    assert os.path.isdir(args.predicted), f"Directory not found: {args.predicted}"
 
     orig_predicted_backbones = glob(os.path.join(args.predicted, "*.pdb"))
     logging.info(

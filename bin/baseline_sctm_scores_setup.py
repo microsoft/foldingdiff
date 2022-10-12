@@ -13,7 +13,7 @@ following commands:
 > conda activate omegafold
 > python bin/omegafold_across_gpus.py sctm_baseline_esm_residues/*.fasta -o sctm_baseline_omegafold_predictions
 > conda activate protdiff
-> python bin/omegafold_self_tm.py -p sctm_baseline_esm_residues -f sctm_baseline_omegafold_predictions -o baseline_sctm_scores.json -p baseline_sctm_scores.pdf
+> python bin/omegafold_self_tm.py -p sctm_baseline_real_pdbs -f sctm_baseline_omegafold_predictions -o baseline_sctm_scores
 """
 import logging
 import os
