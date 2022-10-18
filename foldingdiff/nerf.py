@@ -9,7 +9,6 @@ https://www.biotite-python.org/examples/gallery/structure/peptide_assembly.html
 """
 import os
 from functools import cached_property
-import itertools
 from typing import *
 
 import numpy as np
@@ -62,8 +61,6 @@ class NERFBuilder:
         self.init_coords = [c.squeeze() for c in init_coords]
         assert len(self.init_coords) == 3, f"Requires 3 initial coords for N-Ca-C but got {len(self.init_coords)}"
         assert all([c.size == 3 for c in self.init_coords]), "Initial coords should be 3-dimensional"
-
-        self.bonds = itertools.cycle(self.bond_angles.keys())
 
     @cached_property
     def cartesian_coords(self) -> np.ndarray:
