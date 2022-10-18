@@ -7,6 +7,7 @@ import tempfile
 import unittest
 
 import numpy as np
+import torch
 from biotite.structure import dihedral
 
 from foldingdiff import nerf
@@ -81,7 +82,7 @@ class TestBackboneReconstruction(unittest.TestCase):
             )
             score = tmalign.run_tmalign(self.pdb_file, out_fname)
         self.assertAlmostEqual(1.0, score)
-    
+
     def test_full_reconstruction_with_centering(self):
         """Test that we can get the same structure back with centering"""
         angles = ac.canonical_distances_and_dihedrals(
@@ -118,6 +119,46 @@ class TestBackboneReconstruction(unittest.TestCase):
             )
             score = tmalign.run_tmalign(self.pdb_file, out_fname)
         self.assertGreater(score, 0.5)
+
+
+class TestPytorchBackend(unittest.TestCase):
+    """
+    Test that PyTorch backend should work
+    """
+
+    def setUp(self) -> None:
+        self.rng = np.random.default_rng(seed=6489)
+
+    def test_simple(self):
+        """Simple test about origin"""
+        a = torch.tensor([1, 0, 0], dtype=torch.float64)
+        b = torch.tensor([0, 0, 0], dtype=torch.float64)
+        c = torch.tensor([0, 1, 0], dtype=torch.float64)
+        d = torch.tensor([0, 1, 1], dtype=torch.float64)
+        calc_d = nerf.place_dihedral(
+            a, b, c, np.pi / 2, 1.0, -np.pi / 2, use_torch=True
+        )
+        self.assertTrue(
+            torch.allclose(d, calc_d, atol=1e-6), f"Mismatched: {d} != {calc_d}"
+        )
+
+    def test_randomized(self):
+        """Test using randomized values"""
+        for _ in range(100):
+            a, b, c, d = [
+                torch.from_numpy(x)
+                for x in self.rng.uniform(low=-5, high=5, size=(4, 3))
+            ]
+            calc_d = nerf.place_dihedral(
+                a,
+                b,
+                c,
+                angle_between((d - c).numpy(), (b - c).numpy()),
+                dist_between(c.numpy(), d.numpy()),
+                dihedral(a.numpy(), b.numpy(), c.numpy(), d.numpy()),
+                use_torch=True,
+            )
+            self.assertTrue(np.allclose(d, calc_d), f"Mismatched: {d} != {calc_d}")
 
 
 def angle_between(v1, v2) -> float:

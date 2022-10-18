@@ -12,7 +12,7 @@ from functools import cached_property
 from typing import *
 
 import numpy as np
-
+import torch
 
 N_CA_LENGTH = 1.46  # Check, approxiamtely right
 CA_C_LENGTH = 1.54  # Check, approximately right
@@ -42,6 +42,15 @@ class NERFBuilder:
         bond_angle_c_n: Union[float, np.ndarray] = 115 / 180 * np.pi,
         init_coords: np.ndarray = [N_INIT, CA_INIT, C_INIT],
     ) -> None:
+        self.use_torch = False
+        if any(
+            [
+                isinstance(v, torch.Tensor)
+                for v in [phi_dihedrals, psi_dihedrals, omega_dihedrals]
+            ]
+        ):
+            self.use_torch = True
+
         self.phi = phi_dihedrals.squeeze()
         self.psi = psi_dihedrals.squeeze()
         self.omega = omega_dihedrals.squeeze()
@@ -59,11 +68,15 @@ class NERFBuilder:
             ("CA", "C"): bond_angle_ca_c,
         }
         self.init_coords = [c.squeeze() for c in init_coords]
-        assert len(self.init_coords) == 3, f"Requires 3 initial coords for N-Ca-C but got {len(self.init_coords)}"
-        assert all([c.size == 3 for c in self.init_coords]), "Initial coords should be 3-dimensional"
+        assert (
+            len(self.init_coords) == 3
+        ), f"Requires 3 initial coords for N-Ca-C but got {len(self.init_coords)}"
+        assert all(
+            [c.size == 3 for c in self.init_coords]
+        ), "Initial coords should be 3-dimensional"
 
     @cached_property
-    def cartesian_coords(self) -> np.ndarray:
+    def cartesian_coords(self) -> Union[np.ndarray, torch.Tensor]:
         """Build out the molecule"""
         retval = self.init_coords.copy()
 
@@ -84,13 +97,16 @@ class NERFBuilder:
                     bond_angle=self._get_bond_angle(bond, i),
                     bond_length=self._get_bond_length(bond, i),
                     torsion_angle=dih,
+                    use_torch=self.use_torch,
                 )
                 retval.append(coords)
 
+        if self.use_torch:
+            return torch.tensor(retval)
         return np.array(retval)
 
     @cached_property
-    def centered_cartesian_coords(self) -> np.ndarray:
+    def centered_cartesian_coords(self) -> Union[np.ndarray, torch.Tensor]:
         """Returns the centered coords"""
         means = self.cartesian_coords.mean(axis=0)
         return self.cartesian_coords - means
@@ -117,26 +133,60 @@ def place_dihedral(
     bond_angle: float,
     bond_length: float,
     torsion_angle: float,
+    use_torch: bool = False,
 ) -> np.ndarray:
     """
     Place the point d such that the bond angle, length, and torsion angle are satisfied
     with the series a, b, c, d.
     """
     assert a.ndim == b.ndim == c.ndim == 1
-    unit_vec = lambda x: x / np.linalg.norm(x)
+
+    if not use_torch:
+        unit_vec = lambda x: x / np.linalg.norm(x)
+        cross = np.cross
+        stack = np.stack
+    else:
+        ensure_tensor = (
+            lambda x: torch.tensor(x, requires_grad=False)
+            if not isinstance(x, torch.Tensor)
+            else x
+        )
+        a, b, c, bond_angle, bond_length, torsion_angle = [
+            ensure_tensor(x) for x in (a, b, c, bond_angle, bond_length, torsion_angle)
+        ]
+        unit_vec = lambda x: x / torch.linalg.norm(x)
+        cross = torch.cross
+        stack = torch.stack
+
     ab = b - a
     bc = unit_vec(c - b)
-    d = np.array(
-        [
-            -bond_length * np.cos(bond_angle),
-            bond_length * np.cos(torsion_angle) * np.sin(bond_angle),
-            bond_length * np.sin(torsion_angle) * np.sin(bond_angle),
-        ]
-    )
-    n = unit_vec(np.cross(ab, bc))
-    nbc = np.cross(n, bc)
-    m = np.stack([bc, nbc, n]).T
-    d = m.dot(d)
+    n = unit_vec(cross(ab, bc))
+    nbc = cross(n, bc)
+    m = stack([bc, nbc, n]).T
+
+    if not use_torch:
+        d = np.array(
+            [
+                -bond_length * np.cos(bond_angle),
+                bond_length * np.cos(torsion_angle) * np.sin(bond_angle),
+                bond_length * np.sin(torsion_angle) * np.sin(bond_angle),
+            ]
+        )
+        d = m.dot(d)
+    else:
+        d = (
+            torch.tensor(
+                [
+                    -bond_length * torch.cos(bond_angle),
+                    bond_length * torch.cos(torsion_angle) * torch.sin(bond_angle),
+                    bond_length * torch.sin(torsion_angle) * torch.sin(bond_angle),
+                ]
+            )
+            .unsqueeze(1)
+            .type(m.dtype)
+        )
+        d = torch.mm(m, d).squeeze()
+    # d = m.dot(d)
     return d + c
 
 
@@ -150,7 +200,7 @@ def main():
     )
     source_struct = source.get_structure()
     # print(source_struct[0])
-    phi, psi, omega = struc.dihedral_backbone(source_struct)
+    phi, psi, omega = [torch.tensor(x) for x in struc.dihedral_backbone(source_struct)]
 
     builder = NERFBuilder(phi, psi, omega)
     print(builder.cartesian_coords)
