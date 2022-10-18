@@ -4,8 +4,6 @@ Some custom metrics
 import functools
 import multiprocessing
 import logging
-from cmath import rect, phase
-from math import radians, degrees
 
 import numpy as np
 from scipy import stats
