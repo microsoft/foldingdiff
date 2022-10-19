@@ -84,21 +84,35 @@ class NERFBuilder:
 
         # The first value of phi at the N terminus is not defined
         # The last value of psi and omega at the C terminus are not defined
-        for i, (phi, psi, omega) in enumerate(
-            zip(self.phi[1:], self.psi[:-1], self.omega[:-1])
-        ):
+        phi = self.phi[1:]
+        psi = self.psi[:-1]
+        omega = self.omega[:-1]
+        dih_angles = (
+            torch.stack([psi, omega, phi])
+            if self.use_torch
+            else np.stack([psi, omega, phi])
+        ).T
+        assert (
+            dih_angles.shape[1] == 3
+        ), f"Unexpected dih_angles shape: {dih_angles.shape}"
+
+        for i in range(dih_angles.shape[0]):
+            # for i, (phi, psi, omega) in enumerate(
+            #     zip(self.phi[1:], self.psi[:-1], self.omega[:-1])
+            # ):
+            dih = dih_angles[i]
             # Procedure for placing N-CA-C
             # Place the next N atom, which requires the C-N bond length/angle, and the psi dihedral
             # Place the alpha carbon, which requires the N-CA bond length/angle, and the omega dihedral
             # Place the carbon, which requires the the CA-C bond length/angle, and the phi dihedral
-            for bond, dih in zip(self.bond_lengths.keys(), [psi, omega, phi]):
+            for j, bond in enumerate(self.bond_lengths.keys()):
                 coords = place_dihedral(
                     retval[-3],
                     retval[-2],
                     retval[-1],
                     bond_angle=self._get_bond_angle(bond, i),
                     bond_length=self._get_bond_length(bond, i),
-                    torsion_angle=dih,
+                    torsion_angle=dih[j],
                     use_torch=self.use_torch,
                 )
                 retval.append(coords)
