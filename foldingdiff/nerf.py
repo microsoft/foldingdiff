@@ -79,6 +79,8 @@ class NERFBuilder:
     def cartesian_coords(self) -> Union[np.ndarray, torch.Tensor]:
         """Build out the molecule"""
         retval = self.init_coords.copy()
+        if self.use_torch:
+            retval = [torch.tensor(x, requires_grad=True) for x in retval]
 
         # The first value of phi at the N terminus is not defined
         # The last value of psi and omega at the C terminus are not defined
@@ -102,7 +104,7 @@ class NERFBuilder:
                 retval.append(coords)
 
         if self.use_torch:
-            return torch.tensor(retval)
+            return torch.stack(retval)
         return np.array(retval)
 
     @cached_property
@@ -134,7 +136,7 @@ def place_dihedral(
     bond_length: float,
     torsion_angle: float,
     use_torch: bool = False,
-) -> np.ndarray:
+) -> Union[np.ndarray, torch.Tensor]:
     """
     Place the point d such that the bond angle, length, and torsion angle are satisfied
     with the series a, b, c, d.
