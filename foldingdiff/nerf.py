@@ -176,17 +176,13 @@ def place_dihedral(
         )
         d = m.dot(d)
     else:
-        d = (
-            torch.tensor(
-                [
-                    -bond_length * torch.cos(bond_angle),
-                    bond_length * torch.cos(torsion_angle) * torch.sin(bond_angle),
-                    bond_length * torch.sin(torsion_angle) * torch.sin(bond_angle),
-                ]
-            )
-            .unsqueeze(1)
-            .type(m.dtype)
-        )
+        d = torch.vstack(
+            [
+                -bond_length * torch.cos(bond_angle),
+                bond_length * torch.cos(torsion_angle) * torch.sin(bond_angle),
+                bond_length * torch.sin(torsion_angle) * torch.sin(bond_angle),
+            ]
+        ).type(m.dtype)
         d = torch.mm(m, d).squeeze()
     # d = m.dot(d)
     return d + c
