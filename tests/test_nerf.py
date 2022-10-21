@@ -120,6 +120,50 @@ class TestBackboneReconstruction(unittest.TestCase):
             score = tmalign.run_tmalign(self.pdb_file, out_fname)
         self.assertGreater(score, 0.5)
 
+    def test_batch_reconstruction(self):
+        """Test that we can process a batch of inputs of equal length"""
+        angles = ac.canonical_distances_and_dihedrals(
+            self.pdb_file,
+            distances=self.exhaustive_dists,
+            angles=self.exhaustive_angles,
+        )
+
+        bs = 64
+
+        phi = torch.from_numpy(angles["phi"].values).unsqueeze(0).repeat(bs, 1)
+        psi = torch.from_numpy(angles["psi"].values).unsqueeze(0).repeat(bs, 1)
+        omega = torch.from_numpy(angles["omega"].values).unsqueeze(0).repeat(bs, 1)
+        tau = torch.from_numpy(angles["tau"].values).unsqueeze(0).repeat(bs, 1)
+        ca_c_1n = torch.from_numpy(angles["CA:C:1N"].values).unsqueeze(0).repeat(bs, 1)
+        c_1n_1ca = (
+            torch.from_numpy(angles["C:1N:1CA"].values).unsqueeze(0).repeat(bs, 1)
+        )
+        assert phi.shape == (bs, len(angles))
+
+        built = (
+            nerf.nerf_build_batch(
+                phi,
+                psi,
+                omega,
+                tau,
+                ca_c_1n,
+                c_1n_1ca,
+            )
+            .detach()
+            .numpy()
+        )
+        self.assertTrue(built.shape[0] == bs)
+
+        for coords in built:
+            with tempfile.TemporaryDirectory() as dirname:
+                out_fname = os.path.join(dirname, "temp.pdb")
+                ac.write_coords_to_pdb(
+                    coords,
+                    out_fname,
+                )
+                score = tmalign.run_tmalign(self.pdb_file, out_fname)
+                self.assertGreater(score, 0.95)
+
 
 class TestPytorchBackend(unittest.TestCase):
     """
