@@ -155,7 +155,7 @@ def place_dihedral(
     Place the point d such that the bond angle, length, and torsion angle are satisfied
     with the series a, b, c, d.
     """
-    assert a.ndim == b.ndim == c.ndim
+    assert a.shape == b.shape == c.shape
     assert a.shape[-1] == b.shape[-1] == c.shape[-1] == 3
 
     if not use_torch:

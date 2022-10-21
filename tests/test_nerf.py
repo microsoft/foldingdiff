@@ -179,7 +179,34 @@ class TestPytorchBackend(unittest.TestCase):
             use_torch=True,
         )
         self.assertTrue(
-            torch.allclose(d_expanded, calc_d, atol=1e-6), f"Mismatched: {d_expanded} != {calc_d}"
+            torch.allclose(d_expanded, calc_d, atol=1e-6),
+            f"Mismatched: {d_expanded} != {calc_d}",
+        )
+
+    def test_pytorch_random_vectorized(self):
+        """Test random values for vectorized computation"""
+        a, b, c, d = torch.from_numpy(self.rng.random(size=(4, 1000, 3)))
+        assert a.shape == b.shape == c.shape == d.shape == (1000, 3)
+
+        angles = [
+            angle_between((d_i - c_i).numpy(), (b_i - c_i))
+            for b_i, d_i, c_i in zip(b, d, c)
+        ]
+        angles = torch.tensor(angles).unsqueeze(1)
+
+        dists = [dist_between(c_i.numpy(), d_i.numpy()) for d_i, c_i in zip(d, c)]
+        dists = torch.tensor(dists).unsqueeze(1)
+
+        dihedrals = [
+            dihedral(a_i.numpy(), b_i.numpy(), c_i.numpy(), d_i.numpy())
+            for a_i, b_i, c_i, d_i in zip(a, b, c, d)
+        ]
+        assert len(dihedrals) == len(angles) == len(dists) == 1000
+        dihedrals = torch.tensor(dihedrals).unsqueeze(1)
+
+        calc_d = nerf.place_dihedral(a, b, c, angles, dists, dihedrals, use_torch=True)
+        self.assertTrue(
+            torch.allclose(d, calc_d, atol=1e-6), f"Mismatched: {d} != {calc_d}"
         )
 
 
