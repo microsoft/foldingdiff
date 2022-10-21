@@ -184,9 +184,17 @@ def create_new_chain_nerf(
     assert coords.shape == (
         int(dists_and_angles.shape[0] * 3),
         3,
-    ), f"Unexpected shape: {coords.shape} for input of {len(dists_and_angles)}"
+    ), f"Unexpected shape: {coords.shape} for input of {len(dists_and_angles)}" 
+    return write_coords_to_pdb(coords, out_fname)
+
+
+def write_coords_to_pdb(coords: np.ndarray, out_fname: str) -> str:
+    """
+    Write the coordinates to the given pdb fname
+    """
     # Create a new PDB file using biotite
     # https://www.biotite-python.org/tutorial/target/index.html#creating-structures
+    assert len(coords) % 3 == 0
     atoms = []
     for i, (n_coord, ca_coord, c_coord) in enumerate(
         (coords[j : j + 3] for j in range(0, len(coords), 3))
