@@ -155,12 +155,12 @@ def place_dihedral(
     Place the point d such that the bond angle, length, and torsion angle are satisfied
     with the series a, b, c, d.
     """
-    assert a.ndim == b.ndim == c.ndim == 1
+    assert a.ndim == b.ndim == c.ndim
+    assert a.shape[-1] == b.shape[-1] == c.shape[-1] == 3
 
     if not use_torch:
-        unit_vec = lambda x: x / np.linalg.norm(x)
-        cross = np.cross
-        stack = np.stack
+        unit_vec = lambda x: x / np.linalg.norm(x, axis=-1)
+        cross = lambda x, y: np.cross(x, y, axis=-1)
     else:
         ensure_tensor = (
             lambda x: torch.tensor(x, requires_grad=False)
@@ -170,35 +170,37 @@ def place_dihedral(
         a, b, c, bond_angle, bond_length, torsion_angle = [
             ensure_tensor(x) for x in (a, b, c, bond_angle, bond_length, torsion_angle)
         ]
-        unit_vec = lambda x: x / torch.linalg.norm(x)
-        cross = torch.cross
-        stack = torch.stack
+        unit_vec = lambda x: x / torch.linalg.norm(x, dim=-1, keepdim=True)
+        cross = lambda x, y: torch.linalg.cross(x, y, dim=-1)
 
     ab = b - a
     bc = unit_vec(c - b)
     n = unit_vec(cross(ab, bc))
     nbc = cross(n, bc)
-    m = stack([bc, nbc, n]).T
 
     if not use_torch:
-        d = np.array(
+        m = np.stack([bc, nbc, n], axis=-1)
+        d = np.stack(
             [
                 -bond_length * np.cos(bond_angle),
                 bond_length * np.cos(torsion_angle) * np.sin(bond_angle),
                 bond_length * np.sin(torsion_angle) * np.sin(bond_angle),
-            ]
+            ],
+            axis=a.ndim - 1,
         )
         d = m.dot(d)
     else:
-        d = torch.vstack(
+        m = torch.stack([bc, nbc, n], dim=-1)
+        d = torch.stack(
             [
                 -bond_length * torch.cos(bond_angle),
                 bond_length * torch.cos(torsion_angle) * torch.sin(bond_angle),
                 bond_length * torch.sin(torsion_angle) * torch.sin(bond_angle),
-            ]
+            ],
+            dim=a.ndim - 1,
         ).type(m.dtype)
-        d = torch.mm(m, d).squeeze()
-    # d = m.dot(d)
+        d = torch.matmul(m, d).squeeze()
+
     return d + c
 
 

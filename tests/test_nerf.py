@@ -160,6 +160,28 @@ class TestPytorchBackend(unittest.TestCase):
             )
             self.assertTrue(np.allclose(d, calc_d), f"Mismatched: {d} != {calc_d}")
 
+    def test_pytorch_vectorized(self):
+        """Simple test about origin, repeated twice along batch axis"""
+        a = torch.tensor([1, 0, 0], dtype=torch.float64)
+        b = torch.tensor([0, 0, 0], dtype=torch.float64)
+        c = torch.tensor([0, 1, 0], dtype=torch.float64)
+        d = torch.tensor([0, 1, 1], dtype=torch.float64)
+
+        d_expanded = d.repeat(2, 1)
+
+        calc_d = nerf.place_dihedral(
+            a.repeat(2, 1),
+            b.repeat(2, 1),
+            c.repeat(2, 1),
+            torch.tensor(np.pi / 2).repeat(2, 1),
+            torch.tensor(1.0).repeat(2, 1),
+            torch.tensor(-np.pi / 2).repeat(2, 1),
+            use_torch=True,
+        )
+        self.assertTrue(
+            torch.allclose(d_expanded, calc_d, atol=1e-6), f"Mismatched: {d_expanded} != {calc_d}"
+        )
+
 
 def angle_between(v1, v2) -> float:
     """Gets the angle between u and v"""
