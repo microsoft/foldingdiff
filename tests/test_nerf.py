@@ -58,6 +58,11 @@ class TestBackboneReconstruction(unittest.TestCase):
         )
         assert os.path.isfile(self.pdb_file)
 
+        self.pdb_file_2 = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data/7PFL.pdb"
+        )
+        assert os.path.isfile(self.pdb_file_2)
+
         self.exhaustive_angles = ["phi", "psi", "omega", "tau", "CA:C:1N", "C:1N:1CA"]
         self.exhaustive_dists = ["0C:1N", "N:CA", "CA:C"]
 
@@ -66,103 +71,113 @@ class TestBackboneReconstruction(unittest.TestCase):
 
     def test_full_reconstruction(self):
         """Test that we can get the same structure back"""
-        angles = ac.canonical_distances_and_dihedrals(
-            self.pdb_file,
-            distances=self.exhaustive_dists,
-            angles=self.exhaustive_angles,
-        )
-        with tempfile.TemporaryDirectory() as dirname:
-            out_fname = os.path.join(dirname, "temp.pdb")
-            ac.create_new_chain_nerf(
-                out_fname,
-                angles,
-                angles_to_set=self.exhaustive_angles,
-                dists_to_set=self.exhaustive_dists,
-                center_coords=False,
+        for pdb_file in [self.pdb_file, self.pdb_file_2]:
+            angles = ac.canonical_distances_and_dihedrals(
+                pdb_file,
+                distances=self.exhaustive_dists,
+                angles=self.exhaustive_angles,
             )
-            score = tmalign.run_tmalign(self.pdb_file, out_fname)
-        self.assertAlmostEqual(1.0, score)
+            with tempfile.TemporaryDirectory() as dirname:
+                out_fname = os.path.join(dirname, "temp.pdb")
+                ac.create_new_chain_nerf(
+                    out_fname,
+                    angles,
+                    angles_to_set=self.exhaustive_angles,
+                    dists_to_set=self.exhaustive_dists,
+                    center_coords=False,
+                )
+                score = tmalign.run_tmalign(pdb_file, out_fname)
+            self.assertAlmostEqual(1.0, score)
 
     def test_full_reconstruction_with_centering(self):
         """Test that we can get the same structure back with centering"""
-        angles = ac.canonical_distances_and_dihedrals(
-            self.pdb_file,
-            distances=self.exhaustive_dists,
-            angles=self.exhaustive_angles,
-        )
-        with tempfile.TemporaryDirectory() as dirname:
-            out_fname = os.path.join(dirname, "temp.pdb")
-            ac.create_new_chain_nerf(
-                out_fname,
-                angles,
-                angles_to_set=self.exhaustive_angles,
-                dists_to_set=self.exhaustive_dists,
-                center_coords=True,
+        for pdb_file in [self.pdb_file, self.pdb_file_2]:
+            angles = ac.canonical_distances_and_dihedrals(
+                pdb_file,
+                distances=self.exhaustive_dists,
+                angles=self.exhaustive_angles,
             )
-            score = tmalign.run_tmalign(self.pdb_file, out_fname)
-        self.assertAlmostEqual(1.0, score)
+            with tempfile.TemporaryDirectory() as dirname:
+                out_fname = os.path.join(dirname, "temp.pdb")
+                ac.create_new_chain_nerf(
+                    out_fname,
+                    angles,
+                    angles_to_set=self.exhaustive_angles,
+                    dists_to_set=self.exhaustive_dists,
+                    center_coords=True,
+                )
+                score = tmalign.run_tmalign(pdb_file, out_fname)
+            self.assertAlmostEqual(1.0, score)
 
     def test_minimal_reconstruction(self):
         """Test that we can get a close enough structure back with fewer angles"""
-        angles = ac.canonical_distances_and_dihedrals(
-            self.pdb_file,
-            distances=self.minimal_dists,
-            angles=self.minimal_angles,
-        )
-        with tempfile.TemporaryDirectory() as dirname:
-            out_fname = os.path.join(dirname, "temp.pdb")
-            ac.create_new_chain_nerf(
-                out_fname,
-                angles,
-                angles_to_set=self.minimal_angles,
-                dists_to_set=self.minimal_dists,
+        for pdb_file in [self.pdb_file, self.pdb_file_2]:
+            angles = ac.canonical_distances_and_dihedrals(
+                pdb_file,
+                distances=self.minimal_dists,
+                angles=self.minimal_angles,
             )
-            score = tmalign.run_tmalign(self.pdb_file, out_fname)
-        self.assertGreater(score, 0.5)
+            with tempfile.TemporaryDirectory() as dirname:
+                out_fname = os.path.join(dirname, "temp.pdb")
+                ac.create_new_chain_nerf(
+                    out_fname,
+                    angles,
+                    angles_to_set=self.minimal_angles,
+                    dists_to_set=self.minimal_dists,
+                )
+                score = tmalign.run_tmalign(pdb_file, out_fname)
+            self.assertGreater(score, 0.5)
 
     def test_batch_reconstruction(self):
         """Test that we can process a batch of inputs of equal length"""
-        angles = ac.canonical_distances_and_dihedrals(
-            self.pdb_file,
-            distances=self.exhaustive_dists,
-            angles=self.exhaustive_angles,
-        )
-
-        bs = 64
-
-        phi = torch.from_numpy(angles["phi"].values).unsqueeze(0).repeat(bs, 1)
-        psi = torch.from_numpy(angles["psi"].values).unsqueeze(0).repeat(bs, 1)
-        omega = torch.from_numpy(angles["omega"].values).unsqueeze(0).repeat(bs, 1)
-        tau = torch.from_numpy(angles["tau"].values).unsqueeze(0).repeat(bs, 1)
-        ca_c_1n = torch.from_numpy(angles["CA:C:1N"].values).unsqueeze(0).repeat(bs, 1)
-        c_1n_1ca = (
-            torch.from_numpy(angles["C:1N:1CA"].values).unsqueeze(0).repeat(bs, 1)
-        )
-        assert phi.shape == (bs, len(angles))
-
-        built = (
-            nerf.nerf_build_batch(
-                phi,
-                psi,
-                omega,
-                tau,
-                ca_c_1n,
-                c_1n_1ca,
+        for pdb_file in [self.pdb_file, self.pdb_file_2]:
+            angles = ac.canonical_distances_and_dihedrals(
+                pdb_file,
+                distances=self.exhaustive_dists,
+                angles=self.exhaustive_angles,
             )
-            .detach()
-            .numpy()
-        )
-        self.assertTrue(built.shape[0] == bs)
 
-        for coords in built:
-            with tempfile.TemporaryDirectory() as dirname:
-                out_fname = os.path.join(dirname, "temp.pdb")
-                ac.write_coords_to_pdb(
-                    coords,
-                    out_fname,
+            bs = 64
+
+            phi = torch.from_numpy(angles["phi"].values).unsqueeze(0).repeat(bs, 1)
+            psi = torch.from_numpy(angles["psi"].values).unsqueeze(0).repeat(bs, 1)
+            omega = torch.from_numpy(angles["omega"].values).unsqueeze(0).repeat(bs, 1)
+            tau = torch.from_numpy(angles["tau"].values).unsqueeze(0).repeat(bs, 1)
+            ca_c_1n = torch.from_numpy(angles["CA:C:1N"].values).unsqueeze(0).repeat(bs, 1)
+            c_1n_1ca = (
+                torch.from_numpy(angles["C:1N:1CA"].values).unsqueeze(0).repeat(bs, 1)
+            )
+            assert phi.shape == (bs, len(angles))
+
+            built = (
+                nerf.nerf_build_batch(
+                    phi,
+                    psi,
+                    omega,
+                    tau,
+                    ca_c_1n,
+                    c_1n_1ca,
                 )
-                score = tmalign.run_tmalign(self.pdb_file, out_fname)
-                self.assertGreater(score, 0.95)
+                .detach()
+                .numpy()
+            )
+            self.assertTrue(built.shape[0] == bs)
+
+            for coords in built:
+                with tempfile.TemporaryDirectory() as dirname:
+                    out_fname = os.path.join(dirname, "temp.pdb")
+                    ac.write_coords_to_pdb(
+                        coords,
+                        out_fname,
+                    )
+                    score = tmalign.run_tmalign(pdb_file, out_fname)
+                    self.assertGreater(score, 0.95)
+
+    def test_batch_reconstruction_diff_len(self):
+        """
+        Test that we can process a batch of inputs of different lengths
+        padded by nan values
+        """
 
 
 class TestPytorchBackend(unittest.TestCase):
@@ -206,20 +221,22 @@ class TestPytorchBackend(unittest.TestCase):
 
     def test_pytorch_vectorized(self):
         """Simple test about origin, repeated twice along batch axis"""
+        n_batch = 128
+
         a = torch.tensor([1, 0, 0], dtype=torch.float64)
         b = torch.tensor([0, 0, 0], dtype=torch.float64)
         c = torch.tensor([0, 1, 0], dtype=torch.float64)
         d = torch.tensor([0, 1, 1], dtype=torch.float64)
 
-        d_expanded = d.repeat(2, 1)
+        d_expanded = d.repeat(n_batch, 1)
 
         calc_d = nerf.place_dihedral(
-            a.repeat(2, 1),
-            b.repeat(2, 1),
-            c.repeat(2, 1),
-            torch.tensor(np.pi / 2).repeat(2, 1),
-            torch.tensor(1.0).repeat(2, 1),
-            torch.tensor(-np.pi / 2).repeat(2, 1),
+            a.repeat(n_batch, 1),
+            b.repeat(n_batch, 1),
+            c.repeat(n_batch, 1),
+            torch.tensor(np.pi / 2).repeat(n_batch, 1),
+            torch.tensor(1.0).repeat(n_batch, 1),
+            torch.tensor(-np.pi / 2).repeat(n_batch, 1),
             use_torch=True,
         )
         self.assertTrue(
