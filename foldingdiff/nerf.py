@@ -216,7 +216,10 @@ def nerf_build_batch(
     bond_len_c_n: Union[float, torch.Tensor] = C_N_LENGTH,  # 0C:1N distance
 ) -> torch.Tensor:
     """
-    Build out a batch of phi, psi, omega values
+    Build out a batch of phi, psi, omega values. Returns the 3D coordinates
+    in Cartesian space with the shape (batch, length * 3, 3). Here, length is
+    multiplied by 3 because for each backbone, there are coordinates for the
+    N-CA-C atoms.
     """
     assert phi.ndim == psi.ndim == omega.ndim == 2  # batch, seq
     assert phi.shape == psi.shape == omega.shape
