@@ -143,7 +143,9 @@ class TestBackboneReconstruction(unittest.TestCase):
             psi = torch.from_numpy(angles["psi"].values).unsqueeze(0).repeat(bs, 1)
             omega = torch.from_numpy(angles["omega"].values).unsqueeze(0).repeat(bs, 1)
             tau = torch.from_numpy(angles["tau"].values).unsqueeze(0).repeat(bs, 1)
-            ca_c_1n = torch.from_numpy(angles["CA:C:1N"].values).unsqueeze(0).repeat(bs, 1)
+            ca_c_1n = (
+                torch.from_numpy(angles["CA:C:1N"].values).unsqueeze(0).repeat(bs, 1)
+            )
             c_1n_1ca = (
                 torch.from_numpy(angles["C:1N:1CA"].values).unsqueeze(0).repeat(bs, 1)
             )
@@ -178,6 +180,65 @@ class TestBackboneReconstruction(unittest.TestCase):
         Test that we can process a batch of inputs of different lengths
         padded by nan values
         """
+        phi, psi, omega, tau, ca_c_1n, c_1n_1ca = [], [], [], [], [], []
+        pdb_files = [self.pdb_file, self.pdb_file_2]
+        for pdb_file in pdb_files:
+            angles = ac.canonical_distances_and_dihedrals(
+                pdb_file,
+                distances=self.exhaustive_dists,
+                angles=self.exhaustive_angles,
+            )
+
+            phi.append(torch.from_numpy(angles["phi"].values))
+            psi.append(torch.from_numpy(angles["psi"].values))
+            omega.append(torch.from_numpy(angles["omega"].values))
+            tau.append(torch.from_numpy(angles["tau"].values))
+            ca_c_1n.append(torch.from_numpy(angles["CA:C:1N"].values))
+            c_1n_1ca.append(torch.from_numpy(angles["C:1N:1CA"].values))
+
+        l = max([len(p) for p in phi])
+        for i in range(len(phi)):
+            phi[i] = torch.cat([phi[i], torch.zeros(l - len(phi[i])) * np.nan])
+            psi[i] = torch.cat([psi[i], torch.zeros(l - len(psi[i])) * np.nan])
+            omega[i] = torch.cat([omega[i], torch.zeros(l - len(omega[i])) * np.nan])
+            tau[i] = torch.cat([tau[i], torch.zeros(l - len(tau[i])) * np.nan])
+            ca_c_1n[i] = torch.cat(
+                [ca_c_1n[i], torch.zeros(l - len(ca_c_1n[i])) * np.nan]
+            )
+            c_1n_1ca[i] = torch.cat(
+                [c_1n_1ca[i], torch.zeros(l - len(c_1n_1ca[i])) * np.nan]
+            )
+
+        phi = torch.stack(phi)
+        psi = torch.stack(psi)
+        omega = torch.stack(omega)
+        tau = torch.stack(tau)
+        ca_c_1n = torch.stack(ca_c_1n)
+        c_1n_1ca = torch.stack(c_1n_1ca)
+
+        built = (
+            nerf.nerf_build_batch(
+                phi,
+                psi,
+                omega,
+                tau,
+                ca_c_1n,
+                c_1n_1ca,
+            )
+            .detach()
+            .numpy()
+        )
+        self.assertTrue(built.shape[0] == 2)
+
+        for i, (coords, pdb_file) in enumerate(zip(built, pdb_files)):
+            with tempfile.TemporaryDirectory() as dirname:
+                out_fname = os.path.join(dirname, "temp.pdb")
+                ac.write_coords_to_pdb(
+                    coords[np.all(~np.isnan(coords), axis=1)],
+                    out_fname,
+                )
+                score = tmalign.run_tmalign(pdb_file, out_fname)
+                self.assertGreater(score, 0.95)
 
 
 class TestPytorchBackend(unittest.TestCase):
