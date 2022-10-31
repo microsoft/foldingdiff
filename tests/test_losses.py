@@ -180,6 +180,23 @@ class TestPairwiseDistLoss(unittest.TestCase):
         l_mut = losses.pairwise_dist_loss(input_mutated, self.target, self.lengths)
         self.assertNotAlmostEqual(l_ref.item(), l_mut.item(), places=5)
 
+    def test_reduce_on_closer_match(self):
+        """Test that pairwise loss goes down when we have closer match"""
+
+        l_ref = losses.pairwise_dist_loss(self.input, self.target, self.lengths)
+        # Adjust target to be somewhat closer to input
+        target_mutated = self.target.clone()
+        for i, l in enumerate(self.lengths):
+            idx = self.rng.integers(low=0, high=l, size=1)
+            target_mutated[i, idx] = self.input[i, idx]
+        l_new = losses.pairwise_dist_loss(self.input, target_mutated, self.lengths)
+        self.assertLess(l_new.item(), l_ref.item())
+    
+    def test_zero_on_identical(self):
+        """Test that pairwise loss is zero when inputs are identical (up to shift)"""
+        l_zero = losses.pairwise_dist_loss(self.input, self.input + 99.9, self.lengths)
+        self.assertAlmostEqual(l_zero.item(), 0.0, places=5)
+
 
 if __name__ == "__main__":
     unittest.main()
