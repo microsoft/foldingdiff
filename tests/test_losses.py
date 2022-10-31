@@ -196,6 +196,12 @@ class TestPairwiseDistLoss(unittest.TestCase):
         """Test that pairwise loss is zero when inputs are identical (up to shift)"""
         l_zero = losses.pairwise_dist_loss(self.input, self.input + 99.9, self.lengths)
         self.assertAlmostEqual(l_zero.item(), 0.0, places=5)
+    
+    def test_symmetric(self):
+        """Test that pairwise loss is symmetric"""
+        l = losses.pairwise_dist_loss(self.input, self.target, self.lengths)
+        l_sym = losses.pairwise_dist_loss(self.target, self.input, self.lengths)
+        self.assertAlmostEqual(l.item(), l_sym.item(), places=5)
 
 
 if __name__ == "__main__":
