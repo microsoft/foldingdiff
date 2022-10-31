@@ -2,13 +2,9 @@
 Loss functions!
 """
 from typing import Optional, Sequence, Tuple
-import numpy as np
 
 import torch
-from torch import nn
 from torch.nn import functional as F
-
-# from torchmetrics.functional import pairwise_euclidean_distance
 
 from foldingdiff import utils
 
