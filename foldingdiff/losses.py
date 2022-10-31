@@ -124,19 +124,26 @@ def pairwise_dist_loss(
     # of the distances and a mask (where 0 indicates a padding value)
     input_dists, input_mask = _get_pairwise_dist_batch(input, lengths)
     target_dists, target_mask = _get_pairwise_dist_batch(target, lengths)
+    assert torch.allclose(input_mask, target_mask)
 
-    if weights is not None:
-        input_dists *= weights
-        target_dists *= weights
+    batch_indices, _seq_indices = torch.where(input_mask)
 
     # Get the loss
     # https://pytorch.org/docs/stable/generated/torch.nn.functional.mse_loss.html
     loss = F.mse_loss(
         input_dists[torch.where(input_mask)],
         target_dists[torch.where(target_mask)],
-        reduction="mean",
+        reduction="none",
     )
-    return loss
+    # Scale by weights optionally
+    if weights is not None:
+        if weights.ndim > 1:
+            assert weights.shape[0] == input.shape[0]
+            # loss shape (batch, M), weights after indexing is (M,) --> (1, M)
+            loss *= weights[batch_indices].squeeze()
+        else:
+            loss *= weights
+    return torch.mean(loss)
 
 
 def main():
