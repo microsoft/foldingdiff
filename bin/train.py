@@ -306,6 +306,7 @@ def train(
     batch_size: int = 64,
     lr: float = 5e-5,  # Default lr for huggingface BERT trainer
     loss: modelling.LOSS_KEYS = "smooth_l1",
+    use_pdist_loss: bool = True,  # Use the pairwise distances between CAs as an additional loss term
     l2_norm: float = 0.0,  # AdamW default has 0.01 L2 regularization, but BERT trainer uses 0.0
     l1_norm: float = 0.0,
     circle_reg: float = 0.0,
@@ -429,6 +430,7 @@ def train(
         ft_names=dsets[0].dset.feature_names[ft_key],
         lr=lr,
         loss=loss_fn,
+        use_pairwise_dist_loss=use_pdist_loss,
         l2=l2_norm,
         l1=l1_norm,
         circle_reg=circle_reg,

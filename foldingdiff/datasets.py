@@ -384,6 +384,7 @@ class CathCanonicalAnglesDataset(Dataset):
             "coords": coords,
             "attn_mask": attn_mask,
             "position_ids": position_ids,
+            "lengths": torch.tensor(l, dtype=torch.int64),
         }
         return retval
 
@@ -468,7 +469,7 @@ class CathCanonicalAnglesOnlyDataset(CathCanonicalAnglesDataset):
         assert torch.all(
             return_dict["angles"] <= torch.pi
         ), f"Maximum value {torch.max(return_dict['angles'])} higher than pi"
-        return_dict.pop("coords", None)
+        # return_dict.pop("coords", None)
 
         return return_dict
 
@@ -734,6 +735,8 @@ class NoisedAnglesDataset(Dataset):
             "corrupted": noised_vals,
             "t": t,
             "known_noise": noise,
+            "sqrt_alphas_cumprod_t": sqrt_alphas_cumprod_t,
+            "sqrt_one_minus_alphas_cumprod_t": sqrt_one_minus_alphas_cumprod_t,
         }
 
         # Update dictionary if wrapped dset returns dicts, else just return
