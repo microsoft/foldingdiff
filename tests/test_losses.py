@@ -144,5 +144,42 @@ class TestRadianSmoothL1Loss(unittest.TestCase):
         self.assertAlmostEqual(3.04143, l.item(), places=5)
 
 
+class TestPairwiseDistLoss(unittest.TestCase):
+    """
+    Tests for pairwise distance loss
+    """
+
+    def setUp(self) -> None:
+        self.rng = np.random.default_rng(1234)
+        self.input = torch.from_numpy(self.rng.random(size=(128, 48, 3)))
+        self.target = torch.from_numpy(self.rng.random(size=(128, 48, 3)))
+        self.lengths = torch.from_numpy(self.rng.integers(low=1, high=48, size=(128,)))
+
+    def test_shift_invariance(self):
+        """Test that loss does not change under shift"""
+        l = losses.pairwise_dist_loss(self.input, self.target)
+        l_shift = losses.pairwise_dist_loss(self.input + 1, self.target + 100)
+        self.assertAlmostEqual(l.item(), l_shift.item(), places=5)
+
+    def test_length_masking_eq(self):
+        """Test that loss correctly ignores values beyond the length mask"""
+        l_ref = losses.pairwise_dist_loss(self.input, self.target, self.lengths)
+        input_mutated = self.input.clone()
+        for i, l in enumerate(self.lengths):
+            input_mutated[i, l:] = -100.0  # Mutate the input
+        l_masked = losses.pairwise_dist_loss(input_mutated, self.target, self.lengths)
+        self.assertAlmostEqual(l_ref.item(), l_masked.item(), places=5)
+
+    def test_length_masking_neq(self):
+        """Test that mutating values within the length mask changes loss"""
+        l_ref = losses.pairwise_dist_loss(self.input, self.target, self.lengths)
+        input_mutated = self.input.clone()
+        for i, l in enumerate(self.lengths):
+            idx = self.rng.integers(low=0, high=l, size=1)
+            input_mutated[i, idx] = -99.0
+        l_mut = losses.pairwise_dist_loss(input_mutated, self.target, self.lengths)
+        self.assertNotAlmostEqual(l_ref.item(), l_mut.item(), places=5)
+
+
 if __name__ == "__main__":
     unittest.main()
