@@ -618,7 +618,17 @@ class BertForDiffusion(BertForDiffusionBase, pl.LightningModule):
             )
             denoised_angles /= batch["sqrt_alphas_cumprod_t"].view(bs, 1, 1)
 
-            native_ca_coords = batch["coords"]
+            known_angles = batch['angles']
+            inferred_coords = nerf.nerf_build_batch(
+                phi=known_angles[:, :, self.ft_names.index("phi")],
+                psi=known_angles[:, :, self.ft_names.index("psi")],
+                omega=known_angles[:, :, self.ft_names.index("omega")],
+                bond_angle_n_ca_c=known_angles[:, :, self.ft_names.index("tau")],
+                bond_angle_ca_c_n=known_angles[:, :, self.ft_names.index("CA:C:1N")],
+                bond_angle_c_n_ca=known_angles[
+                    :, :, self.ft_names.index("C:1N:1CA")
+                ],
+            )
             denoised_coords = nerf.nerf_build_batch(
                 phi=denoised_angles[:, :, self.ft_names.index("phi")],
                 psi=denoised_angles[:, :, self.ft_names.index("psi")],
@@ -631,9 +641,10 @@ class BertForDiffusion(BertForDiffusionBase, pl.LightningModule):
             )
             ca_idx = torch.arange(start=1, end=denoised_coords.shape[1], step=3)
             denoised_ca_coords = denoised_coords[:, ca_idx, :]
+            inferred_ca_coords = inferred_coords[:, ca_idx, :]
             assert (
-                native_ca_coords.shape == denoised_ca_coords.shape
-            ), f"{native_ca_coords.shape} != {denoised_ca_coords.shape}"
+                inferred_ca_coords.shape == denoised_ca_coords.shape
+            ), f"{inferred_ca_coords.shape} != {denoised_ca_coords.shape}"
 
             # Determine coefficient for this loss term
             if isinstance(self.use_pairwise_dist_loss, (list, tuple)):
@@ -651,7 +662,7 @@ class BertForDiffusion(BertForDiffusionBase, pl.LightningModule):
 
             pdist_loss = losses.pairwise_dist_loss(
                 denoised_ca_coords,
-                native_ca_coords,
+                inferred_ca_coords,
                 lengths=batch["lengths"],
                 weights=coef,
             )
