@@ -483,7 +483,7 @@ class BertForDiffusion(BertForDiffusionBase, pl.LightningModule):
         self,
         lr: float = 5e-5,
         loss: Union[Callable, LOSS_KEYS] = "smooth_l1",
-        use_pairwise_dist_loss: bool = False,
+        use_pairwise_dist_loss: float = 0.0,
         l2: float = 0.0,
         l1: float = 0.0,
         circle_reg: float = 0.0,
@@ -603,7 +603,7 @@ class BertForDiffusion(BertForDiffusionBase, pl.LightningModule):
                 }
                 json.dump(d_to_write, f)
 
-        if self.use_pairwise_dist_loss:
+        if self.use_pairwise_dist_loss > 0:
             # Compute the pairwise distance loss
             bs = batch["sqrt_one_minus_alphas_cumprod_t"].shape[0]
             # The alpha* have shape of [batch], e.g. [32]
@@ -636,7 +636,7 @@ class BertForDiffusion(BertForDiffusionBase, pl.LightningModule):
                 native_ca_coords,
                 lengths=batch["lengths"],
             ).to(predicted_noise.device)
-            loss_terms.append(pdist_loss)
+            loss_terms.append(self.use_pairwise_dist_loss * pdist_loss)
 
         return torch.stack(loss_terms)
 
