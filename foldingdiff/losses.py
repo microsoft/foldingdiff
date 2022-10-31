@@ -120,7 +120,6 @@ def pairwise_dist_loss(
     # of the distances and a mask (where 0 indicates a padding value)
     input_dists, input_mask = _get_pairwise_dist_batch(input, lengths)
     target_dists, target_mask = _get_pairwise_dist_batch(target, lengths)
-    print(input_mask)
 
     # Get the loss
     # https://pytorch.org/docs/stable/generated/torch.nn.functional.mse_loss.html
