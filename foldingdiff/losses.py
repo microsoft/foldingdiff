@@ -77,6 +77,7 @@ def _get_pairwise_dist_batch(
     assert values.shape[0] == lengths.shape[0]
 
     # Calculate the pairwise distances
+    dev = values.device
     values = [F.pdist(values[i, :l]) for i, l in enumerate(lengths)]
 
     # Pad
@@ -86,7 +87,7 @@ def _get_pairwise_dist_batch(
     for i, l in enumerate(lengths):
         mask[i, :l] = 1.0
 
-    retval = torch.zeros((len(values), max_len))
+    retval = torch.zeros((len(values), max_len)).to(dev)
     for i, v in enumerate(values):
         retval[i, : len(v)] = v
     assert retval.shape == mask.shape
@@ -95,7 +96,10 @@ def _get_pairwise_dist_batch(
 
 
 def pairwise_dist_loss(
-    input: torch.Tensor, target: torch.Tensor, lengths: Optional[torch.Tensor] = None
+    input: torch.Tensor,
+    target: torch.Tensor,
+    lengths: Optional[torch.Tensor] = None,
+    weights: Optional[torch.Tensor] = None,
 ):
     """
     Calculates the pairwise distance matrix for both the input and the target,
@@ -120,6 +124,10 @@ def pairwise_dist_loss(
     # of the distances and a mask (where 0 indicates a padding value)
     input_dists, input_mask = _get_pairwise_dist_batch(input, lengths)
     target_dists, target_mask = _get_pairwise_dist_batch(target, lengths)
+
+    if weights is not None:
+        input_dists *= weights
+        target_dists *= weights
 
     # Get the loss
     # https://pytorch.org/docs/stable/generated/torch.nn.functional.mse_loss.html

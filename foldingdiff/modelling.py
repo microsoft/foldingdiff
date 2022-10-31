@@ -483,7 +483,7 @@ class BertForDiffusion(BertForDiffusionBase, pl.LightningModule):
         self,
         lr: float = 5e-5,
         loss: Union[Callable, LOSS_KEYS] = "smooth_l1",
-        use_pairwise_dist_loss: float = 0.0,
+        use_pairwise_dist_loss: Union[float, Tuple[float, float, int]] = 0.0,
         l2: float = 0.0,
         l1: float = 0.0,
         circle_reg: float = 0.0,
@@ -603,7 +603,10 @@ class BertForDiffusion(BertForDiffusionBase, pl.LightningModule):
                 }
                 json.dump(d_to_write, f)
 
-        if self.use_pairwise_dist_loss > 0:
+        if (
+            isinstance(self.use_pairwise_dist_loss, (list, tuple))
+            or self.use_pairwise_dist_loss > 0
+        ):
             # Compute the pairwise distance loss
             bs = batch["sqrt_one_minus_alphas_cumprod_t"].shape[0]
             # The alpha* have shape of [batch], e.g. [32]
@@ -631,12 +634,28 @@ class BertForDiffusion(BertForDiffusionBase, pl.LightningModule):
             assert (
                 native_ca_coords.shape == denoised_ca_coords.shape
             ), f"{native_ca_coords.shape} != {denoised_ca_coords.shape}"
+
+            # Determine coefficient for this loss term
+            if isinstance(self.use_pairwise_dist_loss, (list, tuple)):
+                min_coef, max_coef, max_timesteps = self.use_pairwise_dist_loss
+                assert 0 < min_coef < max_coef
+                # Linearly interpolate between min and max based on the timestep
+                # of each item in the batch
+                coef = min_coef + (max_coef - min_coef) * (
+                    (max_timesteps - batch["t"]) / max_timesteps
+                ).to(batch['t'].device)
+                assert torch.all(coef > 0)
+            else:
+                coef = self.use_pairwise_dist_loss
+                assert coef > 0
+
             pdist_loss = losses.pairwise_dist_loss(
                 denoised_ca_coords,
                 native_ca_coords,
                 lengths=batch["lengths"],
-            ).to(predicted_noise.device)
-            loss_terms.append(self.use_pairwise_dist_loss * pdist_loss)
+                weights=coef,
+            )
+            loss_terms.append(pdist_loss)
 
         return torch.stack(loss_terms)
 
