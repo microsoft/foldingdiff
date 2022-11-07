@@ -811,10 +811,27 @@ class BertForAutoregressiveBase(BertForDiffusionBase):
         assert len(inputs.shape) == 3  # batch_size, seq_length, features
         inputs_upscaled = self.inputs_to_hidden_dim(inputs)  # Batch * seq_len * dim
 
+        if position_ids is None:
+            batch_size, seq_length, *_ = inputs.size()
+            # Shape (batch, seq_len)
+            position_ids = torch.arange(
+                seq_length,
+            ).expand(batch_size, -1)
+
+        # We can provide a self-attention mask of dimensions [batch_size, from_seq_length, to_seq_length]
+        # ourselves in which case we just need to make it broadcastable to all heads. This code is taken
+        # from hugggingface modeling_utils
+        assert (
+            attention_mask.dim() == 2
+        ), f"Attention mask expected in shape (batch_size, seq_length), got {attention_mask.shape}"
+        extended_attention_mask = attention_mask[:, None, None, :]
+        extended_attention_mask = extended_attention_mask.type_as(attention_mask)
+        extended_attention_mask = (1.0 - extended_attention_mask) * -10000.0
+
         inputs_upscaled = self.embeddings(inputs_upscaled, position_ids=position_ids)
         encoder_outputs = self.encoder(
             inputs_upscaled,
-            attention_mask=attention_mask,
+            attention_mask=extended_attention_mask,
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
@@ -832,7 +849,13 @@ class BertForAutoregressive(BertForAutoregressiveBase, pl.LightningModule):
     angles given the current set of angles
     """
 
-    def __init__(self, loss_key:LOSS_KEYS="smooth_l1", lr: float = 5e-5, l2: float = 0.0, **kwargs):
+    def __init__(
+        self,
+        loss_key: LOSS_KEYS = "smooth_l1",
+        lr: float = 5e-5,
+        l2: float = 0.0,
+        **kwargs,
+    ):
         BertForDiffusionBase.__init__(self, **kwargs)
         self.learning_rate = lr
         self.l2_lambda = l2
@@ -843,7 +866,11 @@ class BertForAutoregressive(BertForAutoregressiveBase, pl.LightningModule):
         Get the loss terms for a batch
         """
         # Get the predictions
-        preds = self.forward(batch["angles"], batch["causal_attn_mask"])
+        preds = self.forward(
+            batch["angles"],
+            attention_mask=batch["causal_attn_mask"],
+            position_ids=batch["position_ids"],
+        )
         assert preds.ndim == 3  # batch_size, seq_length, features
         # Get the loss terms
         l = self.loss(
