@@ -593,7 +593,7 @@ class AutoregressiveCausalDataset(Dataset):
         )
         return_dict["causal_attn_mask"] = causal_attn_mask
         return_dict["causal_target"] = return_dict[self.dset_key][causal_len]
-        return_dict["causal_len"] = causal_len
+        return_dict["causal_idx"] = causal_len
         return return_dict
 
 
