@@ -853,7 +853,7 @@ class BertForAutoregressive(BertForAutoregressiveBase, pl.LightningModule):
         self,
         loss_key: LOSS_KEYS = "smooth_l1",
         lr: float = 5e-5,
-        lr_scheduler:Optional[str] = None,
+        lr_scheduler: Optional[str] = None,
         l2: float = 0.0,
         epochs: int = 1,
         steps_per_epoch: int = 250,  # Dummy value
@@ -959,19 +959,8 @@ class BertForAutoregressive(BertForAutoregressiveBase, pl.LightningModule):
 
 def main():
     """on the fly testing"""
-    import datasets
-    from torch.utils.data import default_collate
-
-    # # Create model
-    # device = torch.device("cuda")
-    cfg = BertConfig()
-    model = BertForDiffusionBase.from_dir(
-        os.path.join(
-            os.path.dirname(os.path.dirname(__file__)),
-            "tests/mini_model_for_testing/results",
-        )
-    )
-    print(model)
+    g = GaussianFourierProjection(embed_dim=4)
+    print(g(torch.tensor([torch.pi * 2, torch.pi * 4])))
 
 
 if __name__ == "__main__":
