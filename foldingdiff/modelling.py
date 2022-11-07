@@ -855,6 +855,8 @@ class BertForAutoregressive(BertForAutoregressiveBase, pl.LightningModule):
         lr: float = 5e-5,
         lr_scheduler:Optional[str] = None,
         l2: float = 0.0,
+        epochs: int = 1,
+        steps_per_epoch: int = 250,  # Dummy value
         **kwargs,
     ):
         BertForDiffusionBase.__init__(self, **kwargs)
@@ -862,6 +864,8 @@ class BertForAutoregressive(BertForAutoregressiveBase, pl.LightningModule):
         self.lr_scheduler = lr_scheduler
         self.l2_lambda = l2
         self.loss = self.angular_loss_fn_dict[loss_key]
+        self.epochs = epochs
+        self.steps_per_epoch = steps_per_epoch
 
     def _get_loss(self, batch) -> torch.Tensor:
         """

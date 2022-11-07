@@ -102,7 +102,7 @@ def train(
     min_epochs: Optional[int] = None,
     max_epochs: int = 100,  # 10000, set to 100 for debug
     early_stop_patience: int = 0,  # Set to 0 to disable early stopping
-    lr_scheduler: modelling.LR_SCHEDULE = None,
+    lr_scheduler: modelling.LR_SCHEDULE = "LinearWarmup",
     use_swa: bool = False,
 ):
     """
@@ -180,8 +180,8 @@ def train(
         lr=lr,
         loss_key=loss,
         l2=l2_norm,
-        # epochs=max_epochs,
-        # steps_per_epoch=len(train_dataloader),
+        epochs=max_epochs,
+        steps_per_epoch=len(train_dataloader),
         lr_scheduler=lr_scheduler,
     )
 
