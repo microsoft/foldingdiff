@@ -266,6 +266,7 @@ def record_args_and_metadata(func_args: Dict[str, Any], results_folder: Path):
     # Record current Git version
     try:
         import git
+
         repo = git.Repo(
             path=os.path.dirname(os.path.abspath(__file__)),
             search_parent_directories=True,
@@ -276,7 +277,9 @@ def record_args_and_metadata(func_args: Dict[str, Any], results_folder: Path):
     except git.exc.InvalidGitRepositoryError:
         logging.warning("Could not determine Git repo status -- not a git repo")
     except ModuleNotFoundError:
-        logging.warning(f"Could not determine Git repo status -- GitPython is not installed")
+        logging.warning(
+            f"Could not determine Git repo status -- GitPython is not installed"
+        )
 
 
 def train(
@@ -306,6 +309,7 @@ def train(
     batch_size: int = 64,
     lr: float = 5e-5,  # Default lr for huggingface BERT trainer
     loss: modelling.LOSS_KEYS = "smooth_l1",
+    use_pdist_loss: Union[float, Tuple[float, float]] = 0.0,  # Use the pairwise distances between CAs as an additional loss term, multiplied by this scalar
     l2_norm: float = 0.0,  # AdamW default has 0.01 L2 regularization, but BERT trainer uses 0.0
     l1_norm: float = 0.0,
     circle_reg: float = 0.0,
@@ -429,6 +433,9 @@ def train(
         ft_names=dsets[0].dset.feature_names[ft_key],
         lr=lr,
         loss=loss_fn,
+        use_pairwise_dist_loss=use_pdist_loss
+        if isinstance(use_pdist_loss, float)
+        else [*use_pdist_loss, timesteps],
         l2=l2_norm,
         l1=l1_norm,
         circle_reg=circle_reg,

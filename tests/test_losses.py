@@ -144,5 +144,65 @@ class TestRadianSmoothL1Loss(unittest.TestCase):
         self.assertAlmostEqual(3.04143, l.item(), places=5)
 
 
+class TestPairwiseDistLoss(unittest.TestCase):
+    """
+    Tests for pairwise distance loss
+    """
+
+    def setUp(self) -> None:
+        self.rng = np.random.default_rng(1234)
+        self.input = torch.from_numpy(self.rng.random(size=(128, 48, 3)))
+        self.target = torch.from_numpy(self.rng.random(size=(128, 48, 3)))
+        self.lengths = torch.from_numpy(self.rng.integers(low=1, high=48, size=(128,)))
+
+    def test_shift_invariance(self):
+        """Test that loss does not change under shift"""
+        l = losses.pairwise_dist_loss(self.input, self.target)
+        l_shift = losses.pairwise_dist_loss(self.input + 1, self.target + 100)
+        self.assertAlmostEqual(l.item(), l_shift.item(), places=5)
+
+    def test_length_masking_eq(self):
+        """Test that loss correctly ignores values beyond the length mask"""
+        l_ref = losses.pairwise_dist_loss(self.input, self.target, self.lengths)
+        input_mutated = self.input.clone()
+        for i, l in enumerate(self.lengths):
+            input_mutated[i, l:] = -100.0  # Mutate the input
+        l_masked = losses.pairwise_dist_loss(input_mutated, self.target, self.lengths)
+        self.assertAlmostEqual(l_ref.item(), l_masked.item(), places=5)
+
+    def test_length_masking_neq(self):
+        """Test that mutating values within the length mask changes loss"""
+        l_ref = losses.pairwise_dist_loss(self.input, self.target, self.lengths)
+        input_mutated = self.input.clone()
+        for i, l in enumerate(self.lengths):
+            idx = self.rng.integers(low=0, high=l, size=1)
+            input_mutated[i, idx] = -99.0
+        l_mut = losses.pairwise_dist_loss(input_mutated, self.target, self.lengths)
+        self.assertNotAlmostEqual(l_ref.item(), l_mut.item(), places=5)
+
+    def test_reduce_on_closer_match(self):
+        """Test that pairwise loss goes down when we have closer match"""
+
+        l_ref = losses.pairwise_dist_loss(self.input, self.target, self.lengths)
+        # Adjust target to be somewhat closer to input
+        target_mutated = self.target.clone()
+        for i, l in enumerate(self.lengths):
+            idx = self.rng.integers(low=0, high=l, size=1)
+            target_mutated[i, idx] = self.input[i, idx]
+        l_new = losses.pairwise_dist_loss(self.input, target_mutated, self.lengths)
+        self.assertLess(l_new.item(), l_ref.item())
+    
+    def test_zero_on_identical(self):
+        """Test that pairwise loss is zero when inputs are identical (up to shift)"""
+        l_zero = losses.pairwise_dist_loss(self.input, self.input + 99.9, self.lengths)
+        self.assertAlmostEqual(l_zero.item(), 0.0, places=5)
+    
+    def test_symmetric(self):
+        """Test that pairwise loss is symmetric"""
+        l = losses.pairwise_dist_loss(self.input, self.target, self.lengths)
+        l_sym = losses.pairwise_dist_loss(self.target, self.input, self.lengths)
+        self.assertAlmostEqual(l.item(), l_sym.item(), places=5)
+
+
 if __name__ == "__main__":
     unittest.main()
