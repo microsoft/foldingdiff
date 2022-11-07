@@ -853,11 +853,13 @@ class BertForAutoregressive(BertForAutoregressiveBase, pl.LightningModule):
         self,
         loss_key: LOSS_KEYS = "smooth_l1",
         lr: float = 5e-5,
+        lr_scheduler:Optional[str] = None,
         l2: float = 0.0,
         **kwargs,
     ):
         BertForDiffusionBase.__init__(self, **kwargs)
         self.learning_rate = lr
+        self.lr_scheduler = lr_scheduler
         self.l2_lambda = l2
         self.loss = self.angular_loss_fn_dict[loss_key]
 
@@ -915,6 +917,38 @@ class BertForAutoregressive(BertForAutoregressiveBase, pl.LightningModule):
         )
         retval = {"optimizer": optim}
         pl.utilities.rank_zero_info(f"Using optimizer {retval}")
+
+        if self.lr_scheduler:
+            if self.lr_scheduler == "OneCycleLR":
+                retval["lr_scheduler"] = {
+                    "scheduler": torch.optim.lr_scheduler.OneCycleLR(
+                        optim,
+                        max_lr=1e-2,
+                        epochs=self.epochs,
+                        steps_per_epoch=self.steps_per_epoch,
+                    ),
+                    "monitor": "val_loss",
+                    "frequency": 1,
+                    "interval": "step",
+                }
+            elif self.lr_scheduler == "LinearWarmup":
+                # https://huggingface.co/docs/transformers/v4.21.2/en/main_classes/optimizer_schedules#transformers.get_linear_schedule_with_warmup
+                # Transformers typically do well with linear warmup
+                warmup_steps = int(self.epochs * 0.1)
+                pl.utilities.rank_zero_info(
+                    f"Using linear warmup with {warmup_steps}/{self.epochs} warmup steps"
+                )
+                retval["lr_scheduler"] = {
+                    "scheduler": get_linear_schedule_with_warmup(
+                        optim,
+                        num_warmup_steps=warmup_steps,
+                        num_training_steps=self.epochs,
+                    ),
+                    "frequency": 1,
+                    "interval": "epoch",  # Call after 1 epoch
+                }
+            else:
+                raise ValueError(f"Unknown lr scheduler {self.lr_scheduler}")
 
         return retval
 

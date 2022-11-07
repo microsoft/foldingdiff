@@ -182,7 +182,7 @@ def train(
         l2=l2_norm,
         # epochs=max_epochs,
         # steps_per_epoch=len(train_dataloader),
-        # lr_scheduler=lr_scheduler,
+        lr_scheduler=lr_scheduler,
     )
 
     callbacks = build_callbacks(
