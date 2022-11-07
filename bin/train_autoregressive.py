@@ -84,6 +84,7 @@ def train(
     min_seq_len: int = 40,
     trim_strategy: datasets.TRIM_STRATEGIES = "leftalign",
     # Related to model architecture
+    seq_len_encoding: modelling.TIME_ENCODING = "gaussian_fourier",  # Embeds the total sequence length
     num_hidden_layers: int = 12,  # Default 12
     hidden_size: int = 384,  # Default 768
     intermediate_size: int = 768,  # Default 3072
@@ -174,6 +175,7 @@ def train(
 
     model = modelling.BertForAutoregressive(
         config=cfg,
+        time_encoding=seq_len_encoding,  # Repurpose the time embedder to do sequence instead
         decoder=decoder,
         ft_is_angular=dsets[0].dset.feature_is_angular[ft_key],
         ft_names=dsets[0].dset.feature_names[ft_key],

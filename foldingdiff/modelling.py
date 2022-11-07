@@ -128,6 +128,9 @@ class PositionalEncoding(nn.Module):
 
 
 class BertEmbeddings(nn.Module):
+    """
+    Adds in positional embeddings if using absolute embeddings, adds layer norm and dropout
+    """
     def __init__(self, config):
         super().__init__()
         self.position_embedding_type = getattr(
@@ -803,6 +806,7 @@ class BertForAutoregressiveBase(BertForDiffusionBase):
         self,
         inputs: torch.Tensor,
         attention_mask: torch.Tensor,
+        max_lengths: torch.Tensor,
         position_ids: Optional[torch.Tensor] = None,
         output_attentions: Optional[bool] = None,
         output_hidden_states: Optional[bool] = None,
@@ -810,6 +814,9 @@ class BertForAutoregressiveBase(BertForDiffusionBase):
     ):
         assert len(inputs.shape) == 3  # batch_size, seq_length, features
         inputs_upscaled = self.inputs_to_hidden_dim(inputs)  # Batch * seq_len * dim
+
+        # Embed the lengths - note that we are reusing the time embedding here
+        inputs_upscaled += self.time_embed(max_lengths)
 
         if position_ids is None:
             batch_size, seq_length, *_ = inputs.size()
@@ -875,6 +882,7 @@ class BertForAutoregressive(BertForAutoregressiveBase, pl.LightningModule):
         preds = self.forward(
             batch["angles"],
             attention_mask=batch["causal_attn_mask"],
+            max_lengths=batch['lengths'],
             position_ids=batch["position_ids"],
         )
         assert preds.ndim == 3  # batch_size, seq_length, features
