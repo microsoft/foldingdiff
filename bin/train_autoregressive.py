@@ -82,7 +82,7 @@ def train(
     angles_definitions: ANGLES_DEFINITIONS = "canonical-full-angles",
     max_seq_len: int = 128,
     min_seq_len: int = 40,
-    trim_strategy: datasets.TRIM_STRATEGIES = "leftalign",
+    trim_strategy: datasets.TRIM_STRATEGIES = "randomcrop",
     # Related to model architecture
     seq_len_encoding: modelling.TIME_ENCODING = "gaussian_fourier",  # Embeds the total sequence length
     num_hidden_layers: int = 12,  # Default 12
@@ -91,7 +91,7 @@ def train(
     num_heads: int = 12,  # Default 12
     position_embedding_type: Literal[
         "absolute", "relative_key_query", "relative_key"
-    ] = "absolute",
+    ] = "relative_key",
     dropout_p: float = 0.1,
     decoder: modelling.DECODER_HEAD = "mlp",
     # Related to training strategy
@@ -101,7 +101,7 @@ def train(
     l2_norm: float = 0.0,
     loss: modelling.LOSS_KEYS = "smooth_l1",
     min_epochs: Optional[int] = None,
-    max_epochs: int = 100,  # 10000, set to 100 for debug
+    max_epochs: int = 10000,  # 10000, set to 100 for debug
     early_stop_patience: int = 0,  # Set to 0 to disable early stopping
     lr_scheduler: modelling.LR_SCHEDULE = "LinearWarmup",
     use_swa: bool = False,
