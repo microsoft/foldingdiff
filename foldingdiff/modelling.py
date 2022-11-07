@@ -618,16 +618,14 @@ class BertForDiffusion(BertForDiffusionBase, pl.LightningModule):
             )
             denoised_angles /= batch["sqrt_alphas_cumprod_t"].view(bs, 1, 1)
 
-            known_angles = batch['angles']
+            known_angles = batch["angles"]
             inferred_coords = nerf.nerf_build_batch(
                 phi=known_angles[:, :, self.ft_names.index("phi")],
                 psi=known_angles[:, :, self.ft_names.index("psi")],
                 omega=known_angles[:, :, self.ft_names.index("omega")],
                 bond_angle_n_ca_c=known_angles[:, :, self.ft_names.index("tau")],
                 bond_angle_ca_c_n=known_angles[:, :, self.ft_names.index("CA:C:1N")],
-                bond_angle_c_n_ca=known_angles[
-                    :, :, self.ft_names.index("C:1N:1CA")
-                ],
+                bond_angle_c_n_ca=known_angles[:, :, self.ft_names.index("C:1N:1CA")],
             )
             denoised_coords = nerf.nerf_build_batch(
                 phi=denoised_angles[:, :, self.ft_names.index("phi")],
@@ -654,7 +652,7 @@ class BertForDiffusion(BertForDiffusionBase, pl.LightningModule):
                 # of each item in the batch
                 coef = min_coef + (max_coef - min_coef) * (
                     (max_timesteps - batch["t"]) / max_timesteps
-                ).to(batch['t'].device)
+                ).to(batch["t"].device)
                 assert torch.all(coef > 0)
             else:
                 coef = self.use_pairwise_dist_loss
@@ -793,6 +791,104 @@ class BertForDiffusion(BertForDiffusionBase, pl.LightningModule):
             else:
                 raise ValueError(f"Unknown lr scheduler {self.lr_scheduler}")
         pl.utilities.rank_zero_info(f"Using optimizer {retval}")
+        return retval
+
+
+class BertForAutoregressiveBase(BertForDiffusionBase):
+    """
+    Overrides the previous model's forward function to not handle noise or timesteps
+    """
+
+    def forward(
+        self,
+        inputs: torch.Tensor,
+        attention_mask: torch.Tensor,
+        position_ids: Optional[torch.Tensor] = None,
+        output_attentions: Optional[bool] = None,
+        output_hidden_states: Optional[bool] = None,
+        return_dict: Optional[bool] = None,
+    ):
+        assert len(inputs.shape) == 3  # batch_size, seq_length, features
+        inputs_upscaled = self.inputs_to_hidden_dim(inputs)  # Batch * seq_len * dim
+
+        inputs_upscaled = self.embeddings(inputs_upscaled, position_ids=position_ids)
+        encoder_outputs = self.encoder(
+            inputs_upscaled,
+            attention_mask=attention_mask,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states,
+            return_dict=return_dict,
+        )
+
+        sequence_output = encoder_outputs[0]
+        per_token_decoded = self.token_decoder(sequence_output)
+        return per_token_decoded
+
+
+class BertForAutoregressive(BertForAutoregressiveBase, pl.LightningModule):
+    """
+    Wraps model in a pl.LightningModule for easy training as an
+    autoregressive model where we are interested in predicting the next set of
+    angles given the current set of angles
+    """
+
+    def __init__(self, loss_key:LOSS_KEYS="smooth_l1", lr: float = 5e-5, l2: float = 0.0, **kwargs):
+        BertForDiffusionBase.__init__(self, **kwargs)
+        self.learning_rate = lr
+        self.l2_lambda = l2
+        self.loss = self.angular_loss_fn_dict[loss_key]
+
+    def _get_loss(self, batch) -> torch.Tensor:
+        """
+        Get the loss terms for a batch
+        """
+        # Get the predictions
+        preds = self.forward(batch["angles"], batch["causal_attn_mask"])
+        assert preds.ndim == 3  # batch_size, seq_length, features
+        # Get the loss terms
+        l = self.loss(
+            batch["causal_target"],
+            preds[:, batch["causal_idx"]],
+        )
+        return l
+
+    def training_step(self, batch, batch_idx):
+        loss = self._get_loss(batch)
+        self.log("train_loss", loss, rank_zero_only=True)
+        return loss
+
+    def training_epoch_end(self, outputs) -> None:
+        """Log average training loss over epoch"""
+        losses = torch.stack([o["loss"] for o in outputs])
+        mean_loss = torch.mean(losses)
+        t_delta = time.time() - self.train_epoch_last_time
+        pl.utilities.rank_zero_info(
+            f"Train loss at epoch {self.train_epoch_counter} end: {mean_loss:.4f} ({t_delta:.2f} seconds)"
+        )
+        # Increment counter and timers
+        self.train_epoch_counter += 1
+        self.train_epoch_last_time = time.time()
+
+    def validation_step(self, batch, batch_idx):
+        with torch.no_grad():
+            loss = self._get_loss(batch)
+        self.log("val_loss", loss, rank_zero_only=True)
+        return {"val_loss": loss}
+
+    def validation_epoch_end(self, outputs) -> None:
+        losses = torch.stack([o["val_loss"] for o in outputs])
+        mean_loss = torch.mean(losses)
+        pl.utilities.rank_zero_info(
+            f"Valid loss at epoch {self.train_epoch_counter} end: {mean_loss:.4f}"
+        )
+
+    def configure_optimizers(self) -> Dict[str, Any]:
+        optim = torch.optim.AdamW(
+            self.parameters(), lr=self.learning_rate, weight_decay=self.l2_lambda
+        )
+        retval = {"optimizer": optim}
+        pl.utilities.rank_zero_info(f"Using optimizer {retval}")
+
         return retval
 
 
