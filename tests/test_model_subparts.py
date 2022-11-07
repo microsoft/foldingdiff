@@ -81,6 +81,18 @@ class TestGaussianFourierProjection(unittest.TestCase):
 
         self.assertTrue(torch.all(torch.isclose(x[idx], x_permuted)))
 
+    def test_uniqueness(self):
+        """
+        Test that across a range of inputs, each output is unique
+        """
+        x = torch.arange(0, 1000)
+        e = self.embedder(x)
+        for i in range(1000):
+            for j in range(1000):
+                if i == j:
+                    continue
+                self.assertFalse(torch.allclose(e[i], e[j]))
+
 
 if __name__ == "__main__":
     unittest.main()
