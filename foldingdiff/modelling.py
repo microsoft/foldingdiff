@@ -28,6 +28,8 @@ from transformers.models.bert.modeling_bert import (
 from transformers.activations import get_activation
 from transformers.optimization import get_linear_schedule_with_warmup
 
+from tqdm.auto import tqdm
+
 from foldingdiff import losses, nerf
 from foldingdiff.datasets import FEATURE_SET_NAMES_TO_ANGULARITY
 
@@ -319,10 +321,14 @@ class BertForDiffusionBase(BertPreTrainedModel):
             ]
             logging.info(f"Auto constructed ft_is_angular: {ft_is_angular}")
 
+        # Handles the case where we repurpose the time encoding for seq len encoding in the AR model
+        time_encoding_key = (
+            "time_encoding" if "time_encoding" in train_args else "seq_len_encoding"
+        )
         model_args = dict(
             config=config,
             ft_is_angular=ft_is_angular,
-            time_encoding=train_args["time_encoding"],
+            time_encoding=train_args[time_encoding_key],
             decoder=train_args["decoder"],
             # lr=train_args["lr"],
             # loss=train_args["loss"],
@@ -817,7 +823,8 @@ class BertForAutoregressiveBase(BertForDiffusionBase):
         inputs_upscaled = self.inputs_to_hidden_dim(inputs)  # Batch * seq_len * dim
 
         # Embed the lengths - note that we are reusing the time embedding here
-        len_embed = self.time_embed(seq_lengths).unsqueeze(1)  # Shape (batch, embed) -> (batch, 1, embed)
+        # Shape (batch, embed) -> (batch, 1, embed)
+        len_embed = self.time_embed(seq_lengths).unsqueeze(1)
         inputs_upscaled += len_embed
 
         if position_ids is None:
@@ -849,6 +856,32 @@ class BertForAutoregressiveBase(BertForDiffusionBase):
         sequence_output = encoder_outputs[0]
         per_token_decoded = self.token_decoder(sequence_output)
         return per_token_decoded
+
+    @torch.no_grad()
+    def sample(
+        self, seed_angles: torch.Tensor, seq_lengths: torch.Tensor, num_seed: int = 2
+    ) -> List[torch.Tensor]:
+        """
+        Sample a set of angles of seq_lengths given a series of seed angles
+        seed_angles should be given as a tensor of (batch, seq_len, num_angles)
+        The first num_seed angles are taken as fixed and the rest are autoregressively
+        generated
+        """
+        assert torch.all(seed_angles[:, :num_seed, :] <= torch.pi)
+        assert torch.all(seed_angles[:, :num_seed, :] >= -torch.pi)
+        retval = seed_angles.clone()
+        assert seed_angles.ndim == 3
+
+        attention_mask = torch.zeros(seed_angles.shape[:2])
+        for i in tqdm(range(num_seed, torch.max(seq_lengths).item())):
+            attention_mask[:, :i] = 1.0
+            next_angle = self.forward(
+                retval,
+                attention_mask=attention_mask,
+                seq_lengths=seq_lengths,
+            )[:, i, :]
+            retval[:, i, :] = next_angle
+        return [retval[:, :i, :] for i in seq_lengths]
 
 
 class BertForAutoregressive(BertForAutoregressiveBase, pl.LightningModule):
@@ -969,8 +1002,13 @@ class BertForAutoregressive(BertForAutoregressiveBase, pl.LightningModule):
 
 def main():
     """on the fly testing"""
-    g = GaussianFourierProjection(embed_dim=4)
-    print(g(torch.tensor([torch.pi * 2, torch.pi * 4])))
+    m = BertForAutoregressiveBase.from_dir(
+        "/home/wukevin/projects/protdiff_results/models/ar_baseline/results"
+    )
+    # rand samples uniformly from [0, 1) so we expand the range and shift it
+    rand_angles = torch.rand(size=(32, 128, 6)) * 2 * torch.pi - torch.pi
+    rand_lens = torch.randint(low=40, high=128, size=(32,))
+    m.sample(seed_angles=rand_angles, seq_lengths=rand_lens)
 
 
 if __name__ == "__main__":
