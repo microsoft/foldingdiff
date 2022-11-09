@@ -98,7 +98,7 @@ def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
 
-    outdir = Path(args.outdir)
+    outdir = Path(args.outdir).absolute()
 
     logging.info(f"Creating {outdir}")
     os.makedirs(outdir, exist_ok=True)
@@ -130,7 +130,7 @@ def main() -> None:
     os.makedirs(sampled_pdb_dir, exist_ok=False)
 
     sampled_angles = []
-    for i in tqdm(range(args.lengths[0], args.lengths[1])):
+    for i in tqdm(range(args.lengths[0], args.lengths[1]), desc="Sampling structures"):
         seed_values = torch.zeros((args.num, 128, 6)).to(device)
         seed_values[:, : args.num_angles, :] = initial_angles
         s = m.sample(
@@ -152,7 +152,7 @@ def main() -> None:
         )
 
     # Write the sampled angles and resulting PDB files out
-    for i, s in enumerate(sampled_angles):
+    for i, s in tqdm(enumerate(sampled_angles), desc="Writing sampled angles and PDB structures"):
         s.to_csv(sampled_angles_dir / f"generated_{i}.csv.gz")
         fname = ac.create_new_chain_nerf(str(sampled_pdb_dir / f"generated_{i}.pdb"), s)
         assert fname
