@@ -591,10 +591,15 @@ class AutoregressiveCausalDataset(Dataset):
             and "causal_target" not in return_dict
             and "causal_len" not in return_dict
         )
+        assert return_dict[self.dset_key].ndim == 2
         return_dict["causal_attn_mask"] = causal_attn_mask
         return_dict["causal_target"] = return_dict[self.dset_key][causal_len]
         return_dict["causal_idx"] = causal_len
         return return_dict
+    
+    def __str__(self):
+        """Return the string representation"""
+        return f"AutoregressiveCausalDataset wrapping {self.dset} with {self.dset_key}"
 
 
 class NoisedAnglesDataset(Dataset):

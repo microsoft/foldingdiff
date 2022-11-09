@@ -91,7 +91,7 @@ def train(
     num_heads: int = 12,  # Default 12
     position_embedding_type: Literal[
         "absolute", "relative_key_query", "relative_key"
-    ] = "relative_key",
+    ] = "absolute",  # Default absolute
     dropout_p: float = 0.1,
     decoder: modelling.DECODER_HEAD = "mlp",
     # Related to training strategy
@@ -103,7 +103,7 @@ def train(
     min_epochs: Optional[int] = None,
     max_epochs: int = 10000,  # 10000, set to 100 for debug
     early_stop_patience: int = 0,  # Set to 0 to disable early stopping
-    lr_scheduler: modelling.LR_SCHEDULE = "LinearWarmup",
+    lr_scheduler: modelling.LR_SCHEDULE = None,  # Try LinearWarmup?
     use_swa: bool = False,
 ):
     """
