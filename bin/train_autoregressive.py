@@ -103,7 +103,7 @@ def train(
     min_epochs: Optional[int] = None,
     max_epochs: int = 10000,  # 10000, set to 100 for debug
     early_stop_patience: int = 0,  # Set to 0 to disable early stopping
-    lr_scheduler: modelling.LR_SCHEDULE = None,  # Try LinearWarmup?
+    lr_scheduler: modelling.LR_SCHEDULE = "LinearWarmup",  # Try LinearWarmup?
     use_swa: bool = False,
 ):
     """
