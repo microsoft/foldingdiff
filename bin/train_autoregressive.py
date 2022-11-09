@@ -98,7 +98,7 @@ def train(
     gradient_clip: float = 1.0,
     batch_size: int = 256,
     lr: float = 5e-5,
-    l2_norm: float = 0.0,
+    l2_norm: float = 0.01,
     loss: modelling.LOSS_KEYS = "smooth_l1",
     min_epochs: Optional[int] = None,
     max_epochs: int = 10000,  # 10000, set to 100 for debug
