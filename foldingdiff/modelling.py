@@ -881,7 +881,7 @@ class BertForAutoregressiveBase(BertForDiffusionBase):
                 seq_lengths=seq_lengths,
             )[:, i, :]
             retval[:, i, :] = next_angle
-        return [retval[:, :i, :] for i in seq_lengths]
+        return [retval[i, :l, :] for i, l in enumerate(seq_lengths)]
 
 
 class BertForAutoregressive(BertForAutoregressiveBase, pl.LightningModule):
