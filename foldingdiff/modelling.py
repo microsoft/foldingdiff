@@ -924,8 +924,8 @@ class BertForAutoregressive(BertForAutoregressiveBase, pl.LightningModule):
         assert preds.ndim == 3  # batch_size, seq_length, features
         # Get the loss terms
         l = self.loss(
-            batch["causal_target"],
             preds[:, batch["causal_idx"]],
+            batch["causal_target"],
         )
         return l
 
