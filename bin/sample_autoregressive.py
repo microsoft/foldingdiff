@@ -7,9 +7,11 @@ import logging
 from pathlib import Path
 import argparse
 
+from tqdm.auto import tqdm
 import numpy as np
 import pandas as pd
 import torch
+
 
 from foldingdiff import modelling, utils
 from foldingdiff import angles_and_coords as ac
@@ -71,6 +73,21 @@ def build_parser():
         type=int,
         default=4,
     )
+    parser.add_argument(
+        "-l",
+        "--lengths",
+        type=int,
+        nargs=2,
+        default=[50, 128],
+        help="Range of lengths to sample from",
+    )
+    parser.add_argument(
+        "-d",
+        "--device",
+        type=str,
+        default="cuda:0",
+        help="Device to run generations on",
+    )
     return parser
 
 
@@ -88,17 +105,20 @@ def main() -> None:
     assert not os.listdir(outdir), f"Expected {outdir} to be empty"
 
     # Load the model
+    device = torch.device(args.device)
     m = modelling.BertForAutoregressive.from_dir(
         args.model, copy_to=Path(outdir) / "model_snapshot"
-    )
+    ).to(device)
 
     # Load the model offsets
     angle_offsets = torch.from_numpy(
         np.load(Path(args.model) / "training_mean_offset.npy")
-    )
+    ).to(device)
 
     # Sample initial angles; 10 initializations, 4 angles
-    initial_angles = sample_initial_angles(args.num, args.num_angles, eps=0.0)
+    initial_angles = sample_initial_angles(args.num, args.num_angles, eps=0.0).to(
+        device
+    )
     # Shift these angles by the same amount the training was shifted
     initial_angles = utils.modulo_with_wrapped_range(initial_angles - angle_offsets)
     initial_angles = torch.nan_to_num(initial_angles, nan=0.0)
@@ -110,21 +130,20 @@ def main() -> None:
     os.makedirs(sampled_pdb_dir, exist_ok=False)
 
     sampled_angles = []
-    for i in range(50, 51):
-        logging.info(f"Sampling structures of length {i}")
-
-        seed_values = torch.zeros((args.num, 128, 6))
+    for i in tqdm(range(args.lengths[0], args.lengths[1])):
+        seed_values = torch.zeros((args.num, 128, 6)).to(device)
         seed_values[:, : args.num_angles, :] = initial_angles
         s = m.sample(
             seed_angles=seed_values,
-            seq_lengths=torch.tensor([i for _ in range(args.num)]),
+            seq_lengths=torch.tensor([i for _ in range(args.num)]).to(device),
             num_seed=args.num_angles,
+            pbar=False,
         )
         sampled_angles.extend(
             [
                 pd.DataFrame(
                     utils.modulo_with_wrapped_range(
-                        vals.numpy() + angle_offsets.numpy(), -np.pi, np.pi
+                        vals.cpu().numpy() + angle_offsets.cpu().numpy(), -np.pi, np.pi
                     ),
                     columns=ac.EXHAUSTIVE_ANGLES,
                 )
@@ -132,7 +151,11 @@ def main() -> None:
             ]
         )
 
-    # Write the sampled angles out
+    # Write the sampled angles and resulting PDB files out
+    for i, s in enumerate(sampled_angles):
+        s.to_csv(sampled_angles_dir / f"generated_{i}.csv.gz")
+        fname = ac.create_new_chain_nerf(str(sampled_pdb_dir / f"generated_{i}.pdb"), s)
+        assert fname
 
 
 if __name__ == "__main__":
