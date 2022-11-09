@@ -830,9 +830,13 @@ class BertForAutoregressiveBase(BertForDiffusionBase):
         if position_ids is None:
             batch_size, seq_length, *_ = inputs.size()
             # Shape (batch, seq_len)
-            position_ids = torch.arange(
-                seq_length,
-            ).expand(batch_size, -1)
+            position_ids = (
+                torch.arange(
+                    seq_length,
+                )
+                .expand(batch_size, -1)
+                .to(inputs.device)
+            )
 
         # We can provide a self-attention mask of dimensions [batch_size, from_seq_length, to_seq_length]
         # ourselves in which case we just need to make it broadcastable to all heads. This code is taken
@@ -859,7 +863,11 @@ class BertForAutoregressiveBase(BertForDiffusionBase):
 
     @torch.no_grad()
     def sample(
-        self, seed_angles: torch.Tensor, seq_lengths: torch.Tensor, num_seed: int = 2
+        self,
+        seed_angles: torch.Tensor,
+        seq_lengths: torch.Tensor,
+        num_seed: int = 2,
+        pbar: bool = True,
     ) -> List[torch.Tensor]:
         """
         Sample a set of angles of seq_lengths given a series of seed angles
@@ -869,11 +877,11 @@ class BertForAutoregressiveBase(BertForDiffusionBase):
         """
         assert torch.all(seed_angles[:, :num_seed, :] <= torch.pi)
         assert torch.all(seed_angles[:, :num_seed, :] >= -torch.pi)
-        retval = seed_angles.clone()
+        retval = seed_angles.clone().to(seed_angles.device)
         assert seed_angles.ndim == 3
 
-        attention_mask = torch.zeros(seed_angles.shape[:2])
-        for i in tqdm(range(num_seed, torch.max(seq_lengths).item())):
+        attention_mask = torch.zeros(seed_angles.shape[:2]).to(seed_angles.device)
+        for i in tqdm(range(num_seed, torch.max(seq_lengths).item()), disable=not pbar):
             attention_mask[:, :i] = 1.0
             assert torch.all(attention_mask.sum(axis=1) == i)
             next_angle = self.forward(
