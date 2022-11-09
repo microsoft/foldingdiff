@@ -96,7 +96,7 @@ def train(
     decoder: modelling.DECODER_HEAD = "mlp",
     # Related to training strategy
     gradient_clip: float = 1.0,
-    batch_size: int = 128,
+    batch_size: int = 256,
     lr: float = 5e-5,
     l2_norm: float = 0.0,
     loss: modelling.LOSS_KEYS = "smooth_l1",
