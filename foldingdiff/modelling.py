@@ -875,6 +875,7 @@ class BertForAutoregressiveBase(BertForDiffusionBase):
         attention_mask = torch.zeros(seed_angles.shape[:2])
         for i in tqdm(range(num_seed, torch.max(seq_lengths).item())):
             attention_mask[:, :i] = 1.0
+            assert torch.all(attention_mask.sum(axis=1) == i)
             next_angle = self.forward(
                 retval,
                 attention_mask=attention_mask,
