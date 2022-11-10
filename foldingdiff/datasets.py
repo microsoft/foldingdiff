@@ -543,6 +543,65 @@ class AnglesEmptyDataset(Dataset):
         raise NotImplementedError
 
 
+class AutoregressiveCausalDataset(Dataset):
+    """
+    Class that produces otuoputs in a causal LM format.
+    Wrapped dset should return a dictionary with keys as strings and values as tensors
+    """
+
+    def __init__(
+        self,
+        dset: Dataset,
+        dset_key: str = "angles",
+    ) -> None:
+        super().__init__()
+        self.dset = dset
+        self.dset_key = dset_key
+        assert hasattr(self.dset, "feature_names")
+        assert hasattr(self.dset, "feature_is_angular")
+        assert (
+            dset_key in self.dset.feature_is_angular
+        ), f"{dset_key} not in {self.dset.feature_is_angular}"
+        self.n_features = len(dset.feature_is_angular[dset_key])
+
+    def __len__(self):
+        return len(self.dset)
+
+    def __getitem__(self, index: int):
+        """Get the ith item with a randomly chosen sub-mask"""
+        return_dict = self.dset[index]
+
+        # Get the original length
+        assert "lengths" in return_dict
+        orig_len = return_dict["lengths"].item()
+        assert orig_len <= self.dset.pad
+
+        # sample a length, high is exclusive, generate uniformly
+        causal_len = torch.randint(low=1, high=orig_len, size=(1,)).item()
+        assert causal_len < orig_len
+
+        # Create the causal mask
+        assert "attn_mask" in return_dict
+        causal_attn_mask = torch.zeros_like(return_dict["attn_mask"])
+        causal_attn_mask[:causal_len] = 1.0
+        assert torch.sum(causal_attn_mask) < torch.sum(return_dict["attn_mask"])
+
+        assert (
+            "causal_attn_mask" not in return_dict
+            and "causal_target" not in return_dict
+            and "causal_len" not in return_dict
+        )
+        assert return_dict[self.dset_key].ndim == 2
+        return_dict["causal_attn_mask"] = causal_attn_mask
+        return_dict["causal_target"] = return_dict[self.dset_key][causal_len]
+        return_dict["causal_idx"] = causal_len
+        return return_dict
+    
+    def __str__(self):
+        """Return the string representation"""
+        return f"AutoregressiveCausalDataset wrapping {self.dset} with {self.dset_key}"
+
+
 class NoisedAnglesDataset(Dataset):
     """
     class that produces noised outputs given a wrapped dataset.
@@ -1059,13 +1118,13 @@ class ScoreMatchingNoisedAnglesDataset(Dataset):
 
 
 def main():
-    dset = CathCanonicalCoordsDataset(
+    dset = CathCanonicalAnglesOnlyDataset(
         pad=128, trim_strategy="discard", use_cache=False, zero_center=False
     )
-    noised_dset = NoisedAnglesDataset(dset, dset_key="coords")
+    causal_dset = AutoregressiveCausalDataset(dset, dset_key="angles")
     # print(len(noised_dset))
     # print(noised_dset[0])
-    x = noised_dset[0]
+    x = causal_dset[0]
 
     # x = noised_dset[0]
     for k, v in x.items():

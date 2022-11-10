@@ -112,9 +112,11 @@ def make_ss_cooccurrence_plot(
     backend: SSE_BACKEND = "psea",
     threads: int = 8,
     title: str = "Secondary structure co-occurrence",
+    **kwargs,
 ):
     """
     Create a secondary structure co-occurrence plot
+    **kwargs are passed to hist2d
     """
     if max_seq_len > 0:
         orig_len = len(pdb_files)
@@ -134,7 +136,12 @@ def make_ss_cooccurrence_plot(
 
     fig, ax = plt.subplots(dpi=300)
     h = ax.hist2d(
-        alpha_counts, beta_counts, bins=np.arange(10), density=True, vmin=0.0, vmax=0.09
+        alpha_counts,
+        beta_counts,
+        bins=np.arange(10),
+        density=True,
+        vmin=0.0,
+        **kwargs,
     )
     ax.set_xlabel(r"Number of $\alpha$ helices", fontsize=12)
     ax.set_ylabel(r"Number of $\beta$ sheets", fontsize=12)
@@ -175,6 +182,12 @@ def build_parser():
         help="Number of threads to use",
     )
     parser.add_argument("--title", type=str, default="", help="Title for plot")
+    parser.add_argument(
+        "--freqlim",
+        type=float,
+        default=0.09,
+        help="Upper limit for frequency in 2D histogram. Set to 0 to disable.",
+    )
     return parser
 
 
@@ -199,6 +212,7 @@ def main():
         threads=args.threads,
         title=args.title,
         max_seq_len=test_dset.dset.pad if is_test_data else 0,
+        vmax=args.freqlim if args.freqlim > 0 else None,
     )
 
 
