@@ -51,6 +51,17 @@ def num_to_groups(num: int, divisor: int) -> List[int]:
     return arr
 
 
+def seq_to_groups(seq:Sequence[Any], divisor:int) -> List[Sequence[Any]]:
+    """
+    Generates a list of items of at most <divisor> items
+    >>> seq_to_groups([1,2,3,4,5,6,7,8,9], 3)
+    [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+    >>> seq_to_groups([1,2,3,4,5,6,7,8,9], 4)
+    [[1, 2, 3, 4], [5, 6, 7, 8], [9]]
+    """
+    return [seq[i:i+divisor] for i in range(0, len(seq), divisor)]
+
+
 def tolerant_comparison_check(values, cmp: Literal[">=", "<="], v):
     """
     Compares values in a way that is tolerant of numerical precision
