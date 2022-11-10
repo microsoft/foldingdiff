@@ -50,7 +50,9 @@ def build_datasets(
     model_dir: Path, load_actual: bool = True
 ) -> Tuple[NoisedAnglesDataset, NoisedAnglesDataset, NoisedAnglesDataset]:
     """
-    Build datasets given args again
+    Build datasets given args again. If load_actual is given, the load the actual datasets
+    containing actual values; otherwise, load a empty shell that provides the same API for
+    faster generation.
     """
     with open(model_dir / "training_args.json") as source:
         training_args = json.load(source)
