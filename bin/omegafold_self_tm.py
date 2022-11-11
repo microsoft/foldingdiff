@@ -156,6 +156,13 @@ def main():
     ]
 
     # For each length category report the number that exceed cutoff
+    for length_cat in sctm_scores_with_len["length"].unique():
+        passing_num = np.sum(
+            (sctm_scores_with_len["scTM"] >= 0.5)
+            & (sctm_scores_with_len["length"] == length_cat)
+        )
+        denom = np.sum(sctm_scores_with_len["length"] == length_cat)
+        logging.info(f"{length_cat}: {passing_num}/{denom} passing 0.5 cutoff")
 
     fig, ax = plt.subplots(dpi=300)
     sns.histplot(sctm_scores_with_len, x="scTM", hue="length")
