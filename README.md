@@ -112,7 +112,7 @@ The above sampling code can also be run with the ``--fullhistory`` flag to write
 python ~/projects/foldingdiff/foldingdiff/pymol_vis.py pdb2gif -i sampled_pdb/sample_history/generated_0/*.pdb -o generated_0.gif
 ```
 
-**Note** this script lives separately from other plotting code because it depends on PyMOL; feel free to install/activate your own installation of PyMOL for this.
+**Note** this script lives separately from other plotting code because it depends on PyMOL; feel free to install/activate your own installation of PyMOL for this, or set up an environment using [PyMOL open source](https://github.com/schrodinger/pymol-open-source).
 
 ## Evaluating designability of generated backbones
 
