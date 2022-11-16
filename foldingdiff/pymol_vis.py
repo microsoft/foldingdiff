@@ -10,8 +10,11 @@ import re
 import multiprocessing as mp
 import argparse
 import tempfile
+from pathlib import Path
 from typing import *
 
+import biotite.structure as struc
+import biotite.structure.io as strucio
 import imageio
 import pymol
 
@@ -69,18 +72,50 @@ def images_to_gif(
     return fname
 
 
+def _align_two_pdb_files(query_fname: str, ref_fname: str, output_fname: str) -> str:
+    """Align two pdb files, and save the aligned query to the output file"""
+    # Uses the superimpose command from biotite
+    # https://www.biotite-python.org/apidoc/biotite.structure.superimpose.html
+    query_struc = strucio.load_structure(query_fname)
+    ref_struc = strucio.load_structure(ref_fname)
+    # args are (fixed, mobile)
+    fitted, _ = struc.superimpose(ref_struc, query_struc)
+
+    strucio.save_structure(output_fname, fitted)
+    return output_fname
+
+
 def images_to_gif_from_args(args):
     """Wrapper for the above to handle CLI args"""
     get_int_tuple = lambda s: tuple(int(i) for i in re.findall(r"[0-9]+", s))
     sorted_inputs = sorted(args.input, key=get_int_tuple)
     with tempfile.TemporaryDirectory() as tempdir:
+        tempdir = Path(tempdir)
+        # Superimpose each consecutive pair of images so that the animation
+        # is smooth(er). The "reference" image is the last image, so within
+        # each pair the first is the query and the second is the reference.
+        aligned_pdb_files = [sorted_inputs[-1]]
+
+        for query in sorted_inputs[:-1][::-1]:
+            # Reference is the prior aligned pdb fil3e
+            aligned = _align_two_pdb_files(
+                query,
+                aligned_pdb_files[-1],
+                os.path.join(tempdir, os.path.basename(query)),
+            )
+            aligned_pdb_files.append(aligned)
+        # From final -> first to first -> final
+        aligned_pdb_files = aligned_pdb_files[::-1]
+
+        # Create pairs of (pdb, png) filenames
         arg_tuples = [
             (fname, os.path.join(tempdir, f"pdb_file_{i}.png"))
-            for i, fname in enumerate(sorted_inputs)
+            for i, fname in enumerate(aligned_pdb_files)
         ]
         pool = mp.Pool(mp.cpu_count())
         image_filenames = list(pool.starmap(pdb2png, arg_tuples, chunksize=5))
         gif = images_to_gif(image_filenames, args.output)
+        assert gif
 
 
 def build_parser():
