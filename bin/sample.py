@@ -106,21 +106,26 @@ def write_preds_pdb_folder(
     final_sampled: Sequence[pd.DataFrame],
     outdir: str,
     basename_prefix: str = "generated_",
+    threads: int = multiprocessing.cpu_count(),
 ) -> List[str]:
     """
     Write the predictions as pdb files in the given folder along with information regarding the
     tm_score for each prediction. Returns the list of files written.
     """
     os.makedirs(outdir, exist_ok=True)
-    logging.info(f"Writing sampled angles as PDB files to {outdir}")
-    retval = []
-    for i, samp in enumerate(final_sampled):
-        fname = create_new_chain_nerf(
-            os.path.join(outdir, f"{basename_prefix}{i}.pdb"), samp
-        )
-        assert fname
-        retval.append(fname)
-    return retval
+    logging.info(
+        f"Writing sampled angles as PDB files to {outdir} using {threads} threads"
+    )
+    # Create the pairs of arguments
+    arg_tuples = [
+        (os.path.join(outdir, f"{basename_prefix}{i}.pdb"), samp)
+        for i, samp in enumerate(final_sampled)
+    ]
+    # Write in parallel
+    with multiprocessing.Pool(threads) as pool:
+        files_written = pool.starmap(create_new_chain_nerf, arg_tuples)
+
+    return files_written
 
 
 def plot_ramachandran(
