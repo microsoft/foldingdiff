@@ -29,14 +29,14 @@ from foldingdiff.angles_and_coords import get_pdb_length
 
 def get_sctm_score(orig_pdb: Path, folded_dirname: Path) -> Tuple[float, str]:
     """get the self-consistency tm score"""
-    bname = os.path.splitext(os.path.basename(orig_pdb))[0] + "_esm_residues_*.pdb"
+    bname = os.path.splitext(os.path.basename(orig_pdb))[0] + "*.pdb"
     folded_pdbs = glob(os.path.join(folded_dirname, bname))
     if len(folded_pdbs) > 8:
         folded_pdbs = folded_pdbs[:8]
     assert len(folded_pdbs) <= 8
     if len(folded_pdbs) < 8:
         logging.warning(
-            f"Fewer than 8 structures corresponding to {orig_pdb} -- results wil be incomplete"
+            f"Fewer than 8 (n={len(folded_pdbs)}) structures corresponding to {orig_pdb} -- results wil be incomplete"
         )
     if not folded_pdbs:
         return np.nan, ""
