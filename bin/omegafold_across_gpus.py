@@ -133,8 +133,13 @@ def main():
     n = len(input_sequences)
     logging.info(f"Parsed {n} sequences")
 
-    # Divide up the inputs
-    idx_split = np.array_split(np.arange(n), len(args.gpus))
+    # Divide up the inputs, shuffling their indices su that the load is spread
+    # across GPUs; otherwise, if we just give them in order, the first GPU will
+    # finish first since it has shorter sequences.
+    idx = np.arange(n)
+    rng = np.random.default_rng(seed=1234)
+    rng.shuffle(idx)
+    idx_split = np.array_split(idx, len(args.gpus))
     all_keys = list(input_sequences.keys())
     all_keys_split = [[all_keys[i] for i in part] for part in idx_split]
     # Write the tempfiles and call omegafold
