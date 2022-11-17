@@ -1,5 +1,5 @@
 """
-Script for calculating self TM score given the input as 
+Script for calculating self consistency TM scores
 """
 
 import argparse
