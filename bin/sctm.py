@@ -31,6 +31,7 @@ def get_sctm_score(orig_pdb: Path, folded_dirname: Path) -> Tuple[float, str]:
     """get the self-consistency tm score"""
     bname = os.path.splitext(os.path.basename(orig_pdb))[0] + "_*_residues_*.pdb"
     folded_pdbs = glob(os.path.join(folded_dirname, bname))
+    assert len(folded_pdbs) <= 10  # We have never run more than 10 per before
     if len(folded_pdbs) > 8:
         folded_pdbs = folded_pdbs[:8]
     assert len(folded_pdbs) <= 8
