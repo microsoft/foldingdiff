@@ -36,6 +36,7 @@ import esm.inverse_folding
 from biotite.structure.io.pdb import PDBFile
 from biotite.sequence import ProteinSequence, AlphabetError
 
+
 def get_chain_from_pdb(fname: str) -> str:
     """
     Get the chain from the given PDB file. If multiple chains are present,
@@ -50,6 +51,7 @@ def get_chain_from_pdb(fname: str) -> str:
     chain_ids = set(source_struct.chain_id)
     assert len(chain_ids) == 1
     return chain_ids.pop()
+
 
 def write_fa(fname: str, seq: str, seqname: str = "sampled"):
     """Write a fasta file"""
