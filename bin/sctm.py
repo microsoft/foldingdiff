@@ -29,7 +29,7 @@ from foldingdiff.angles_and_coords import get_pdb_length
 
 def get_sctm_score(orig_pdb: Path, folded_dirname: Path) -> Tuple[float, str]:
     """get the self-consistency tm score"""
-    bname = os.path.splitext(os.path.basename(orig_pdb))[0] + "*.pdb"
+    bname = os.path.splitext(os.path.basename(orig_pdb))[0] + "_*_residues_*.pdb"
     folded_pdbs = glob(os.path.join(folded_dirname, bname))
     if len(folded_pdbs) > 8:
         folded_pdbs = folded_pdbs[:8]
