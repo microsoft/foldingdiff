@@ -15,9 +15,11 @@ import torch
 import numpy as np
 from biotite.sequence import ProteinSequence, AlphabetError
 
+
 def read_fasta(fname: str, check_valid: bool = True) -> Dict[str, str]:
     """Read the sequences in the fasta to a dict"""
-    def add_seq_if_valid(d: Dict[str, str], k:str, v:str) -> None:
+
+    def add_seq_if_valid(d: Dict[str, str], k: str, v: str) -> None:
         """Add v to d[k] if v is a valid sequence"""
         if not check_valid:
             d[k] = v
@@ -57,13 +59,18 @@ def write_fasta(sequences: Dict[str, str], out_fname: str):
                 sink.write(segment + "\n")
 
 
-def run_omegafold(input_fasta: str, outdir: str, gpu: int):
+def run_omegafold(input_fasta: str, outdir: str, gpu: int, weights: str = ""):
     """
     Runs omegafold on the given fasta file
     """
-    logging.info(f"Running omegafold on {input_fasta} > {outdir} with gpu {gpu}")
+    logging.info(
+        f"Running omegafold on {input_fasta} > {outdir} with gpu {gpu} with weights {weights}"
+    )
     assert shutil.which("omegafold")
     cmd = f"CUDA_VISIBLE_DEVICES={gpu} omegafold {input_fasta} {outdir} --device cuda:0"
+    if weights:
+        assert os.path.isfile(weights)
+        cmd += f" --weights_file {weights}"
 
     bname = os.path.splitext(os.path.basename(input_fasta))[0]
     with open(
@@ -91,6 +98,13 @@ def build_parser() -> argparse.ArgumentParser:
         type=str,
         default=os.path.abspath(os.path.join(os.getcwd(), "omegafold_predictions")),
         help="Output directory, create if doesn't exist",
+    )
+    parser.add_argument(
+        "--weights",
+        type=str,
+        required=False,
+        default="",
+        help="Path to weights file for omegafold, optional",
     )
     parser.add_argument(
         "-g",
@@ -132,7 +146,8 @@ def main():
         logging.info(f"Writing {len(key_chunk)} sequences to {fasta_filename}")
         write_fasta({k: input_sequences[k] for k in key_chunk}, fasta_filename)
         proc = mp.Process(
-            target=run_omegafold, args=(fasta_filename, args.outdir, args.gpus[i])
+            target=run_omegafold,
+            args=(fasta_filename, args.outdir, args.gpus[i], args.weights),
         )
         proc.start()
     for p in processes:
