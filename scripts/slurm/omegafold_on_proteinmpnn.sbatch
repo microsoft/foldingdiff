@@ -14,4 +14,4 @@
 . ~/.bashrc
 # Activate the appropriate conda environment
 conda activate /home/groups/jamesz/wukevin/envs/omegafold
-python /home/groups/jamesz/wukevin/projects/protdiff/bin/omegafold_across_gpus.py proteinmpnn_residues/*.fasta -o omegafold_predictions_proteinmpnn
+python /home/groups/jamesz/wukevin/projects/protdiff/bin/omegafold_across_gpus.py proteinmpnn_residues/*.fasta -o omegafold_predictions_proteinmpnn --weights /home/groups/jamesz/wukevin/software/omegafold/release1.pt
