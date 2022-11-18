@@ -108,6 +108,7 @@ def count_structures_in_pdb(
 def make_ss_cooccurrence_plot(
     pdb_files: Collection[str],
     outpdf: str,
+    json_file: str = "",
     max_seq_len: int = 0,
     backend: SSE_BACKEND = "psea",
     threads: int = 8,
@@ -133,6 +134,19 @@ def make_ss_cooccurrence_plot(
 
     alpha_beta_counts = [p for p in alpha_beta_counts if p != (-1, -1)]
     alpha_counts, beta_counts = zip(*alpha_beta_counts)
+
+    # Write a json file if specified
+    if json_file:
+        logging.info(f"Writing json of ss counts to {json_file}")
+        with open(json_file, "w") as sink:
+            json.dump(
+                {
+                    os.path.basename(k): ab_counts
+                    for k, ab_counts in zip(pdb_files, alpha_beta_counts)
+                },
+                sink,
+                indent=4,
+            )
 
     fig, ax = plt.subplots(dpi=300)
     h = ax.hist2d(
@@ -188,6 +202,12 @@ def build_parser():
         default=0.09,
         help="Upper limit for frequency in 2D histogram. Set to 0 to disable.",
     )
+    parser.add_argument(
+        "--json",
+        type=str,
+        default="",
+        help="JSON file to write co-occurences in (alpha, beta)",
+    )
     return parser
 
 
@@ -208,6 +228,7 @@ def main():
     make_ss_cooccurrence_plot(
         pdb_files=fnames,
         outpdf=args.outpdf,
+        json_file=args.json,
         backend=args.backend,
         threads=args.threads,
         title=args.title,
