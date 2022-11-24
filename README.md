@@ -116,11 +116,15 @@ python ~/projects/foldingdiff/foldingdiff/pymol_vis.py pdb2gif -i sampled_pdb/sa
 
 ## Evaluating designability of generated backbones
 
-One way to evaluate the quality of generated backbones is via their "designability". This refers to whether or not we can design an amino acid chain that will fold into the designed backbone. To evaluate this, we use the [ESM inverse folding model](https://github.com/facebookresearch/esm) to generate residues that are predicted to fold into our generated backbone, and use [OmegaFold](https://github.com/HeliXonProtein/OmegaFold) to check whether that generated sequence actually does fold into a structure comparable to our backbone. (While prior backbone design works have used AlphaFold for their designability evaluations, this was previously done without providing AlphaFold with MSA information; OmegaFold is designed from the ground up to use sequence only, and is therefore better suited for this use case.)
+One way to evaluate the quality of generated backbones is via their "designability". This refers to whether or not we can design an amino acid chain that will fold into the designed backbone. To evaluate this, we use an inverse folding model to generate amino acid sequences that are predicted to fold into our generated backbone, and check whether those generated sequences actually fold into a structure comparable to our backbone.
 
-### Inverse folding with ESM
+### Inverse folding
 
-We use a different conda environment for this step; see <https://colab.research.google.com/github/facebookresearch/esm/blob/main/examples/inverse_folding/notebook.ipynb> for setup details. We found that the following command works on our machines:
+Inverse folding is the task of predicting a sequence of amino acids that will produce a given protein backbone structure. We evaluated two different methods for this step, ProteinMPNN and ESM-IF1; we find ProteinMPNN to be significantly more performant. In our analyses, we generate 8 different amino caid sequences for each of FoldingDiff's generated structures.
+
+#### ESM-IF1
+
+We use a different conda environment for [ESM-IF1](https://proceedings.mlr.press/v162/hsu22a.html); see this [Jupyter notebook](https://colab.research.google.com/github/facebookresearch/esm/blob/main/examples/inverse_folding/notebook.ipynb) for setup details. We found that the following series of commands works on our machines:
 
 ```bash
 mamba create -n inverse python=3.9 pytorch cudatoolkit pyg -c pytorch -c conda-forge -c pyg
@@ -137,18 +141,42 @@ python ~/projects/foldingdiff/bin/pdb_to_residues_esm.py sampled_pdb -o esm_resi
 
 This creates a new folder, `esm_residues` that contains 10 potential residues for each of the pdb files contained in `sampled_pdb`.
 
-### Structural prediction with OmegaFold
+#### ProteinMPNN
 
-We use [OmegaFold](https://github.com/HeliXonProtein/OmegaFold) to fold the amino acid sequences produced above. After creating and activating a separate conda environment and following the authors' instructions for installing OmegaFold, we use the following script to split our input amino acid fasta files across GPUs for inference, and subsequently calculate the self-consistency TM (scTM) scores.
+To set up [ProteinMPNN](https://www.science.org/doi/10.1126/science.add2187), see the authors guide on their [GitHub](https://github.com/dauparas/ProteinMPNN).
+
+After this, we follow a similar procedure as for ESM-IF1 (above) where we `cd` into the directory containing the `sampled_pdb` folder and run:
+
+```bash
+python ~/projects/foldingdiff/bin/pdb_to_residue_proteinmpnn.py sampled_pdb
+```
+
+This will create a new directory called `proteinmpnn_residues` containing 8 amino acid chains per sampled PDB structure.
+
+### Structural prediction
+
+After generating amino acid sequences, we check that these recapitulate our original sampled structures by passing them through either OmegaFold or AlphaFold. After running one of these folders, we use the following command to asses self-consistency TM scores:
+
+```bash
+python ~/projects/foldingdiff/bin/sctm.py -f alphafold_predictions_proteinmpnn
+```
+
+Where `alphafold_predictions_proteinmpnn` is a folder containing the folded structures corresponding to inverse folded amino acid sequences. This produces a json file of all scTM scores, as well as various pdf files containing plots and correlations of the scTM score distribution.
+
+#### OmegaFold
+
+We primarily use [OmegaFold](https://github.com/HeliXonProtein/OmegaFold) to fold the amino acid sequences produced by either ESM-IF1 or ProteinMPNN. This is due to OmegaFold's relatively fast runtime compared to AlphaFold2, and due to the fact that OmegaFold is natively designed to be run without MSA information - making it more suitable for our protein design task.
+
+After creating and activating a separate conda environment and following the authors' instructions for installing OmegaFold, we use the following script to split our input amino acid fasta files across GPUs for inference, and subsequently calculate the self-consistency TM (scTM) scores.
 
 ```bash
 # Fold each fasta, spreading the work over GPUs 0 and 1, outputs to omegafold_predictions folder
 python ~/projects/foldingdiff/bin/omegafold_across_gpus.py esm_residues/*.fasta -g 0 1
-# Calculate the scTM scores; parallelizes across all CPUs
-python ~/projects/foldingdiff/bin/omegafold_self_tm.py  # Requires no arguments
 ```
 
-After executing these commands, the final command produces a json file of all scTM scores, as well as various pdf files containing plots and correlations of the scTM score distribution.
+#### AlphaFold2
+
+We run [AlphaFold2](https://github.com/deepmind/alphafold) via the `localcolabfold` installation method (see [GitHub](https://github.com/YoshitakaMo/localcolabfold)). Due to AlphaFold's runtime requirements, we provide scripts to split the set of fasta files into subdirectories that can then be separately folded; see SLURM script under `scripts/slurm/alphafold.sbatch` for an example.
 
 ## Tests
 
