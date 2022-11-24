@@ -5,7 +5,7 @@ Script for calculating self consistency TM scores
 import argparse
 import functools
 from glob import glob
-import os, sys
+import os
 import logging
 from pathlib import Path
 import multiprocessing as mp
@@ -37,7 +37,7 @@ def get_sctm_score(orig_pdb: Path, folded_dirname: Path) -> Tuple[float, str]:
     assert len(folded_pdbs) <= 8
     if len(folded_pdbs) < 8:
         logging.warning(
-            f"Fewer than 8 (n={len(folded_pdbs)}) structures corresponding to {orig_pdb} -- results wil be incomplete"
+            f"Fewer than 8 (n={len(folded_pdbs)}) structures corresponding to {orig_pdb}"
         )
     if not folded_pdbs:
         return np.nan, ""
@@ -45,6 +45,7 @@ def get_sctm_score(orig_pdb: Path, folded_dirname: Path) -> Tuple[float, str]:
 
 
 def build_parser():
+    """Build a CLI parser"""
     parser = argparse.ArgumentParser(
         usage=__doc__, formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
