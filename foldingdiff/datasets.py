@@ -103,6 +103,9 @@ class CathCanonicalAnglesDataset(Dataset):
 
     def __init__(
         self,
+        pdbs: Union[
+            Literal["cath", "alphafold"], str
+        ] = "cath",  # Keyword or a directory
         split: Optional[Literal["train", "test", "validation"]] = None,
         pad: int = 512,
         min_length: int = 40,  # Set to 0 to disable
@@ -118,8 +121,7 @@ class CathCanonicalAnglesDataset(Dataset):
         self.min_length = min_length
 
         # gather files
-        fnames = glob.glob(os.path.join(CATH_DIR, "dompdb", "*"))
-        assert fnames, f"No files found in {CATH_DIR}/dompdb"
+        fnames = self.__get_pdb_fnames(pdbs)
 
         # self.structures should be a list of dicts with keys (angles, coords, fname)
         # Define as None by default; allow for easy checking later
@@ -127,9 +129,8 @@ class CathCanonicalAnglesDataset(Dataset):
         codebase_hash = utils.md5_all_py_files(
             os.path.dirname(os.path.abspath(__file__))
         )
-        codebase_matches_hash = (
-            False  # Default to false; assuming no cache, also doesn't match
-        )
+        # Default to false; assuming no cache, also doesn't match
+        codebase_matches_hash = False
         # Always compute for toy; do not save
         if toy:
             if isinstance(toy, bool):
@@ -227,6 +228,28 @@ class CathCanonicalAnglesDataset(Dataset):
         #     logging.info(f"Feature {ft} is angular: {is_angular}")
         #     m, v = self.get_feature_mean_var(ft)
         #     logging.info(f"Feature {ft} mean, var: {m}, {v}")
+
+    def __get_pdb_fnames(
+        self, pdbs: Union[Literal["cath", "alphafold"], str]
+    ) -> List[str]:
+        """Return a list of filenames for PDB structures making up this dataset"""
+        if Path(pdbs).is_dir():
+            fnames = []
+            for ext in [".pdb", ".pdb.gz"]:
+                fnames.extend(glob.glob(os.path.join(pdbs, f"*{ext}")))
+            assert fnames, f"No PDB files found in {pdbs}"
+            logging.info(f"Found {len(fnames)} PDB files in {pdbs}")
+        else:  # Should be a keyword
+            if pdbs == "cath":
+                fnames = glob.glob(os.path.join(CATH_DIR, "dompdb", "*"))
+                assert fnames, f"No files found in {CATH_DIR}/dompdb"
+            elif pdbs == "alphafold":
+                pdbs = glob.glob(os.path.join(ALPHAFOLD_DIR, "*.pdb.gz"))
+                assert fnames, f"No files found in {ALPHAFOLD_DIR}"
+            else:
+                raise ValueError(f"Unknown pdb set: {pdbs}")
+
+        return fnames
 
     def __compute_featurization(
         self, fnames: Sequence[str]
@@ -596,7 +619,7 @@ class AutoregressiveCausalDataset(Dataset):
         return_dict["causal_target"] = return_dict[self.dset_key][causal_len]
         return_dict["causal_idx"] = causal_len
         return return_dict
-    
+
     def __str__(self):
         """Return the string representation"""
         return f"AutoregressiveCausalDataset wrapping {self.dset} with {self.dset_key}"
@@ -1118,12 +1141,14 @@ class ScoreMatchingNoisedAnglesDataset(Dataset):
 
 
 def main():
-    dset = CathCanonicalAnglesOnlyDataset(
-        pad=128, trim_strategy="discard", use_cache=False, zero_center=False
+    dset = CathCanonicalAnglesDataset(
+        "/data/alphafold_swissprot",
+        pad=128,
+        trim_strategy="discard",
+        use_cache=False,
+        zero_center=False,
     )
     causal_dset = AutoregressiveCausalDataset(dset, dset_key="angles")
-    # print(len(noised_dset))
-    # print(noised_dset[0])
     x = causal_dset[0]
 
     # x = noised_dset[0]
