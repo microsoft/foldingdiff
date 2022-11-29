@@ -2,6 +2,7 @@
 Code to convert from angles between residues to XYZ coordinates. 
 """
 import functools
+import gzip
 import os
 import logging
 import pickle
@@ -32,7 +33,9 @@ def canonical_distances_and_dihedrals(
     assert os.path.isfile(fname)
     warnings.filterwarnings("ignore", ".*elements were guessed from atom_.*")
     warnings.filterwarnings("ignore", ".*invalid value encountered in true_div.*")
-    source = PDBFile.read(str(fname))
+    opener = gzip.open if fname.endswith(".gz") else open
+    with opener(str(fname), "rt") as f:
+        source = PDBFile.read(f)
     if source.get_model_count() > 1:
         return None
     # Pull out the atomarray from atomarraystack
@@ -184,7 +187,7 @@ def create_new_chain_nerf(
     assert coords.shape == (
         int(dists_and_angles.shape[0] * 3),
         3,
-    ), f"Unexpected shape: {coords.shape} for input of {len(dists_and_angles)}" 
+    ), f"Unexpected shape: {coords.shape} for input of {len(dists_and_angles)}"
     return write_coords_to_pdb(coords, out_fname)
 
 
