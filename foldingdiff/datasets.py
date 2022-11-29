@@ -5,6 +5,7 @@ data loader object
 
 import json
 import pickle
+import hashlib
 import functools
 import multiprocessing
 import os
@@ -96,10 +97,6 @@ class CathCanonicalAnglesDataset(Dataset):
         "angles": [False, False, False, True, True, True, True, True, True],
         "coords": [False, False, False],
     }
-    cache_fname = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)),
-        "cache_canonical_structures.pkl",
-    )
 
     def __init__(
         self,
@@ -113,6 +110,7 @@ class CathCanonicalAnglesDataset(Dataset):
         toy: int = 0,
         zero_center: bool = True,  # Center the features to have 0 mean
         use_cache: bool = True,  # Use/build cached computations of dihedrals and angles
+        cache_dir: Path = Path(os.path.dirname(os.path.abspath(__file__))),
     ) -> None:
         super().__init__()
         assert pad > min_length
@@ -121,6 +119,7 @@ class CathCanonicalAnglesDataset(Dataset):
         self.min_length = min_length
 
         # gather files
+        self.pdbs_src = pdbs
         fnames = self.__get_pdb_fnames(pdbs)
 
         # self.structures should be a list of dicts with keys (angles, coords, fname)
@@ -131,6 +130,7 @@ class CathCanonicalAnglesDataset(Dataset):
         )
         # Default to false; assuming no cache, also doesn't match
         codebase_matches_hash = False
+        self.cache_dir = cache_dir
         # Always compute for toy; do not save
         if toy:
             if isinstance(toy, bool):
@@ -250,6 +250,24 @@ class CathCanonicalAnglesDataset(Dataset):
                 raise ValueError(f"Unknown pdb set: {pdbs}")
 
         return fnames
+
+    @property
+    def cache_fname(self) -> str:
+        """Return the filename for the cache file"""
+        if os.path.isdir(self.pdbs_src):
+            k = os.path.basename(self.pdbs_src)
+        else:
+            k = self.pdbs_src
+        
+        # Create md5 of all the filenames (NOT their contents)
+        hash_md5 = hashlib.md5()
+        for fname in self.fnames:
+            hash_md5.update(fname.encode())
+        filename_hash = hash_md5.hexdigest()
+
+        return os.path.join(
+            self.cache_dir, f"cache_canonical_structures_{k}_{filename_hash}.pkl"
+        )
 
     def __compute_featurization(
         self, fnames: Sequence[str]
