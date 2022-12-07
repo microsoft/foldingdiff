@@ -279,7 +279,9 @@ def extract_backbone_coords(
     fname: str, atoms: Collection[Literal["N", "CA", "C"]] = ["CA"]
 ) -> Optional[np.ndarray]:
     """Extract the coordinates of the alpha carbons"""
-    structure = PDBFile.read(fname)
+    opener = gzip.open if fname.endswith(".gz") else open
+    with opener(str(fname), "rt") as f:
+        structure = PDBFile.read(f)
     if structure.get_model_count() > 1:
         return None
     chain = structure.get_structure()[0]

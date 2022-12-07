@@ -121,6 +121,7 @@ class CathCanonicalAnglesDataset(Dataset):
         # gather files
         self.pdbs_src = pdbs
         fnames = self.__get_pdb_fnames(pdbs)
+        self.fnames = fnames
 
         # self.structures should be a list of dicts with keys (angles, coords, fname)
         # Define as None by default; allow for easy checking later
@@ -153,6 +154,7 @@ class CathCanonicalAnglesDataset(Dataset):
                     logging.info("Hash matches between codebase and cached values!")
         # We have not yet populated self.structures
         if self.structures is None:
+            self.__clean_mismatched_caches()
             self.structures = self.__compute_featurization(fnames)
             if use_cache and not codebase_matches_hash:
                 logging.info(f"Saving full dataset to cache at {self.cache_fname}")
@@ -258,16 +260,31 @@ class CathCanonicalAnglesDataset(Dataset):
             k = os.path.basename(self.pdbs_src)
         else:
             k = self.pdbs_src
-        
+
         # Create md5 of all the filenames (NOT their contents)
         hash_md5 = hashlib.md5()
         for fname in self.fnames:
-            hash_md5.update(fname.encode())
+            hash_md5.update(os.path.basename(fname).encode())
         filename_hash = hash_md5.hexdigest()
 
         return os.path.join(
             self.cache_dir, f"cache_canonical_structures_{k}_{filename_hash}.pkl"
         )
+
+    def __clean_mismatched_caches(self) -> None:
+        """Clean out mismatched cache files"""
+        if os.path.isdir(self.pdbs_src):
+            k = os.path.basename(self.pdbs_src)
+        else:
+            k = self.pdbs_src
+
+        matches = glob.glob(os.path.join(self.cache_dir, f"cache_canonical_structures_{k}_*.pkl"))
+        if not matches:
+            logging.info(f"No cache files found matching {matches}, no cleaning necessary")
+        for fname in matches:
+            if fname != self.cache_fname:
+                logging.info(f"Removing old cache file {fname}")
+                os.remove(fname)
 
     def __compute_featurization(
         self, fnames: Sequence[str]
