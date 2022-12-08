@@ -246,7 +246,7 @@ class CathCanonicalAnglesDataset(Dataset):
                 fnames = glob.glob(os.path.join(CATH_DIR, "dompdb", "*"))
                 assert fnames, f"No files found in {CATH_DIR}/dompdb"
             elif pdbs == "alphafold":
-                pdbs = glob.glob(os.path.join(ALPHAFOLD_DIR, "*.pdb.gz"))
+                fnames = glob.glob(os.path.join(ALPHAFOLD_DIR, "*.pdb.gz"))
                 assert fnames, f"No files found in {ALPHAFOLD_DIR}"
             else:
                 raise ValueError(f"Unknown pdb set: {pdbs}")
