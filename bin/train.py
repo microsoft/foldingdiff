@@ -1,5 +1,5 @@
 """
-Training script. 
+Training script.
 
 Example usage: python ~/protdiff/bin/train.py ~/protdiff/config_jsons/full_run_canonical_angles_only_zero_centered_1000_timesteps_reduced_len.json
 """
@@ -109,7 +109,7 @@ def plot_kl_divergence(train_dset, plots_folder: Path) -> None:
 
 
 def get_train_valid_test_sets(
-    dataset_key:str = "cath",
+    dataset_key: str = "cath",
     angles_definitions: ANGLES_DEFINITIONS = "canonical-full-angles",
     max_seq_len: int = 512,
     min_seq_len: int = 0,
@@ -312,7 +312,9 @@ def train(
     batch_size: int = 64,
     lr: float = 5e-5,  # Default lr for huggingface BERT trainer
     loss: modelling.LOSS_KEYS = "smooth_l1",
-    use_pdist_loss: Union[float, Tuple[float, float]] = 0.0,  # Use the pairwise distances between CAs as an additional loss term, multiplied by this scalar
+    use_pdist_loss: Union[
+        float, Tuple[float, float]
+    ] = 0.0,  # Use the pairwise distances between CAs as an additional loss term, multiplied by this scalar
     l2_norm: float = 0.0,  # AdamW default has 0.01 L2 regularization, but BERT trainer uses 0.0
     l1_norm: float = 0.0,
     circle_reg: float = 0.0,
@@ -415,7 +417,6 @@ def train(
     model_n_inputs = sample_input.shape[-1]
     logging.info(f"Auto detected {model_n_inputs} inputs")
 
-    logging.info("Using HuggingFace encoder implementation")
     cfg = BertConfig(
         max_position_embeddings=max_seq_len,
         num_attention_heads=num_heads,
@@ -516,13 +517,6 @@ def build_parser() -> argparse.ArgumentParser:
         type=str,
         default=os.path.join(os.getcwd(), "results"),
         help="Directory to write model training outputs",
-    )
-    parser.add_argument(
-        "--implementation",
-        type=str,
-        choices=["pytorch_encoder", "huggingface_encoder"],
-        default="huggingface_encoder",
-        help="Which implementation to use",
     )
     parser.add_argument(
         "--toy",
