@@ -1,6 +1,6 @@
 # foldingdiff - Diffusion model for protein backbone generation
 
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black) ![PyTorch Lightning](https://img.shields.io/badge/pytorch-lightning-blue.svg?logo=PyTorch%20Lightning)
 
 We present a diffusion model for generating novel protein backbone structures. For more details, see our preprint on [arXiv](https://arxiv.org/abs/2209.15611). We also host a trained version of our model on [HuggingFace spaces](https://huggingface.co/spaces/wukevin/foldingdiff) so you can get started with generating protein structures with just your browser!
 
