@@ -83,7 +83,7 @@ def main():
 
     orig_predicted_backbones = glob(os.path.join(args.predicted, "*.pdb"))
     logging.info(
-        f"Computing selfTM scores across {len(orig_predicted_backbones)} generated structures"
+        f"Computing scTM scores across {len(orig_predicted_backbones)} generated structures"
     )
     orig_predicted_backbone_lens = {
         os.path.splitext(os.path.basename(f))[0]: get_pdb_length(f)
@@ -92,12 +92,14 @@ def main():
     orig_predicted_backbone_names = [
         os.path.splitext(os.path.basename(f))[0] for f in orig_predicted_backbones
     ]
-    orig_predicted_secondary_structs = {
-        os.path.splitext(os.path.basename(f))[0]: count_structures_in_pdb(
-            f, backend="psea"
+    with mp.Pool(mp.cpu_count()) as pool:
+        ss_counts = list(
+            pool.map(count_structures_in_pdb, orig_predicted_backbones, chunksize=10)
         )
-        for f in orig_predicted_backbones
-    }
+        orig_predicted_secondary_structs = {
+            os.path.splitext(os.path.basename(f))[0]: s
+            for f, s in zip(orig_predicted_backbones, ss_counts)
+        }
 
     # Match up the files
     pfunc = functools.partial(get_sctm_score, folded_dirname=Path(args.folded))
