@@ -12,6 +12,21 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/microsoft/foldingdiff",
+    install_requires=[
+        "pandas",
+        "numpy",
+        "torch",
+        "scipy",
+        "transformers",
+        "pytorch-lightning",
+        "huggingface-hub",
+        "seaborn",
+        "mpl-scatter-density",
+        "astropy",
+        "gitpython",
+        "biotite",
+        "requests"
+    ],
     classifiers=[
         "Programming Language :: Python :: 3",
         "Operating System :: OS Independent",
