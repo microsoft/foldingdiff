@@ -26,7 +26,7 @@ def pdb2png(pdb_fname: str, png_fname: str) -> str:
     # https://gist.github.com/bougui505/11401240
     pymol.cmd.load(pdb_fname)
     pymol.cmd.show("cartoon")
-    pymol.cmd.color("green")
+    pymol.cmd.spectrum("count", palette="rainbow")
     pymol.cmd.set("ray_opaque_background", 0)
     pymol.cmd.png(png_fname, ray=1, dpi=600)
     pymol.cmd.delete("*")  # So we dont' draw multiple images at once
