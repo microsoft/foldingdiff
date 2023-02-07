@@ -27,14 +27,18 @@ def timestep_from_fname(fname: str) -> int:
     return int(os.path.basename(fname).split(".")[0].split("_")[-1])
 
 
-def get_angle_files(dirname: str) -> List[List[str]]:
+def get_angle_files(dirname: str, subset_to: Optional[str] = None) -> List[List[str]]:
     """
     Return a list of files that contain sampled angles, one list for
     each timestep. This folder should be
+
+    If subset_to is provided (e.g., "generated_0"), then only return
+    files corresponding to the given generated example.
     """
     assert os.path.isdir(dirname)
+    dirs_to_search = [subset_to] if subset_to else os.listdir(dirname)
     per_generation_filenames = []
-    for folder in os.listdir(dirname):
+    for folder in dirs_to_search:
         if not os.path.isdir(os.path.join(dirname, folder)) or not folder.startswith(
             "generated_"
         ):
@@ -59,6 +63,13 @@ def build_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument("dirname", help="Directory containing sampled angles history")
     parser.add_argument("outdir", help="Directory to write plots to")
+    parser.add_argument(
+        "--subset",
+        default="",
+        type=str,
+        required=False,
+        help="Subset to the given generation prefix (e.g., generated_0)",
+    )
     parser.add_argument("-a", "--angle", default="psi", help="Angle to plot")
     parser.add_argument(
         "-t",
@@ -83,7 +94,7 @@ def main(
     if not os.path.isdir(outdir):
         os.makedirs(outdir)
 
-    angle_files = get_angle_files(dirname)
+    angle_files = get_angle_files(dirname, subset_to=args.subset)
     assert angle_files, f"Found no files in {os.path.abspath(dirname)}"
     for timestep_files in angle_files:
         timestep = set([timestep_from_fname(f) for f in timestep_files])
@@ -109,7 +120,7 @@ def main(
             density=True,
         )
         ax.set(
-            title=f"$\{angle_to_plot}$ ($t = {timestep + 1}$)",
+            title=f"$\{angle_to_plot}$ ($t = {timestep}$)",
             xticks=[-np.pi, -np.pi / 2, 0, np.pi / 2, np.pi],
             xticklabels=[
                 r"$-\pi$",
