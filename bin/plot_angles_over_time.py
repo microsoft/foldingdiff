@@ -70,6 +70,7 @@ def build_parser():
         required=False,
         help="Subset to the given generation prefix (e.g., generated_0)",
     )
+    parser.add_argument("--nolabel", action="store_true", help="Do not label plots")
     parser.add_argument("-a", "--angle", default="psi", help="Angle to plot")
     parser.add_argument(
         "-t",
@@ -120,7 +121,6 @@ def main(
             density=True,
         )
         ax.set(
-            title=f"$\{angle_to_plot}$ ($t = {timestep}$)",
             xticks=[-np.pi, -np.pi / 2, 0, np.pi / 2, np.pi],
             xticklabels=[
                 r"$-\pi$",
@@ -129,9 +129,13 @@ def main(
                 r"$\frac{\pi}{2}$",
                 r"$\pi$",
             ],
-            xlabel="Angle (radians)",
-            ylabel="Normalized frequency",
         )
+        if not args.nolabel:
+            ax.set(
+                title=f"$\{angle_to_plot}$ ($t = {timestep}$)",
+                xlabel="Angle (radians)",
+                ylabel="Normalized frequency",
+            )
         # For saving metadata
         # https://gist.github.com/SamWolski/6a53bf12a84cde17bc37b103ca095b30
         fig.savefig(
