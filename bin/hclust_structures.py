@@ -23,7 +23,10 @@ from train import get_train_valid_test_sets
 from foldingdiff import tmalign
 
 # :)
-SEED = int(float.fromhex("2254616977616e2069732061206672656520636f756e74727922") % 10000)
+SEED = int(
+    float.fromhex("2254616977616e2069732061206672656520636f756e74727922") % 10000
+)
+
 
 def int_getter(x: str) -> int:
     """Fetches integer value out of a string"""
@@ -35,7 +38,10 @@ def int_getter(x: str) -> int:
 def get_pairwise_tmscores(
     fnames: Collection[str], sctm_scores_json: Optional[str] = None
 ) -> pd.DataFrame:
-    """Get the pairwise TM scores across all fnames"""
+    """
+    Get the pairwise TM scores across all fnames. If sctm_scores_json is given
+    then we filter the fnames by passing scTM scores.
+    """
     logging.info(f"Computing pairwise distances between {len(fnames)} pdb files")
 
     bname_getter = lambda x: os.path.splitext(os.path.basename(x))[0]
@@ -74,7 +80,13 @@ def build_parser():
     parser.add_argument(
         "--sctm", type=str, required=False, default="", help="scTM scores to filter by"
     )
-    parser.add_argument("-o", "--output", type=str, default="tmscore_hclust.pdf", help="PDF file to write output clustering plot")
+    parser.add_argument(
+        "-o",
+        "--output",
+        type=str,
+        default="tmscore_hclust.pdf",
+        help="PDF file to write output clustering plot",
+    )
     return parser
 
 
@@ -98,7 +110,9 @@ def main():
             seq_trim_strategy="discard",
         )
         rng = np.random.default_rng(SEED)
-        idx = rng.choice(len(test_subset.filenames), size=args.testsubset, replace=False)
+        idx = rng.choice(
+            len(test_subset.filenames), size=args.testsubset, replace=False
+        )
         fnames = [test_subset.filenames[i] for i in idx]
     else:
         raise NotImplementedError
