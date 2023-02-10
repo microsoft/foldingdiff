@@ -17,6 +17,7 @@ import argparse
 
 import pandas as pd
 from sklearn.manifold import MDS
+import umap
 from matplotlib import pyplot as plt
 
 from hclust_structures import get_pairwise_tmscores, int_getter
@@ -42,7 +43,9 @@ def build_parser():
     parser = argparse.ArgumentParser(
         usage=__doc__, formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
-    parser.add_argument("dirname", type=str, help="Directory containing PDB files")
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("--mdsdirname", type=str, help="Directory containing PDB files")
+    group.add_argument("--gitscores", type=str, default="", help="Git scores json")
     parser.add_argument("--sctm", type=str, default="", help="scTM scores JSON file")
     parser.add_argument(
         "--trainingtm", type=str, default="", help="Training TM score JSON"
@@ -62,28 +65,42 @@ def main():
     parser = build_parser()
     args = parser.parse_args()
 
-    # Get files
-    fnames = sorted(
-        glob(os.path.join(args.dirname, "*.pdb")),
-        key=lambda x: int_getter(os.path.basename(x)),
-    )
-    logging.info(f"Computing TMscore on {len(fnames)} structures")
+    if args.mdsdirname:
+        # Get files
+        fnames = sorted(
+            glob(os.path.join(args.mdsdirname, "*.pdb")),
+            key=lambda x: int_getter(os.path.basename(x)),
+        )
+        logging.info(f"Computing TMscore on {len(fnames)} structures")
 
-    # in the dissimilarity matrix, larger values should indicate more distant points
-    # therefore we want to do 1 - TMscore (since larger values are closer in TMscore space)
-    pdist_df = 1.0 - get_pairwise_tmscores(fnames, sctm_scores_json=args.sctm)
-    mds = MDS(
-        n_components=2,
-        dissimilarity="precomputed",
-        metric=False,  # TMscores do not respect triangle inequality
-        n_jobs=-1,
-        random_state=SEED,
-    )
-    embedding = pd.DataFrame(
-        mds.fit_transform(pdist_df.values),
-        index=pdist_df.index,
-        columns=["MDS1", "MDS2"],
-    )
+        # in the dissimilarity matrix, larger values should indicate more distant points
+        # therefore we want to do 1 - TMscore (since larger values are closer in TMscore space)
+        pdist_df = 1.0 - get_pairwise_tmscores(fnames, sctm_scores_json=args.sctm)
+        mds = MDS(
+            n_components=2,
+            dissimilarity="precomputed",
+            metric=False,  # TMscores do not respect triangle inequality
+            n_jobs=-1,
+            random_state=SEED,
+        )
+        embedding = pd.DataFrame(
+            mds.fit_transform(pdist_df.values),
+            index=pdist_df.index,
+            columns=["MDS1", "MDS2"],
+        )
+    elif args.gitscores:
+        git_df = pd.read_csv(args.gitscores, index_col=0, sep=" ", header=None)
+        fnames = [os.path.abspath(f) for f in git_df.index]
+        git_df.index = [os.path.basename(f).split(".")[0] for f in git_df.index]
+        # Remove columsn of all nan
+        git_df.dropna(axis=1, how="all", inplace=True)
+        embedding = pd.DataFrame(
+            umap.UMAP(random_state=SEED).fit_transform(git_df.values),
+            index=git_df.index,
+            columns=["UMAP1", "UMAP2"],
+        )
+    else:
+        raise ValueError("Must specify either --mdsdirname or --gitscores")
 
     format_strings = {
         "Number helices": "{x:.1f}",
@@ -139,8 +156,8 @@ def main():
                         fontsize=6,
                     )
             ax.set(
-                xlabel="MDS 1",
-                ylabel="MDS 2",
+                xlabel=embedding.columns[0],
+                ylabel=embedding.columns[1],
             )
             if not k == "null":
                 ax.set(
