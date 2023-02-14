@@ -3,6 +3,8 @@ Code for sampling from diffusion models
 """
 import json
 import os
+from pathlib import Path
+import tempfile
 import logging
 from typing import *
 
@@ -13,12 +15,12 @@ import pandas as pd
 
 import torch
 from torch import nn
+from torch.utils.data import default_collate
 from huggingface_hub import snapshot_download
 
-from foldingdiff import beta_schedules
-from foldingdiff import utils
 from foldingdiff import datasets as dsets
-from foldingdiff import modelling
+from foldingdiff import beta_schedules, modelling, utils, sampling, tmalign
+from foldingdiff import angles_and_coords as ac
 
 
 @torch.no_grad()
@@ -97,7 +99,10 @@ def p_sample_loop(
     imgs = []
 
     for i in tqdm(
-        reversed(range(0, timesteps)), desc="sampling loop time step", total=timesteps, disable=disable_pbar
+        reversed(range(0, timesteps)),
+        desc="sampling loop time step",
+        total=timesteps,
+        disable=disable_pbar,
     ):
         # Shape is (batch, seq_len, 4)
         img = p_sample(
@@ -179,7 +184,7 @@ def sample(
             timesteps=train_dset.timesteps,
             betas=train_dset.alpha_beta_terms["betas"],
             is_angle=train_dset.feature_is_angular[feature_key],
-            disable_pbar=disable_pbar
+            disable_pbar=disable_pbar,
         )
         # Gets to size (timesteps, seq_len, n_ft)
         trimmed_sampled = [
@@ -237,13 +242,93 @@ def sample_simple(
         angular_variance=training_args["variance_scale"],
     )
 
-    sampled = sample(model, dummy_noised_dset, n=n, sweep_lengths=sweep_lengths, disable_pbar=True)
+    sampled = sample(
+        model, dummy_noised_dset, n=n, sweep_lengths=sweep_lengths, disable_pbar=True
+    )
     final_sampled = [s[-1] for s in sampled]
     sampled_dfs = [
         pd.DataFrame(s, columns=dummy_noised_dset.feature_names["angles"])
         for s in final_sampled
     ]
     return sampled_dfs
+
+
+@torch.no_grad()
+def get_reconstruction_error(
+    model: nn.Module, dset, noise_timesteps: int = 250, bs: int = 512
+) -> np.ndarray:
+    """
+    Get the reconstruction error when adding <noise_timesteps> noise to the idx-th
+    item in the dataset.
+    """
+    device = next(model.parameters()).device
+    model.eval()
+
+    recont_angle_sets = []
+    truth_angle_sets = []
+    truth_pdb_files = []
+    for idx_batch in tqdm(utils.seq_to_groups(list(range(len(dset))), bs)):
+        batch = default_collate(
+            [
+                {
+                    k: v.to(device)
+                    for k, v in dset.__getitem__(idx, use_t_val=noise_timesteps).items()
+                }
+                for idx in idx_batch
+            ]
+        )
+        img = batch["corrupted"].clone()
+        assert img.ndim == 3
+
+        # Record the actual files containing raw coordinates
+        for i in idx_batch:
+            truth_pdb_files.append(dset.filenames[i])
+
+        # Run the diffusion model for noise_timesteps steps
+        for i in tqdm(list(reversed(list(range(0, noise_timesteps))))):
+            img = sampling.p_sample(
+                model=model,
+                x=img,
+                t=torch.full((len(idx_batch),), fill_value=i, dtype=torch.long).to(
+                    device
+                ),
+                seq_lens=batch["lengths"],
+                t_index=i,
+                betas=dset.alpha_beta_terms["betas"],
+            )
+            img = utils.modulo_with_wrapped_range(img)
+
+        # Finished reconstruction, subset to lengths and add to running list
+        for i, l in enumerate(batch["lengths"].squeeze()):
+            recont_angle_sets.append(
+                pd.DataFrame(img[i, :l].cpu().numpy(), columns=ac.EXHAUSTIVE_ANGLES)
+            )
+            truth_angle_sets.append(
+                pd.DataFrame(
+                    batch["angles"][i, :l].cpu().numpy(), columns=ac.EXHAUSTIVE_ANGLES
+                )
+            )
+
+    # Get the reconstruction error as a TM score
+    scores = []
+    coord_scores = []
+    for reconst_angles, truth_angles, truth_coords_pdb in zip(
+        recont_angle_sets, truth_angle_sets, truth_pdb_files
+    ):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            truth_path = Path(tmpdir) / "truth.pdb"
+            reconst_path = Path(tmpdir) / "reconst.pdb"
+
+            truth_pdb = ac.create_new_chain_nerf(str(truth_path), truth_angles)
+            reconst_pdb = ac.create_new_chain_nerf(str(reconst_path), reconst_angles)
+
+            # Calculate WRT the truth angles
+            score = tmalign.run_tmalign(reconst_pdb, truth_pdb)
+            scores.append(score)
+
+            score_coord = tmalign.run_tmalign(reconst_pdb, truth_coords_pdb)
+            coord_scores.append(score_coord)
+    return np.array(scores), np.array(coord_scores)
 
 
 if __name__ == "__main__":
