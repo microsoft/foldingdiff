@@ -131,6 +131,7 @@ class CathCanonicalAnglesDataset(Dataset):
         )
         # Default to false; assuming no cache, also doesn't match
         codebase_matches_hash = False
+        self.use_cache = use_cache
         self.cache_dir = cache_dir
         # Always compute for toy; do not save
         if toy:
@@ -232,10 +233,16 @@ class CathCanonicalAnglesDataset(Dataset):
         #     logging.info(f"Feature {ft} mean, var: {m}, {v}")
 
     def __get_pdb_fnames(
-        self, pdbs: Union[Literal["cath", "alphafold"], str]
+        self, pdbs: Union[Literal["cath", "alphafold"], str, List[str], Tuple[str]]
     ) -> List[str]:
         """Return a list of filenames for PDB structures making up this dataset"""
-        if Path(pdbs).is_dir():
+        if isinstance(pdbs, (list, tuple)):
+            # A list of PDBs
+            for f in pdbs:
+                assert os.path.isfile(f), f"Given file does not exist: {f}"
+            fnames = pdbs
+            logging.info(f"Given {len(fnames)} PDB files")
+        elif Path(pdbs).is_dir():
             fnames = []
             for ext in [".pdb", ".pdb.gz"]:
                 fnames.extend(glob.glob(os.path.join(pdbs, f"*{ext}")))
@@ -273,14 +280,22 @@ class CathCanonicalAnglesDataset(Dataset):
 
     def __clean_mismatched_caches(self) -> None:
         """Clean out mismatched cache files"""
+        if not self.use_cache:
+            logging.info("Not using cache -- skipping cache cleaning")
+            return
+
         if os.path.isdir(self.pdbs_src):
             k = os.path.basename(self.pdbs_src)
         else:
             k = self.pdbs_src
 
-        matches = glob.glob(os.path.join(self.cache_dir, f"cache_canonical_structures_{k}_*.pkl"))
+        matches = glob.glob(
+            os.path.join(self.cache_dir, f"cache_canonical_structures_{k}_*.pkl")
+        )
         if not matches:
-            logging.info(f"No cache files found matching {matches}, no cleaning necessary")
+            logging.info(
+                f"No cache files found matching {matches}, no cleaning necessary"
+            )
         for fname in matches:
             if fname != self.cache_fname:
                 logging.info(f"Removing old cache file {fname}")
