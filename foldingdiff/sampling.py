@@ -3,6 +3,7 @@ Code for sampling from diffusion models
 """
 import json
 import os
+import multiprocessing as mp
 from pathlib import Path
 import tempfile
 import logging
@@ -253,10 +254,30 @@ def sample_simple(
     return sampled_dfs
 
 
+def _score_angles(
+    reconst_angles:pd.DataFrame, truth_angles:pd.DataFrame, truth_coords_pdb: str
+) -> Tuple[float, float]:
+    """
+    Helper function to scores sets of angles
+    """
+    with tempfile.TemporaryDirectory() as tmpdir:
+        truth_path = Path(tmpdir) / "truth.pdb"
+        reconst_path = Path(tmpdir) / "reconst.pdb"
+
+        truth_pdb = ac.create_new_chain_nerf(str(truth_path), truth_angles)
+        reconst_pdb = ac.create_new_chain_nerf(str(reconst_path), reconst_angles)
+
+        # Calculate WRT the truth angles
+        score = tmalign.run_tmalign(reconst_pdb, truth_pdb)
+
+        score_coord = tmalign.run_tmalign(reconst_pdb, truth_coords_pdb)
+    return score, score_coord
+
+
 @torch.no_grad()
 def get_reconstruction_error(
     model: nn.Module, dset, noise_timesteps: int = 250, bs: int = 512
-) -> np.ndarray:
+) -> Tuple[np.ndarray, np.ndarray]:
     """
     Get the reconstruction error when adding <noise_timesteps> noise to the idx-th
     item in the dataset.
@@ -310,24 +331,18 @@ def get_reconstruction_error(
             )
 
     # Get the reconstruction error as a TM score
-    scores = []
-    coord_scores = []
-    for reconst_angles, truth_angles, truth_coords_pdb in zip(
-        recont_angle_sets, truth_angle_sets, truth_pdb_files
-    ):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            truth_path = Path(tmpdir) / "truth.pdb"
-            reconst_path = Path(tmpdir) / "reconst.pdb"
-
-            truth_pdb = ac.create_new_chain_nerf(str(truth_path), truth_angles)
-            reconst_pdb = ac.create_new_chain_nerf(str(reconst_path), reconst_angles)
-
-            # Calculate WRT the truth angles
-            score = tmalign.run_tmalign(reconst_pdb, truth_pdb)
-            scores.append(score)
-
-            score_coord = tmalign.run_tmalign(reconst_pdb, truth_coords_pdb)
-            coord_scores.append(score_coord)
+    logging.info(
+        f"Calculating TM scores for reconstruction error with {mp.cpu_count()} processes"
+    )
+    pool = mp.Pool(processes=mp.cpu_count())
+    results = pool.starmap(
+        _score_angles,
+        zip(recont_angle_sets, truth_angle_sets, truth_pdb_files),
+        chunksize=10,
+    )
+    pool.close()
+    pool.join()
+    scores, coord_scores = zip(*results)
     return np.array(scores), np.array(coord_scores)
 
 
