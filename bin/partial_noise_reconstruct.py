@@ -119,10 +119,12 @@ def main():
         model=args.model,
         device=torch.device(f"cuda:{args.device}"),
     )
-    
+
     scores_dict = {pdb: score for pdb, score in zip(args.pdb_files, scores)}
     with open(args.output_json, "w") as sink:
-        json.dump(scores_dict, sink, indent=4)
+        json.dump(
+            {"timesteps": args.timesteps, "model": args.model, "tmscores": scores_dict}, sink, indent=4
+        )
 
 
 if __name__ == "__main__":
