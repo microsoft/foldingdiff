@@ -5,7 +5,9 @@ import functools
 import gzip
 import os
 import logging
-import pickle
+import glob
+from collections import namedtuple, defaultdict
+from itertools import groupby
 from typing import *
 import warnings
 
@@ -14,6 +16,7 @@ import pandas as pd
 
 import biotite.structure as struc
 from biotite.structure.io.pdb import PDBFile
+from biotite.sequence import ProteinSequence
 
 from foldingdiff import nerf
 
@@ -291,11 +294,93 @@ def extract_backbone_coords(
     return coords
 
 
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
-    # test_reverse_dihedral()
-    print(
-        extract_backbone_coords(
-            os.path.join(os.path.dirname(os.path.dirname(__file__)), "data/1CRN.pdb")
+SideChainAtomRelative = namedtuple(
+    "SideChainAtom", ["name", "element", "bond_dist", "bond_angle", "dihedral_angle"]
+)
+
+
+def angle_between(v1: np.ndarray, v2: np.ndarray) -> float:
+    """Gets the angle between u and v"""
+    # https://stackoverflow.com/questions/2827393/angles-between-two-n-dimensional-vectors-in-python
+    unit_vector = lambda vector: vector / np.linalg.norm(vector)
+    v1_u = unit_vector(v1)
+    v2_u = unit_vector(v2)
+    return np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0))
+
+
+def collect_aa_sidechain_angles(
+    ref_fname: str,
+) -> Dict[str, List[SideChainAtomRelative]]:
+    """
+    Collect the sidechain distances/angles/dihedrals for all amino acids such that
+    we can reconstruct an approximate version of them from the backbone coordinates
+    and these relative distances/angles/dihedrals
+
+    Returns a dictionary that maps each amino acid residue to a list of SideChainAtom
+    objects
+    """
+    opener = gzip.open if ref_fname.endswith(".gz") else open
+    with opener(ref_fname, "rt") as f:
+        structure = PDBFile.read(f)
+    if structure.get_model_count() > 1:
+        raise ValueError
+    chain = structure.get_structure()[0]
+    retval = defaultdict(list)
+    for idx, res_atoms in groupby(chain, key=lambda a: a.res_id):
+        res_atoms = struc.array(list(res_atoms))
+        # Residue name, 3 letter -> 1 letter
+        try:
+            residue = ProteinSequence.convert_letter_3to1(res_atoms[0].res_name)
+        except KeyError:
+            logging.warning(
+                f"{ref_fname}: Skipping unknown residue {res_atoms[0].res_name}"
+            )
+            continue
+        if residue in retval:
+            continue
+        backbone_mask = struc.filter_backbone(res_atoms)
+        a, b, c = res_atoms[backbone_mask].coord  # Backbone
+        for sidechain_atom in res_atoms[~backbone_mask]:
+            d = sidechain_atom.coord
+            retval[residue].append(
+                SideChainAtomRelative(
+                    name=sidechain_atom.atom_name,
+                    element=sidechain_atom.element,
+                    bond_dist=np.linalg.norm(d - c, 2),
+                    bond_angle=angle_between(d - c, b - c),
+                    dihedral_angle=struc.dihedral(a, b, c, d),
+                )
+            )
+    logging.info(
+        "Collected {} amino acid sidechain angles from {}".format(
+            len(retval), os.path.abspath(ref_fname)
         )
     )
+    return retval
+
+
+def build_aa_sidechain_dict() -> Dict[str, List[SideChainAtomRelative]]:
+    """
+    Build a dictionary that maps each amino acid residue to a list of SideChainAtom
+    that specify how to build out that sidechain's atoms from the backbone
+    """
+    retval = {}
+    for pdb in glob.glob(
+        os.path.join(os.path.dirname(os.path.dirname(__file__)), "data/*.pdb")
+    ):
+        try:
+            sidechain_angles = collect_aa_sidechain_angles(pdb)
+            retval.update(sidechain_angles)  # Overwrites any existing key/value pairs
+        except ValueError:
+            continue
+    logging.info(f"Built sidechain dictionary with {len(retval)} amino acids")
+    return retval
+
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+    # test_reverse_dihedral()
+    # backbone = collect_aa_sidechain_angles(
+    #     os.path.join(os.path.dirname(os.path.dirname(__file__)), "data/1CRN.pdb")
+    # )
+    print(build_aa_sidechain_dict())
