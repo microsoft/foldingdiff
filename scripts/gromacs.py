@@ -91,6 +91,10 @@ def run_gromacs(pdb_file: str, outdir: str = os.getcwd()) -> float:
     prod_cmd = "gmx mdrun -ntmpi 1 -ntomp 32 -pin on -deffnm prod"
     subprocess.call(shlex.split(prod_cmd))
 
+    # Produce a PDB of final structure
+    pdb_cmd = f"gmx editconf -f prod.gro -o prod.pdb"
+    subprocess.call(shlex.split(pdb_cmd))
+
     # Read energy and return
     return read_energy("prod.edr")
 
@@ -99,6 +103,7 @@ def read_energy(energy_edr_file: str) -> float:
     """
     Read energy from GROMACS energy file
     """
+    assert os.path.isfile(energy_edr_file), f"File {energy_edr_file} not found"
     cmd = f"gmx energy -f {energy_edr_file} -o energy.xvg"
     p = subprocess.Popen(
         shlex.split(cmd), stdin=subprocess.PIPE, stdout=subprocess.PIPE
@@ -120,7 +125,7 @@ def main():
         files = os.listdir(tmpdir)
         for file in files:
             logging.info(f"GROMACS file: {file}")
-            if file.endswith(".edr"):
+            if file.startswith("prod"):
                 shutil.copy(file, orig_dir)
     logging.info(f"{sys.argv[1]} energy: {energy:.2f}")
 
