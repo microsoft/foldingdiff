@@ -26,6 +26,7 @@ def run_gromacs(pdb_file: str, outdir: str = os.getcwd(), gmx: str = "gmx") -> f
     """
     Run GROMACS on a PDB file
     """
+    assert os.path.isfile(pdb_file), f"File {pdb_file} not found!"
     gro_file = os.path.join(outdir, os.path.basename(pdb_file).replace(".pdb", ".gro"))
     # pdb2gmx = f"gmx pdb2gmx -f {pdb_file} -o {gro_file} -ff 6 -water tip3p"
     # Puts it in a GMX format, add water and force field
@@ -134,7 +135,9 @@ def build_parser():
         help="Directory to write output",
     )
     parser.add_argument("--copyall", action="store_true", help="Copy all GROMACS files")
-    parser.add_argument("--gmxbin", type=str, default=shutil.which("gmx"), help="GROMACS binary")
+    parser.add_argument(
+        "--gmxbin", type=str, default=shutil.which("gmx"), help="GROMACS binary"
+    )
     return parser
 
 
@@ -147,7 +150,7 @@ def main():
     # Run in temporary directory
     with tempfile.TemporaryDirectory() as tmpdir:
         os.chdir(tmpdir)
-        energy = run_gromacs(args.pbd_file, tmpdir, gmx=args.gmxbin)
+        energy = run_gromacs(args.pdb_file, tmpdir, gmx=args.gmxbin)
         for file in os.listdir(tmpdir):
             logging.debug(f"GROMACS file: {file}")
             if args.copyall:
