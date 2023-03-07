@@ -200,7 +200,7 @@ def write_coords_to_pdb(coords: np.ndarray, out_fname: str) -> str:
     """
     # Create a new PDB file using biotite
     # https://www.biotite-python.org/tutorial/target/index.html#creating-structures
-    assert len(coords) % 3 == 0
+    assert len(coords) % 3 == 0, f"Expected 3N coords, got {len(coords)}"
     atoms = []
     for i, (n_coord, ca_coord, c_coord) in enumerate(
         (coords[j : j + 3] for j in range(0, len(coords), 3))
@@ -326,7 +326,7 @@ def collect_aa_sidechain_angles(
         raise ValueError
     chain = structure.get_structure()[0]
     retval = defaultdict(list)
-    for idx, res_atoms in groupby(chain, key=lambda a: a.res_id):
+    for _, res_atoms in groupby(chain, key=lambda a: a.res_id):
         res_atoms = struc.array(list(res_atoms))
         # Residue name, 3 letter -> 1 letter
         try:
@@ -359,15 +359,21 @@ def collect_aa_sidechain_angles(
     return retval
 
 
-def build_aa_sidechain_dict() -> Dict[str, List[SideChainAtomRelative]]:
+@functools.lru_cache(maxsize=32)
+def build_aa_sidechain_dict(
+    reference_pdbs: Optional[Collection[str]] = None,
+) -> Dict[str, List[SideChainAtomRelative]]:
     """
     Build a dictionary that maps each amino acid residue to a list of SideChainAtom
     that specify how to build out that sidechain's atoms from the backbone
     """
+    if not reference_pdbs:
+        glob.glob(
+            os.path.join(os.path.dirname(os.path.dirname(__file__)), "data/*.pdb")
+        )
+
     retval = {}
-    for pdb in glob.glob(
-        os.path.join(os.path.dirname(os.path.dirname(__file__)), "data/*.pdb")
-    ):
+    for pdb in reference_pdbs:
         try:
             sidechain_angles = collect_aa_sidechain_angles(pdb)
             retval.update(sidechain_angles)  # Overwrites any existing key/value pairs
@@ -377,10 +383,68 @@ def build_aa_sidechain_dict() -> Dict[str, List[SideChainAtomRelative]]:
     return retval
 
 
+def add_sidechains_to_backbone(
+    backbone_pdb_fname: str,
+    aa_seq: str,
+    out_fname: str,
+    reference_pdbs: Optional[Collection[str]] = None,
+) -> str:
+    """
+    Add the sidechains specified by the amino acid sequence to the backbone
+    """
+    opener = gzip.open if backbone_pdb_fname.endswith(".gz") else open
+    with opener(backbone_pdb_fname, "rt") as f:
+        structure = PDBFile.read(f)
+    if structure.get_model_count() > 1:
+        raise ValueError
+    chain = structure.get_structure()[0]
+
+    aa_library = build_aa_sidechain_dict(reference_pdbs)
+
+    atom_idx = 1  # 1-indexed
+    full_atoms = []
+    for res_aa, (_, backbone_atoms) in zip(
+        aa_seq, groupby(chain, key=lambda a: a.res_id)
+    ):
+        backbone_atoms = struc.array(list(backbone_atoms))
+        assert len(backbone_atoms) == 3
+        for b in backbone_atoms:
+            b.atom_id = atom_idx
+            atom_idx += 1
+            b.res_name = ProteinSequence.convert_letter_1to3(res_aa)
+            full_atoms.append(b)
+        # Place each atom in the sidechain
+        a, b, c = backbone_atoms.coord
+        for rel_atom in aa_library[res_aa]:
+            d = nerf.place_dihedral(
+                a,
+                b,
+                c,
+                rel_atom.bond_angle,
+                rel_atom.bond_dist,
+                rel_atom.dihedral_angle,
+            )
+            atom = struc.Atom(
+                d,
+                chain_id=backbone_atoms[0].chain_id,
+                res_id=backbone_atoms[0].res_id,
+                atom_id=atom_idx,
+                res_name=ProteinSequence.convert_letter_1to3(res_aa),
+                atom_name=rel_atom.name,
+                element=rel_atom.element,
+                hetero=backbone_atoms[0].hetero,
+            )
+            atom_idx += 1
+            full_atoms.append(atom)
+    sink = PDBFile()
+    sink.set_structure(struc.array(full_atoms))
+    sink.write(out_fname)
+    return out_fname
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     # test_reverse_dihedral()
     # backbone = collect_aa_sidechain_angles(
     #     os.path.join(os.path.dirname(os.path.dirname(__file__)), "data/1CRN.pdb")
     # )
-    print(build_aa_sidechain_dict())
+    # print(build_aa_sidechain_dict())
