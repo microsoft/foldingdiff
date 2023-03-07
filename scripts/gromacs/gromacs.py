@@ -10,6 +10,8 @@ pdb2gmx ignore h to add them in
 """
 
 import os
+import sys
+import socket
 import argparse
 import tempfile
 import logging
@@ -20,7 +22,7 @@ import shutil
 GRO_FILE_DIR = "/home/wukevin/software/md_template/mdp/"
 
 
-def run_gromacs(pdb_file: str, outdir: str = os.getcwd()) -> float:
+def run_gromacs(pdb_file: str, outdir: str = os.getcwd(), gmx: str = "gmx") -> float:
     """
     Run GROMACS on a PDB file
     """
@@ -30,32 +32,32 @@ def run_gromacs(pdb_file: str, outdir: str = os.getcwd()) -> float:
     # AMBER/CHARM most common for protein and protein folding.
     # A force field defines all forces/energies interacting on
     # a given atom.
-    pdb2gmx = f"gmx pdb2gmx -f {pdb_file} -o {gro_file} -water tip3p"
+    pdb2gmx = f"{gmx} pdb2gmx -f {pdb_file} -o {gro_file} -water tip3p"
     logging.debug(f"pdb2gmx cmd: {pdb2gmx}")
     p = subprocess.Popen(shlex.split(pdb2gmx), stdin=subprocess.PIPE)
     p.communicate(input="6".encode())
 
     # gen box - put this in a water solvent 'in a box' - 1nm around the system
     box_file = os.path.join(outdir, "box.gro")
-    box_cmd = f"gmx editconf -f {gro_file} -o {box_file} -c -d 1"
+    box_cmd = f"{gmx} editconf -f {gro_file} -o {box_file} -c -d 1"
     subprocess.call(shlex.split(box_cmd))
 
     # solvate - add water
-    solvate_cmd = f"gmx solvate -cp {box_file} -o solv.gro -cs spc216.gro -p topol.top"
+    solvate_cmd = (
+        f"{gmx} solvate -cp {box_file} -o solv.gro -cs spc216.gro -p topol.top"
+    )
     logging.debug(f"solvate cmd: {solvate_cmd}")
     subprocess.call(shlex.split(solvate_cmd))
 
     # add ions - add counter postive and negative ions to make
     # the box "neutral"
     ions_cmd = (
-        f"gmx grompp -f {GRO_FILE_DIR}ions.mdp -c solv.gro -o ions.tpr -p topol.top"
+        f"{gmx} grompp -f {GRO_FILE_DIR}ions.mdp -c solv.gro -o ions.tpr -p topol.top"
     )
     logging.debug(f"ions cmd: {ions_cmd}")
     subprocess.call(shlex.split(ions_cmd))
 
-    genion_cmd = (
-        f"gmx genion -s ions.tpr -o ions.gro -p topol.top -pname NA -nname CL -neutral"
-    )
+    genion_cmd = f"{gmx} genion -s ions.tpr -o ions.gro -p topol.top -pname NA -nname CL -neutral"
     logging.debug(f"genion cmd: {genion_cmd}")
     p = subprocess.Popen(shlex.split(genion_cmd), stdin=subprocess.PIPE)
     p.communicate(input="13".encode())
@@ -63,37 +65,39 @@ def run_gromacs(pdb_file: str, outdir: str = os.getcwd()) -> float:
     # Energy minimization - remove unfavorable contacts
     # like making sure nothing is overlapping; nothing should
     # change too much
-    em_cmd = f"gmx grompp -f {GRO_FILE_DIR}minim.mdp -c ions.gro -o em.tpr -p topol.top"
-    logging.debug(f"em cmd: {em_cmd}")
+    em_cmd = (
+        f"{gmx} grompp -f {GRO_FILE_DIR}minim.mdp -c ions.gro -o em.tpr -p topol.top"
+    )
+    logging.debug(f"EM cmd: {em_cmd}")
     subprocess.call(shlex.split(em_cmd))
 
-    mdrun_cmd = "gmx mdrun -deffnm em"
+    mdrun_cmd = f"{gmx} mdrun -deffnm em"
     logging.debug(f"mdrun cmd: {mdrun_cmd}")
     subprocess.call(shlex.split(mdrun_cmd))
 
     # NVT - equilibrate the system at constant volume and temperature
     # come to "room temperature"
-    grompp_cmd = f"gmx grompp -f {GRO_FILE_DIR}nvt.mdp -c em.gro -r em.gro -p topol.top -o nvt.tpr"
+    grompp_cmd = f"{gmx} grompp -f {GRO_FILE_DIR}nvt.mdp -c em.gro -r em.gro -p topol.top -o nvt.tpr"
     subprocess.call(shlex.split(grompp_cmd))
-    nvt_cmd = "gmx mdrun -deffnm nvt"
+    nvt_cmd = f"{gmx} mdrun -deffnm nvt"
     subprocess.call(shlex.split(nvt_cmd))
 
     # NPT
     grompp_cmd = (
-        f"gmx grompp -f {GRO_FILE_DIR}npt.mdp -c nvt.gro -o npt.tpr -p topol.top"
+        f"{gmx} grompp -f {GRO_FILE_DIR}npt.mdp -c nvt.gro -o npt.tpr -p topol.top"
     )
     subprocess.call(shlex.split(grompp_cmd))
-    npt_cmd = "gmx mdrun -ntmpi 1 -ntomp 32 -pin on -deffnm npt"
+    npt_cmd = f"{gmx} mdrun -ntmpi 1 -ntomp 32 -pin on -deffnm npt"
     subprocess.call(shlex.split(npt_cmd))
 
     # Production run
-    grompp_cmd = f"gmx grompp -f {GRO_FILE_DIR}md.mdp -c npt.gro -t npt.cpt -p topol.top -o prod.tpr"
+    grompp_cmd = f"{gmx} grompp -f {GRO_FILE_DIR}md.mdp -c npt.gro -t npt.cpt -p topol.top -o prod.tpr"
     subprocess.call(shlex.split(grompp_cmd))
-    prod_cmd = "gmx mdrun -ntmpi 1 -ntomp 32 -pin on -deffnm prod"
+    prod_cmd = f"{gmx} mdrun -ntmpi 1 -ntomp 32 -pin on -deffnm prod"
     subprocess.call(shlex.split(prod_cmd))
 
     # Produce a PDB of final structure
-    pdb_cmd = f"gmx editconf -f prod.gro -o prod.pdb"
+    pdb_cmd = f"{gmx} editconf -f prod.gro -o prod.pdb"
     subprocess.call(shlex.split(pdb_cmd))
 
     # Read energy and return
@@ -130,18 +134,20 @@ def build_parser():
         help="Directory to write output",
     )
     parser.add_argument("--copyall", action="store_true", help="Copy all GROMACS files")
+    parser.add_argument("--gmxbin", type=str, default=shutil.which("gmx"), help="GROMACS binary")
     return parser
 
 
 def main():
     """Run script"""
     args = build_parser().parse_args()
+    logging.info(f"Running under Python {sys.version} in {socket.gethostname()}")
     assert os.path.isdir(args.outdir), f"Directory {args.outdir} not found"
-    assert shutil.which("gmx") is not None, "GROMACS not found in PATH"
+    assert args.gmxbin is not None
     # Run in temporary directory
     with tempfile.TemporaryDirectory() as tmpdir:
         os.chdir(tmpdir)
-        energy = run_gromacs(args.pbd_file, tmpdir)
+        energy = run_gromacs(args.pbd_file, tmpdir, gmx=args.gmxbin)
         for file in os.listdir(tmpdir):
             logging.debug(f"GROMACS file: {file}")
             if args.copyall:
