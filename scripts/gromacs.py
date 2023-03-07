@@ -9,7 +9,8 @@ GROMACS can do no hydrogen
 pdb2gmx ignore h to add them in
 """
 
-import os, sys
+import os
+import argparse
 import tempfile
 import logging
 import shlex
@@ -115,21 +116,41 @@ def read_energy(energy_edr_file: str) -> float:
     return energy
 
 
+def build_parser():
+    """Build basic CLI parser"""
+    parser = argparse.ArgumentParser(
+        usage=__doc__, formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    parser.add_argument("pdb_file", help="PDB file to run GROMACS on")
+    parser.add_argument(
+        "-o",
+        "--outdir",
+        type=str,
+        default=os.getcwd(),
+        help="Directory to write output",
+    )
+    parser.add_argument("--copyall", action="store_true", help="Copy all GROMACS files")
+    return parser
+
+
 def main():
     """Run script"""
+    args = build_parser().parse_args()
+    assert os.path.isdir(args.outdir), f"Directory {args.outdir} not found"
     assert shutil.which("gmx") is not None, "GROMACS not found in PATH"
-    orig_dir = os.getcwd()
+    # Run in temporary directory
     with tempfile.TemporaryDirectory() as tmpdir:
         os.chdir(tmpdir)
-        energy = run_gromacs(sys.argv[1], tmpdir)
-        files = os.listdir(tmpdir)
-        for file in files:
-            logging.info(f"GROMACS file: {file}")
-            if file.startswith("prod"):
-                shutil.copy(file, orig_dir)
-    logging.info(f"{sys.argv[1]} energy: {energy:.2f}")
+        energy = run_gromacs(args.pbd_file, tmpdir)
+        for file in os.listdir(tmpdir):
+            logging.debug(f"GROMACS file: {file}")
+            if args.copyall:
+                shutil.copy(file, args.outdir)
+            elif file.startswith("prod"):
+                shutil.copy(file, args.outdir)
+    logging.info(f"{args.pdb_file} energy: {energy:.2f}")
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
     main()
