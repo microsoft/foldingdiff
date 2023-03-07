@@ -22,11 +22,16 @@ import shutil
 GRO_FILE_DIR = "/home/wukevin/software/md_template/mdp/"
 
 
-def run_gromacs(pdb_file: str, outdir: str = os.getcwd(), gmx: str = "gmx") -> float:
+def run_gromacs(
+    pdb_file: str,
+    outdir: str = os.getcwd(),
+    gmx: str = "gmx",
+    gro_file_dir: str = GRO_FILE_DIR,
+) -> float:
     """
     Run GROMACS on a PDB file
     """
-    assert os.path.isfile(pdb_file), f"File {pdb_file} not found!"
+    assert os.path.isfile(pdb_file), f"File {pdb_file} not found! (pwd: {os.getcwd()})"
     gro_file = os.path.join(outdir, os.path.basename(pdb_file).replace(".pdb", ".gro"))
     # pdb2gmx = f"gmx pdb2gmx -f {pdb_file} -o {gro_file} -ff 6 -water tip3p"
     # Puts it in a GMX format, add water and force field
@@ -53,7 +58,7 @@ def run_gromacs(pdb_file: str, outdir: str = os.getcwd(), gmx: str = "gmx") -> f
     # add ions - add counter postive and negative ions to make
     # the box "neutral"
     ions_cmd = (
-        f"{gmx} grompp -f {GRO_FILE_DIR}ions.mdp -c solv.gro -o ions.tpr -p topol.top"
+        f"{gmx} grompp -f {gro_file_dir}ions.mdp -c solv.gro -o ions.tpr -p topol.top"
     )
     logging.debug(f"ions cmd: {ions_cmd}")
     subprocess.call(shlex.split(ions_cmd))
@@ -67,7 +72,7 @@ def run_gromacs(pdb_file: str, outdir: str = os.getcwd(), gmx: str = "gmx") -> f
     # like making sure nothing is overlapping; nothing should
     # change too much
     em_cmd = (
-        f"{gmx} grompp -f {GRO_FILE_DIR}minim.mdp -c ions.gro -o em.tpr -p topol.top"
+        f"{gmx} grompp -f {gro_file_dir}minim.mdp -c ions.gro -o em.tpr -p topol.top"
     )
     logging.debug(f"EM cmd: {em_cmd}")
     subprocess.call(shlex.split(em_cmd))
@@ -78,21 +83,21 @@ def run_gromacs(pdb_file: str, outdir: str = os.getcwd(), gmx: str = "gmx") -> f
 
     # NVT - equilibrate the system at constant volume and temperature
     # come to "room temperature"
-    grompp_cmd = f"{gmx} grompp -f {GRO_FILE_DIR}nvt.mdp -c em.gro -r em.gro -p topol.top -o nvt.tpr"
+    grompp_cmd = f"{gmx} grompp -f {gro_file_dir}nvt.mdp -c em.gro -r em.gro -p topol.top -o nvt.tpr"
     subprocess.call(shlex.split(grompp_cmd))
     nvt_cmd = f"{gmx} mdrun -deffnm nvt"
     subprocess.call(shlex.split(nvt_cmd))
 
     # NPT
     grompp_cmd = (
-        f"{gmx} grompp -f {GRO_FILE_DIR}npt.mdp -c nvt.gro -o npt.tpr -p topol.top"
+        f"{gmx} grompp -f {gro_file_dir}npt.mdp -c nvt.gro -o npt.tpr -p topol.top"
     )
     subprocess.call(shlex.split(grompp_cmd))
     npt_cmd = f"{gmx} mdrun -ntmpi 1 -ntomp 32 -pin on -deffnm npt"
     subprocess.call(shlex.split(npt_cmd))
 
     # Production run
-    grompp_cmd = f"{gmx} grompp -f {GRO_FILE_DIR}md.mdp -c npt.gro -t npt.cpt -p topol.top -o prod.tpr"
+    grompp_cmd = f"{gmx} grompp -f {gro_file_dir}md.mdp -c npt.gro -t npt.cpt -p topol.top -o prod.tpr"
     subprocess.call(shlex.split(grompp_cmd))
     prod_cmd = f"{gmx} mdrun -ntmpi 1 -ntomp 32 -pin on -deffnm prod"
     subprocess.call(shlex.split(prod_cmd))
@@ -102,15 +107,18 @@ def run_gromacs(pdb_file: str, outdir: str = os.getcwd(), gmx: str = "gmx") -> f
     subprocess.call(shlex.split(pdb_cmd))
 
     # Read energy and return
-    return read_energy("prod.edr")
+    return read_energy("prod.edr", gmx=gmx)
 
 
-def read_energy(energy_edr_file: str) -> float:
+def read_energy(
+    energy_edr_file: str,
+    gmx: str = "gmx",
+) -> float:
     """
     Read energy from GROMACS energy file
     """
     assert os.path.isfile(energy_edr_file), f"File {energy_edr_file} not found"
-    cmd = f"gmx energy -f {energy_edr_file} -o energy.xvg"
+    cmd = f"{gmx} energy -f {energy_edr_file} -o energy.xvg"
     p = subprocess.Popen(
         shlex.split(cmd), stdin=subprocess.PIPE, stdout=subprocess.PIPE
     )
@@ -138,6 +146,9 @@ def build_parser():
     parser.add_argument(
         "--gmxbin", type=str, default=shutil.which("gmx"), help="GROMACS binary"
     )
+    parser.add_argument(
+        "--mdp", type=str, default=GRO_FILE_DIR, help="MDP file directory"
+    )
     return parser
 
 
@@ -147,10 +158,13 @@ def main():
     logging.info(f"Running under Python {sys.version} in {socket.gethostname()}")
     assert os.path.isdir(args.outdir), f"Directory {args.outdir} not found"
     assert args.gmxbin is not None
+    args.pdb_file = os.path.abspath(args.pdb_file)
     # Run in temporary directory
     with tempfile.TemporaryDirectory() as tmpdir:
         os.chdir(tmpdir)
-        energy = run_gromacs(args.pdb_file, tmpdir, gmx=args.gmxbin)
+        energy = run_gromacs(
+            args.pdb_file, tmpdir, gmx=args.gmxbin, gro_file_dir=args.mdp
+        )
         for file in os.listdir(tmpdir):
             logging.debug(f"GROMACS file: {file}")
             if args.copyall:
