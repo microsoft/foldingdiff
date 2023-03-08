@@ -20,7 +20,7 @@ import subprocess
 import shutil
 import multiprocessing as mp
 
-GRO_FILE_DIR = "/home/wukevin/software/md_template/mdp/"
+GRO_FILE_DIR = os.path.join(os.path.dirname(__file__), "mdp")
 
 
 def run_gromacs(
