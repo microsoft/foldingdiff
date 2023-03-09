@@ -4,9 +4,11 @@ Script to splice the given AA nucleotide sequence onto the given backbone.
 
 import os
 import argparse
+import multiprocessing as mp
 from typing import Dict
 
 from foldingdiff import angles_and_coords as ac
+
 
 def read_fasta(filename: str) -> Dict[str, str]:
     """
@@ -31,30 +33,51 @@ def read_fasta(filename: str) -> Dict[str, str]:
     retval[header] = curr_seq
     return retval
 
+
 def build_parser():
     """
     Build a basic CLI parser
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument("backbone", help="Backbone PDB file")
-    parser.add_argument("aa_fasta", help="Fasta file containing AA sequence")
-    parser.add_argument("output", help="Output PDB file")
+    parser.add_argument("backbone", nargs="+", help="Backbone PDB file")
+    parser.add_argument(
+        "--fasta", type=str, required=True, help="Fasta file containing AA sequence"
+    )
+    parser.add_argument(
+        "--outdir",
+        type=str,
+        default=os.getcwd(),
+        help="Output directory to write PDB files",
+    )
     return parser
 
 
 def main():
     """Run script"""
     args = build_parser().parse_args()
-    assert os.path.isfile(args.backbone), f"Backbone file {args.backbone} not found"
-    assert os.path.isfile(
-        args.aa_fasta
-    ), f"Amino acid fasta file {args.aa_fasta} not found"
+    for fname in args.backbone:
+        assert os.path.isfile(fname), f"Backbone file {fname} not found"
+    assert os.path.isfile(args.fasta), f"Amino acid fasta file {args.fasta} not found"
 
-    aa_dict = read_fasta(args.aa_fasta)
+    if not os.path.isdir(args.outdir):
+        os.makedirs(args.outdir)
+    args.outdir = os.path.abspath(args.outdir)
+
+    aa_dict = read_fasta(args.fasta)
     assert len(aa_dict) == 1, "Only one sequence allowed in fasta file"
     _aa_name, aa_seq = aa_dict.popitem()
 
-    ac.add_sidechains_to_backbone(args.backbone, aa_seq, args.output)
+    # For each, add the sidechains
+    arg_tuples = [
+        (
+            backbone_fname,
+            aa_seq,
+            os.path.join(args.outdir, os.path.basename(backbone_fname)),
+        )
+        for backbone_fname in args.backbone
+    ]
+    with mp.Pool(mp.cpu_count()) as pool:
+        pool.starmap(ac.add_sidechains_to_backbone, arg_tuples, chunksize=10)
 
 
 if __name__ == "__main__":
