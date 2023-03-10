@@ -31,6 +31,7 @@ def run_gromacs_in_docker(fname: str, out_dir: str, gpu: int = 0):
     fname = os.path.abspath(fname)
     bname = os.path.splitext(os.path.basename(fname))[0]
 
+    orig_dir = os.getcwd()
     with tempfile.TemporaryDirectory() as tmpdir:
         logging.info(f"Running {fname} via docker in temporary directory {tmpdir}")
         assert not os.listdir(tmpdir)
@@ -53,6 +54,7 @@ def run_gromacs_in_docker(fname: str, out_dir: str, gpu: int = 0):
             )
             logging.info(f"Copying {src_fname} to {dest_fname} in {out_dir}")
             shutil.copy(os.path.join(tmpdir, fname), os.path.join(out_dir, dest_fname))
+    os.chdir(orig_dir)  # Restore directory
 
 
 def main():
@@ -60,7 +62,7 @@ def main():
     args = build_parser().parse_args()
     if not os.path.isdir(args.output_dir):
         os.makedirs(args.output_dir)
-    for fname in args.input_file:
+    for fname in [os.path.abspath(f) for f in args.input_file]:
         run_gromacs_in_docker(fname, args.output_dir, gpu=args.gpu)
 
 
