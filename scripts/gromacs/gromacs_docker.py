@@ -35,10 +35,12 @@ def run_gromacs_in_docker(fname: str, out_dir: str, gpu: int = 0):
         # Build and run the command
         # https://github.com/NVIDIA/nvidia-docker/wiki/Frequently-Asked-Questions#i-have-multiple-gpu-devices-how-can-i-isolate-them-between-my-containers
         cmd = f"nvidia-docker run -it --rm -e NVIDIA_VISIBLE_DEVICES={gpu} -v {tmpdir}:/host_pwd --workdir /host_pwd wukevin:gromacs-latest {os.path.basename(fname)}"
-        subprocess.call(cmd, shell=True)
+        with open(os.path.join(out_dir, "gromacs.stdout"), "wb") as stdout:
+            with open(os.path.join(out_dir, "gromacs.stderr"), "wb") as stderr:
+                subprocess.call(cmd, shell=True, stdout=stdout, stderr=stderr)
 
         for fname in os.listdir(tmpdir):
-            shutil.copy(fname, out_dir)
+            shutil.copy(os.path.join(tmpdir, fname), out_dir)
 
 
 def main():
