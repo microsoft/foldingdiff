@@ -15,7 +15,7 @@ import argparse
 def build_parser():
     """Build a basic CLI parser"""
     parser = argparse.ArgumentParser()
-    parser.add_argument("input_file", help="Input file to run GROMACS on")
+    parser.add_argument("input_file", nargs="+", help="Input file to run GROMACS on")
     parser.add_argument("output_dir", help="Output dir to write output files to")
     parser.add_argument("--gpu", type=int, default=0, help="GPU to use")
     return parser
@@ -29,6 +29,8 @@ def run_gromacs_in_docker(fname: str, out_dir: str, gpu: int = 0):
     assert shutil.which("nvidia-docker")
     out_dir = os.path.abspath(out_dir)
     fname = os.path.abspath(fname)
+    bname = os.path.splitext(os.path.basename(fname))[0]
+
     with tempfile.TemporaryDirectory() as tmpdir:
         logging.info(f"Running {fname} via docker in temporary directory {tmpdir}")
         assert not os.listdir(tmpdir)
@@ -39,12 +41,11 @@ def run_gromacs_in_docker(fname: str, out_dir: str, gpu: int = 0):
         # https://github.com/NVIDIA/nvidia-docker/wiki/Frequently-Asked-Questions#i-have-multiple-gpu-devices-how-can-i-isolate-them-between-my-containers
         cmd = f"nvidia-docker run -it --rm -e NVIDIA_VISIBLE_DEVICES={gpu} -v {tmpdir}:/host_pwd --workdir /host_pwd wukevin:gromacs-latest {os.path.basename(fname)}"
         logging.info(f"Running command: {cmd}")
-        with open(os.path.join(out_dir, "gromacs.stdout"), "wb") as stdout:
-            with open(os.path.join(out_dir, "gromacs.stderr"), "wb") as stderr:
+        with open(os.path.join(out_dir, f"{bname}.gromacs.stdout"), "wb") as stdout:
+            with open(os.path.join(out_dir, f"{bname}.gromacs.stderr"), "wb") as stderr:
                 subprocess.call(cmd, shell=True, stdout=stdout, stderr=stderr)
 
         for src_fname in os.listdir(tmpdir):
-            bname = os.path.splitext(os.path.basename(fname))[0]
             dest_fname = (
                 src_fname
                 if src_fname.startswith(bname)
@@ -59,7 +60,8 @@ def main():
     args = build_parser().parse_args()
     if not os.path.isdir(args.output_dir):
         os.makedirs(args.output_dir)
-    run_gromacs_in_docker(args.input_file, args.output_dir, gpu=args.gpu)
+    for fname in args.input_file:
+        run_gromacs_in_docker(fname, args.output_dir, gpu=args.gpu)
 
 
 if __name__ == "__main__":
