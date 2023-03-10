@@ -32,6 +32,7 @@ def run_gromacs(
     """
     Run GROMACS on a PDB file
     """
+    logging.info(f"Running gromacs in outdir {outdir}")
     assert os.path.isfile(pdb_file), f"File {pdb_file} not found! (pwd: {os.getcwd()})"
     gro_file = os.path.join(outdir, os.path.basename(pdb_file).replace(".pdb", ".gro"))
     # pdb2gmx = f"gmx pdb2gmx -f {pdb_file} -o {gro_file} -ff 6 -water tip3p"
@@ -78,7 +79,7 @@ def run_gromacs(
     logging.debug(f"EM cmd: {em_cmd}")
     subprocess.call(shlex.split(em_cmd))
 
-    mdrun_cmd = f"{gmx} mdrun -ntmpi 1 -ntomp {n_threads} -deffnm em"
+    mdrun_cmd = f"{gmx} mdrun -ntmpi 1 -ntomp {n_threads-1} -deffnm em"
     logging.debug(f"mdrun cmd: {mdrun_cmd}")
     subprocess.call(shlex.split(mdrun_cmd))
 
@@ -152,16 +153,16 @@ def build_parser():
     parser.add_argument(
         "--mdp", type=str, default=GRO_FILE_DIR, help="MDP file directory"
     )
-    parser.add_argument(
-        "--threads", type=int, default=8, help="Threads (minimum 2)"
-    )
+    parser.add_argument("--threads", type=int, default=32, help="Threads (minimum 2)")
     return parser
 
 
 def main():
     """Run script"""
     args = build_parser().parse_args()
-    logging.info(f"Running under Python {sys.version} in {socket.gethostname()}")
+    logging.info(
+        f"Running {args.pdb_file} under Python {sys.version} in {socket.gethostname()}"
+    )
     assert os.path.isdir(args.outdir), f"Directory {args.outdir} not found"
     assert args.gmxbin is not None
     args.pdb_file = os.path.abspath(args.pdb_file)
@@ -178,9 +179,10 @@ def main():
         for file in os.listdir(tmpdir):
             logging.debug(f"GROMACS file: {file}")
             if args.copyall:
-                shutil.copy(file, args.outdir)
+                shutil.copy(os.path.join(tmpdir, file), args.outdir)
             elif file.startswith("prod"):
-                shutil.copy(file, args.outdir)
+                logging.info(f"Copy {file} to {args.outdir}")
+                shutil.copy(os.path.join(tmpdir, file), args.outdir)
     logging.info(f"{args.pdb_file} energy: {energy:.2f}")
 
 

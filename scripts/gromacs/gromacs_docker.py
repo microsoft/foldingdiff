@@ -5,6 +5,7 @@ to avoid all the messiness of trying to do mounting and stuff.
 Usage: python gromacs_docker.py <input_file> <output_dir>
 """
 import os
+import logging
 import shutil
 import tempfile
 import subprocess
@@ -29,18 +30,28 @@ def run_gromacs_in_docker(fname: str, out_dir: str, gpu: int = 0):
     out_dir = os.path.abspath(out_dir)
     fname = os.path.abspath(fname)
     with tempfile.TemporaryDirectory() as tmpdir:
-        # os.chdir(tmpdir)
+        logging.info(f"Running {fname} via docker in temporary directory {tmpdir}")
+        assert not os.listdir(tmpdir)
+        os.chdir(tmpdir)
         # Copy the file into the directory
         shutil.copy(fname, tmpdir)
         # Build and run the command
         # https://github.com/NVIDIA/nvidia-docker/wiki/Frequently-Asked-Questions#i-have-multiple-gpu-devices-how-can-i-isolate-them-between-my-containers
         cmd = f"nvidia-docker run -it --rm -e NVIDIA_VISIBLE_DEVICES={gpu} -v {tmpdir}:/host_pwd --workdir /host_pwd wukevin:gromacs-latest {os.path.basename(fname)}"
+        logging.info(f"Running command: {cmd}")
         with open(os.path.join(out_dir, "gromacs.stdout"), "wb") as stdout:
             with open(os.path.join(out_dir, "gromacs.stderr"), "wb") as stderr:
                 subprocess.call(cmd, shell=True, stdout=stdout, stderr=stderr)
 
-        for fname in os.listdir(tmpdir):
-            shutil.copy(os.path.join(tmpdir, fname), out_dir)
+        for src_fname in os.listdir(tmpdir):
+            bname = os.path.splitext(os.path.basename(fname))[0]
+            dest_fname = (
+                src_fname
+                if src_fname.startswith(bname)
+                else ".".join([bname, src_fname])
+            )
+            logging.info(f"Copying {src_fname} to {dest_fname} in {out_dir}")
+            shutil.copy(os.path.join(tmpdir, fname), os.path.join(out_dir, dest_fname))
 
 
 def main():
@@ -52,4 +63,5 @@ def main():
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
     main()
