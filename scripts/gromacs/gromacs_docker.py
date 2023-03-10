@@ -29,7 +29,7 @@ def run_gromacs_in_docker(fname: str, out_dir: str, gpu: int = 0):
     out_dir = os.path.abspath(out_dir)
     fname = os.path.abspath(fname)
     with tempfile.TemporaryDirectory() as tmpdir:
-        os.chdir(tmpdir)
+        # os.chdir(tmpdir)
         # Copy the file into the directory
         shutil.copy(fname, tmpdir)
         # Build and run the command

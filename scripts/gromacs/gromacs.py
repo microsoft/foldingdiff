@@ -78,7 +78,7 @@ def run_gromacs(
     logging.debug(f"EM cmd: {em_cmd}")
     subprocess.call(shlex.split(em_cmd))
 
-    mdrun_cmd = f"{gmx} mdrun -deffnm em"
+    mdrun_cmd = f"{gmx} mdrun -ntmpi 1 -ntomp {n_threads} -deffnm em"
     logging.debug(f"mdrun cmd: {mdrun_cmd}")
     subprocess.call(shlex.split(mdrun_cmd))
 
