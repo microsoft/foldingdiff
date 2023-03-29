@@ -9,6 +9,10 @@ from typing import *
 
 from tqdm.auto import tqdm
 
+PROTEINMPNN_SCRIPT = os.path.expanduser("~/software/ProteinMPNN/protein_mpnn_run.py")
+assert os.path.isfile(PROTEINMPNN_SCRIPT), f"Expected {PROTEINMPNN_SCRIPT} to exist"
+
+
 def write_fasta(fname: str, seq: str, seqname: str = "sampled") -> str:
     """Write a fasta file"""
     assert fname.endswith(".fasta")
@@ -17,6 +21,7 @@ def write_fasta(fname: str, seq: str, seqname: str = "sampled") -> str:
         for chunk in [seq[i : i + 80] for i in range(0, len(seq), 80)]:
             f.write(chunk + "\n")
     return fname
+
 
 def read_fasta(fname: str) -> Dict[str, str]:
     """
@@ -67,7 +72,7 @@ def generate_residues_proteinmpnn(
     bname = os.path.basename(pdb_fname).replace(".pdb", ".fa")
     with tempfile.TemporaryDirectory() as tempdir:
         tempdir = Path(tempdir)
-        cmd = f'python ~/software/ProteinMPNN/protein_mpnn_run.py --pdb_path_chains A --out_folder {tempdir} --num_seq_per_target {n_sequences} --seed 1234 --batch_size {n_sequences} --pdb_path {pdb_fname} --sampling_temp "{temperature}" --ca_only'
+        cmd = f'python {PROTEINMPNN_SCRIPT} --pdb_path_chains A --out_folder {tempdir} --num_seq_per_target {n_sequences} --seed 1234 --batch_size {n_sequences} --pdb_path {pdb_fname} --sampling_temp "{temperature}" --ca_only'
         retval = subprocess.call(
             cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
         )
@@ -128,10 +133,15 @@ def main():
     logging.info(f"Running ProteinMPNN on {len(pdb_fnames)} PDB files")
 
     for pdb_fname in tqdm(pdb_fnames):
-        seqs = generate_residues_proteinmpnn(pdb_fname, n_sequences=args.num, temperature=args.temperature)
+        seqs = generate_residues_proteinmpnn(
+            pdb_fname, n_sequences=args.num, temperature=args.temperature
+        )
         for i, seq in enumerate(seqs):
             out_fname = update_fname(pdb_fname, i, new_dir=args.outdir)
-            write_fasta(out_fname, seq, seqname=os.path.splitext(os.path.basename(out_fname))[0])
+            write_fasta(
+                out_fname, seq, seqname=os.path.splitext(os.path.basename(out_fname))[0]
+            )
+
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
