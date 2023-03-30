@@ -365,6 +365,11 @@ def train(
         dsets[0].dset.get_masked_means(),
         fix_imports=False,
     )
+    # Record the exact files used for training
+    for i, dset in enumerate(dsets):
+        dset_name = ["train", "valid", "test"][i]
+        with open(results_folder / f"{dset_name}_files.txt", "w") as f:
+            f.write("\n".join(dset.dset.filenames))
 
     # Calculate effective batch size
     # https://pytorch-lightning.readthedocs.io/en/1.4.0/advanced/multi_gpu.html#batch-size
