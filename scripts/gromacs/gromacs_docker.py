@@ -53,7 +53,9 @@ def run_gromacs_in_docker(fname: str, out_dir: str, gpu: int = 0):
                 else ".".join([bname, src_fname])
             )
             logging.info(f"Copying {src_fname} to {dest_fname} in {out_dir}")
-            shutil.copy(os.path.join(tmpdir, fname), os.path.join(out_dir, dest_fname))
+            shutil.copy(
+                os.path.join(tmpdir, src_fname), os.path.join(out_dir, dest_fname)
+            )
     os.chdir(orig_dir)  # Restore directory
 
 
