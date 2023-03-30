@@ -20,7 +20,12 @@ import subprocess
 import shutil
 
 GRO_FILE_DIR = os.path.join(os.path.dirname(__file__), "mdp")
+# Up the prod.mdp nsteps to 50000000 to run a longer simulation
+# 6nm x 6nm x 6nm (or 7) box (currently gives you 1nm padding around the protein)
+# gmx insert-molecules -f <grofile.gro> -ci <spc216.gro> -box <x y z> -nmol <# of waters>
 
+# Run the biggest thing, use box volume and the same number of waters for other things
+# Run a bunch of 128 residues and see how many water get added
 
 def run_gromacs(
     pdb_file: str,
@@ -46,16 +51,26 @@ def run_gromacs(
     p.communicate(input="6".encode())
 
     # gen box - put this in a water solvent 'in a box' - 1nm around the system
-    box_file = os.path.join(outdir, "box.gro")
-    box_cmd = f"{gmx} editconf -f {gro_file} -o {box_file} -c -d 1"
-    subprocess.call(shlex.split(box_cmd))
+    # box_file = os.path.join(outdir, "box.gro")
+    # box_cmd = f"{gmx} editconf -f {gro_file} -o {box_file} -c -d 1"
+    # subprocess.call(shlex.split(box_cmd))
 
     # solvate - add water
-    solvate_cmd = (
-        f"{gmx} solvate -cp {box_file} -o solv.gro -cs spc216.gro -p topol.top"
-    )
-    logging.debug(f"solvate cmd: {solvate_cmd}")
-    subprocess.call(shlex.split(solvate_cmd))
+    # solvate_cmd = (
+    #     f"{gmx} solvate -cp {box_file} -o solv.gro -cs spc216.gro -p topol.top"
+    # )
+    # logging.debug(f"solvate cmd: {solvate_cmd}")
+    # subprocess.call(shlex.split(solvate_cmd))
+
+    # Rather than automatically adding a box and solvating, add an explicit constnat number of
+    # water atoms. This is becasue the energy of the system is dependent on the number of atoms,
+    # so we hold this constant.
+    sol_add = 'echo "SOL 12000" >> topol.top'
+    subprocess.call(sol_add, shell=True)
+
+    addwater_cmd = f"{gmx} insert-molecules -f {gro_file} -ci {gro_file_dir}water2.gro -box 12 12 12 -nmol 12000 -o solv.gro"
+    subprocess.call(shlex.split(addwater_cmd))
+
 
     # add ions - add counter postive and negative ions to make
     # the box "neutral"
