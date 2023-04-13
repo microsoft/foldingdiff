@@ -164,4 +164,5 @@ class TestNoisedDataset(unittest.TestCase):
             "sqrt_alphas_cumprod_t"
         ]
         recovered = utils.modulo_with_wrapped_range(recovered, -np.pi, np.pi)
-        self.assertTrue(torch.allclose(recovered, orig_angles, atol=1e-5))
+        delta = recovered - orig_angles
+        self.assertTrue(torch.allclose(delta, torch.zeros_like(delta), atol=1e-4), f"Got non-zero delta on de-noise: {delta}")

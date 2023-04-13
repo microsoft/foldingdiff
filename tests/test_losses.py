@@ -11,7 +11,7 @@ class TestRadianSmoothL1Loss(unittest.TestCase):
         """
         Easy test of basic wrapping functionality
         """
-        l = losses.radian_smooth_l1_loss(torch.tensor(0.1), 2 * torch.pi, beta=1.0)
+        l = losses.radian_smooth_l1_loss(torch.tensor(0.1), torch.tensor(2 * torch.pi), beta=1.0)
         self.assertAlmostEqual(0.0050, l.item())
 
     def test_rounding(self):
