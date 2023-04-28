@@ -27,6 +27,8 @@ chmod +x download_cath.sh
 ./download_cath.sh
 ```
 
+If the download link in the `.sh` file is not working, the tarball is also mirrored at the following [Dropbox link](https://www.dropbox.com/s/ka5m5lx58477qu6/cath-dataset-nonredundant-S40.pdb.tgz?dl=0).
+
 ## Training models
 
 To train your own model on the CATH dataset, use the script at `bin/train.py` in combination with one of the
