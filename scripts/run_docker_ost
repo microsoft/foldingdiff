@@ -1,0 +1,26 @@
+#!/bin/bash
+
+# end when error
+set -e
+
+image_name=$1
+script_path=$2
+
+if [[ ${#@} -lt 1 ]]; then
+    echo "Usage: run_docker_ost <IMAGE_NAME> [<SCRIPT_PATH>]"
+    exit 1
+fi
+
+if [[ -z ${script_path} ]]; then
+    docker run -ti --rm -v $(pwd):/home ${image_name}
+else
+    if [[ -e $script_path ]]; then
+        abspath=$(readlink -f $script_path)
+        dirpath=$(dirname $abspath)
+        name=$(basename $script_path)
+        docker run --rm -v ${dirpath}:/home ${image_name} /home/${name} ${@:3}
+    else
+        # it is maybe an action if it does not exist
+        docker run --rm -v $(pwd):/home ${image_name} ${script_path} ${@:3}
+    fi
+fi
