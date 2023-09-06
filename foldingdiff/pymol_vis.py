@@ -7,6 +7,7 @@ python ~/protdiff/protdiff/pymol_vis.py pdb2gif -i projects/generated/generation
 import os
 import glob
 import re
+import warnings
 import multiprocessing as mp
 import argparse
 import tempfile
@@ -15,27 +16,59 @@ from typing import *
 
 import biotite.structure as struc
 import biotite.structure.io as strucio
+from biotite.structure.io.pdb import PDBFile
 import imageio
 import pymol
 
 from tqdm.auto import tqdm
 
 
-def pdb2png(pdb_fname: str, png_fname: str) -> str:
+def annot_ss_psea(fname: str):
+    """Determine secondary structure using PSEA and set with pymol"""
+    # https://kpwu.wordpress.com/2011/10/06/pymol-assign-secondary-structural-regions/
+    warnings.filterwarnings("ignore", ".*elements were guessed from atom_.*")
+    source = PDBFile.read(fname)
+    assert source.get_model_count() == 1
+    source_struct = source.get_structure()[0]
+
+    # Get chain ID
+    chain_ids = set(source_struct.chain_id)
+    assert len(chain_ids) == 1
+    chain_id = chain_ids.pop()
+
+    # Get secondary structure
+    ss = struc.annotate_sse(source_struct, chain_id)
+
+    for i, s in enumerate(ss):
+        if s == "a":  # Helix
+            pymol.cmd.alter(f"resi {i}-{i}/", "ss='H'")
+        elif s == "b":  # Sheet
+            pymol.cmd.alter(f"resi {i}-{i}/", "ss='S'")
+    pymol.cmd.rebuild()
+
+
+def pdb2png(
+    pdb_fname: str, png_fname: str, add_ss: bool = False, pse: bool = False
+) -> str:
     """Convert the pdb file into a png, returns output filename"""
     # https://gist.github.com/bougui505/11401240
+    assert png_fname.endswith(".png")
     pymol.cmd.load(pdb_fname)
+    if add_ss:
+        annot_ss_psea(pdb_fname)
     pymol.cmd.show("cartoon")
     pymol.cmd.spectrum("count", palette="rainbow")
     pymol.cmd.set("ray_opaque_background", 0)
-    pymol.cmd.png(png_fname, ray=1, dpi=600)
+    pymol.cmd.png(png_fname, ray=1, dpi=800)
+    if pse:
+        pymol.cmd.save(filename=png_fname.replace(".png", ".pse"))
     pymol.cmd.delete("*")  # So we dont' draw multiple images at once
     return png_fname
 
 
 def pdb2png_from_args(args):
     """Wrapper for the above to handle CLI args"""
-    pdb2png(args.input, args.output)
+    pdb2png(args.input, args.output, add_ss=args.psea, pse=args.pse)
 
 
 def pdb2png_dir_from_args(args):
@@ -43,7 +76,12 @@ def pdb2png_dir_from_args(args):
     os.makedirs(args.output, exist_ok=True)
     input_fnames = glob.glob(os.path.join(args.input, "*.pdb"))
     arg_tuples = [
-        (fname, os.path.join(args.output, os.path.basename(fname)))
+        (
+            fname,
+            os.path.join(args.output, os.path.basename(fname).replace(".pdb", ".png")),
+            args.psea,
+            args.pse,
+        )
         for fname in input_fnames
     ]
     pool = mp.Pool(mp.cpu_count())
@@ -148,6 +186,16 @@ def build_parser():
     png_parser.add_argument(
         "-o", "--output", type=str, required=True, help="Output file to write"
     )
+    png_parser.add_argument(
+        "--psea",
+        action="store_true",
+        help="Add PSEA secondary structure in lieu of PyMOL defaults",
+    )
+    png_parser.add_argument(
+        "--pse",
+        action="store_true",
+        help="Additionally save .pse file alongside .png output",
+    )
     png_parser.set_defaults(func=pdb2png_from_args)
 
     # For converting an entire batch of PDBs to PNG files
@@ -168,6 +216,16 @@ def build_parser():
         type=str,
         required=True,
         help="Directory to write *.png files to",
+    )
+    png_batch_parser.add_argument(
+        "--psea",
+        action="store_true",
+        help="Add PSEA secondary structure in lieu of PyMOL default annotations",
+    )
+    png_batch_parser.add_argument(
+        "--pse",
+        action="store_true",
+        help="Save .pse files alongside .png output",
     )
     png_batch_parser.set_defaults(func=pdb2png_dir_from_args)
 
