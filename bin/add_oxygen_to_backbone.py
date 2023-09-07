@@ -3,7 +3,10 @@ Script to add oxygen to backbone. This is not strictly included in the original
 set of dihedral/bond angles, and it is not technically a part of the backbone,
 but is required for some downstream tools to work (e.g. pymol). This script is
 meant to be run directly on generated backbones, that have not yet have side
-chains added onto them.
+chains added onto them. This also means that if it is run on a input with side
+chains, those side chains will be *discarded* in the output. This behavior on 
+full side chains is meant to mimic what would happen if we stripped the side
+chains and added an O.
 
 Example usage:
 python add_oxygen_to_backbone sampled_pdb sampled_pdb_with_o
@@ -30,6 +33,9 @@ def read_structure(fname: str) -> struct.AtomArray:
         pdb_file = PDBFile.read(source)
     assert pdb_file.get_model_count() == 1
     structure = pdb_file.get_structure()[0]
+    if struct.get_residue_count(structure) != len(structure) // 3:
+        logging.warning(f"{fname} contains side-chains, which are discarded")
+        structure = structure[struct.filter_backbone(structure)]
     return structure
 
 
@@ -42,6 +48,7 @@ def add_oxygen_to_backbone(structure: struct.AtomArray) -> struct.AtomArray:
     for i, atom in enumerate(structure):
         atom.atom_id = len(retval) + 1
         atom.res_id = i // 3
+        atom.res_name = "GLY"  # Since we are doing backbone only
         retval.append(atom)
         # Last atom in residue after (0, N), (1, CA), (2, C)
         if i % 3 == 2 and i + 1 < len(structure):
@@ -78,12 +85,19 @@ def add_oxygen_to_backbone(structure: struct.AtomArray) -> struct.AtomArray:
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("indir", type=str, help="Input directory with .pdb files")
+    parser.add_argument(
+        "input", type=str, help="Input file, or directory with .pdb files"
+    )
     parser.add_argument("outdir", type=str, help="Output directory to write .pdb files")
     args = parser.parse_args()
 
-    pdb_files = list(glob.glob(os.path.join(args.indir, "*.pdb")))
-    logging.info(f"Found {len(pdb_files)} pdb files in {args.indir}")
+    if os.path.isdir(args.input):
+        pdb_files = list(glob.glob(os.path.join(args.input, "*.pdb")))
+        logging.info(f"Found {len(pdb_files)} pdb files in {args.indir}")
+    elif os.path.isfile(args.input):
+        pdb_files = [args.input]
+    else:
+        raise ValueError(f"Invalid input: {args.input}")
 
     # Create output directory
     os.makedirs(args.outdir, exist_ok=True)
