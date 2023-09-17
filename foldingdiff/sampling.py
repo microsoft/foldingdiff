@@ -54,8 +54,8 @@ def p_sample(
 
     # Create the attention mask
     attn_mask = torch.zeros(x.shape[:2], device=x.device)
-    for i, l in enumerate(seq_lens):
-        attn_mask[i, :l] = 1.0
+    for i, length in enumerate(seq_lens):
+        attn_mask[i, :length] = 1.0
 
     # Equation 11 in the paper
     # Use our model (noise predictor) to predict the mean
@@ -140,6 +140,7 @@ def sample(
     batch_size: int = 512,
     feature_key: str = "angles",
     disable_pbar: bool = False,
+    trim_to_length: bool = True,  # Trim padding regions to reduce memory
 ) -> List[np.ndarray]:
     """
     Sample from the given model. Use the train_dset to generate noise to sample
@@ -157,6 +158,10 @@ def sample(
     # Process each batch
     if sweep_lengths is not None:
         sweep_min, sweep_max = sweep_lengths
+        if not sweep_min < sweep_max:
+            raise ValueError(
+                f"Minimum length {sweep_min} must be less than maximum {sweep_max}"
+            )
         logging.info(
             f"Sweeping from {sweep_min}-{sweep_max} with {n} examples at each length"
         )
@@ -177,6 +182,11 @@ def sample(
         noise = train_dset.sample_noise(
             torch.zeros((batch, train_dset.pad, model.n_inputs), dtype=torch.float32)
         )
+
+        # Trim things that are beyond the length of what we are generating
+        if trim_to_length:
+            noise = noise[:, : max(this_lengths), :]
+
         # Produces (timesteps, batch_size, seq_len, n_ft)
         sampled = p_sample_loop(
             model=model,
@@ -255,7 +265,7 @@ def sample_simple(
 
 
 def _score_angles(
-    reconst_angles:pd.DataFrame, truth_angles:pd.DataFrame, truth_coords_pdb: str
+    reconst_angles: pd.DataFrame, truth_angles: pd.DataFrame, truth_coords_pdb: str
 ) -> Tuple[float, float]:
     """
     Helper function to scores sets of angles
@@ -348,6 +358,7 @@ def get_reconstruction_error(
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    s = sample_simple("wukevin/foldingdiff_cath", n=1, sweep_lengths=(50, 55))
+    s = sample_simple("wukevin/foldingdiff_cath", n=1, sweep_lengths=(50, 51))
     for i, x in enumerate(s):
         print(x.shape)
+        print(x)

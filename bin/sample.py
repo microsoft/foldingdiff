@@ -281,6 +281,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--testcomparison", action="store_true", help="Run comparison against test set"
     )
+    parser.add_argument("--nopsea", action="store_true", help="Skip PSEA calculations")
     parser.add_argument("--seed", type=int, default=SEED, help="Random seed")
     parser.add_argument("--device", type=str, default="cuda:0", help="Device to use")
     return parser
@@ -453,18 +454,19 @@ def main() -> None:
     )
 
     # Generate plots of secondary structure co-occurrence
-    make_ss_cooccurrence_plot(
-        pdb_files,
-        str(outdir / "plots" / "ss_cooccurrence_sampled.pdf"),
-        threads=multiprocessing.cpu_count(),
-    )
-    if args.testcomparison:
+    if not args.nopsea:
         make_ss_cooccurrence_plot(
-            test_dset.filenames,
-            str(outdir / "plots" / "ss_cooccurrence_test.pdf"),
-            max_seq_len=test_dset.dset.pad,
+            pdb_files,
+            str(outdir / "plots" / "ss_cooccurrence_sampled.pdf"),
             threads=multiprocessing.cpu_count(),
         )
+        if args.testcomparison:
+            make_ss_cooccurrence_plot(
+                test_dset.filenames,
+                str(outdir / "plots" / "ss_cooccurrence_test.pdf"),
+                max_seq_len=test_dset.dset.pad,
+                threads=multiprocessing.cpu_count(),
+            )
 
 
 if __name__ == "__main__":
