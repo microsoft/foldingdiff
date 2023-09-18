@@ -93,7 +93,7 @@ def main():
 
     if os.path.isdir(args.input):
         pdb_files = list(glob.glob(os.path.join(args.input, "*.pdb")))
-        logging.info(f"Found {len(pdb_files)} pdb files in {args.indir}")
+        logging.info(f"Found {len(pdb_files)} pdb files in {args.input}")
     elif os.path.isfile(args.input):
         pdb_files = [args.input]
     else:
