@@ -3,15 +3,19 @@ Short and easy wrapper for TMalign
 """
 
 import os
+import argparse
+import collections
 import re
 import itertools
 import shutil
 import subprocess
-import multiprocessing
+import multiprocessing as mp
 import logging
-from typing import List, Tuple
+from typing import *
 
 import numpy as np
+
+logging.basicConfig(level=logging.INFO)
 
 
 def run_tmalign(query: str, reference: str, fast: bool = False) -> float:
@@ -52,7 +56,7 @@ def run_tmalign(query: str, reference: str, fast: bool = False) -> float:
 def max_tm_across_refs(
     query: str,
     references: List[str],
-    n_threads: int = multiprocessing.cpu_count(),
+    n_threads: int = mp.cpu_count(),
     fast: bool = True,
     chunksize: int = 10,
     parallel: bool = True,
@@ -66,9 +70,9 @@ def max_tm_across_refs(
         f"Matching against {len(references)} references using {n_threads} workers with fast={fast}"
     )
     args = [(query, ref, fast) for ref in references]
-    if parallel:
+    if parallel and len(references) > 1:
         n_threads = min(n_threads, len(references))
-        pool = multiprocessing.Pool(n_threads)
+        pool = mp.Pool(n_threads)
         values = list(pool.starmap(run_tmalign, args, chunksize=chunksize))
         pool.close()
         pool.join()
@@ -78,9 +82,59 @@ def max_tm_across_refs(
     return np.nanmax(values), references[np.argmax(values)]
 
 
+def match_files(
+    query_files: Collection[str],
+    ref_files: Collection[str],
+    strategy: str = "exact",
+) -> Dict[str, List[str]]:
+    """Match the files."""
+    query_files_map = {os.path.splitext(os.path.basename(f))[0]: f for f in query_files}
+    ref_files_map = {os.path.splitext(os.path.basename(f))[0]: f for f in ref_files}
+
+    retval = collections.defaultdict(list)
+    if strategy == "exact":
+        for k in query_files_map:
+            if k in ref_files_map:
+                retval[query_files_map[k]].append(ref_files_map[k])
+    elif strategy == "prefix":
+        for k in query_files_map:
+            pattern = re.compile("^" + k + r"[\-\_]+.*")
+            for k2 in [k2 for k2 in ref_files_map if pattern.match(k2)]:
+                retval[query_files_map[k]].append(ref_files_map[k2])
+    else:
+        raise ValueError(f"Unknown strategy {strategy}")
+    return retval
+
+
+def parse_args() -> argparse.Namespace:
+    """Basic CLI parser."""
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-q", "--query", type=str, nargs="+", help="Query files")
+    parser.add_argument("-r", "--ref", type=str, nargs="+", help="Reference files")
+    parser.add_argument("-o", "--output", type=str, help="Output file")
+    parser.add_argument(
+        "-s",
+        "--strat",
+        type=str,
+        choices=["exact", "prefix"],
+        default="exact",
+        help="Strategy for matching query and reference files",
+    )
+    return parser.parse_args()
+
+
 def main():
-    """On the fly testing"""
-    run_tmalign("data/7PFL.pdb", "data/7ZYA.pdb")
+    """Run as a script."""
+    args = parse_args()
+
+    query2refs = match_files(args.query, args.ref, args.strat)
+
+    with mp.Pool(processes=mp.cpu_count()) as pool:
+        out = list(pool.starmap(max_tm_across_refs, query2refs.items()))
+        tmscores, _best_matching = zip(*out)
+
+    logging.info(f"Mean TM-score: {np.nanmean(tmscores):.3f}")
+    logging.info(f"Num >= 0.5: {np.sum(np.array(tmscores) >= 0.5)} / {len(tmscores)}")
 
 
 if __name__ == "__main__":
