@@ -9,7 +9,7 @@ Useful references:
 - https://www.pnas.org/doi/10.1073/pnas.072665799
 
 Usage:
-
+python vdw_clashes.py <pdb file1> <pdb file2> ...
 """
 import warnings
 from typing import Collection, Dict
@@ -73,7 +73,7 @@ def count_clashes_parallel(
 ) -> Dict[str, int]:
     """Parallelized calculation of clashes for a collection of pdb files."""
     with mp.Pool(nthreads) as pool:
-        n_clashes = pool.map(count_clashes, tqdm(filenames), chunksize=10)
+        n_clashes = pool.map(count_clashes, filenames, chunksize=10)
     retval = dict(zip(filenames, n_clashes))
     return retval
 
@@ -81,4 +81,5 @@ def count_clashes_parallel(
 if __name__ == "__main__":
     import sys
 
-    count_clashes_parallel(sys.argv[1:])
+    clashes_counts = count_clashes_parallel(sys.argv[1:])
+    print(np.mean(list(clashes_counts.values())))
