@@ -186,6 +186,9 @@ def train(
         steps_per_epoch=len(train_dataloader),
         lr_scheduler=lr_scheduler,
     )
+    # https://stackoverflow.com/questions/49201236/check-the-total-number-of-parameters-in-a-pytorch-model
+    num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    logging.info(f"Model has {num_params} trainable parameters")
 
     callbacks = build_callbacks(
         outdir=results_folder, early_stop_patience=early_stop_patience, swa=use_swa

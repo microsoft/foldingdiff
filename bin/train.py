@@ -456,6 +456,10 @@ def train(
         if write_valid_preds
         else None,
     )
+    # https://stackoverflow.com/questions/49201236/check-the-total-number-of-parameters-in-a-pytorch-model
+    num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    logging.info(f"Model has {num_params} trainable parameters")
+
     cfg.save_pretrained(results_folder)
 
     callbacks = build_callbacks(
