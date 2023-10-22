@@ -71,6 +71,9 @@ def build_parser() -> argparse.ArgumentParser:
         "input_fasta_dir", type=str, help="Input dir containing .fasta files"
     )
     parser.add_argument("output_pdb_dir", type=str, help="Output dir for .pdb files")
+    parser.add_argument(
+        "--threads", "-t", type=int, default=mp.cpu_count(), help="Num threads to use"
+    )
     return parser
 
 
@@ -105,7 +108,7 @@ def main():
                 )
             )
 
-    with mp.Pool(mp.cpu_count()) as pool:
+    with mp.Pool(args.threads) as pool:
         pool.starmap(run_faspr, arg_tuples, chunksize=10)
 
 
