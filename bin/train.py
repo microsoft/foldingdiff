@@ -27,7 +27,8 @@ import pytorch_lightning as pl
 from pytorch_lightning.strategies.ddp import DDPStrategy
 
 from transformers import BertConfig
-
+# Add parent directory to Python path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from foldingdiff import datasets
 from foldingdiff import modelling
 from foldingdiff import losses
