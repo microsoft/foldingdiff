@@ -22,7 +22,7 @@ from huggingface_hub import snapshot_download
 # Import data loading code from main training script
 from train import get_train_valid_test_sets
 from annot_secondary_structures import make_ss_cooccurrence_plot
-
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from foldingdiff import modelling
 from foldingdiff import sampling
 from foldingdiff import plotting
